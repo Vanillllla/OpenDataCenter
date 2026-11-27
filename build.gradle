@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.6.1.3-alpha'
+version = '0.6.1.4-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -125,3 +125,10 @@ task verifyLogicalLinks(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.LogicalLinksTest'
 }
 check.dependsOn verifyLogicalLinks
+
+// Global WAN/LAN bandwidth regression, no Forge dependency in the algorithm.
+task verifyBandwidthEngine(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.BandwidthEngineTest'
+}
+check.dependsOn verifyBandwidthEngine

@@ -35,10 +35,10 @@ final class Hardware {
     static int units(ItemStack s){return s.isEmpty()?0:size(s);}
     static int switchTier(ItemStack s){return s.isEmpty()?0:s.getItem()==SWITCH1?1:s.getItem()==SWITCH2?2:0;}
     static int rackUnits(ItemStack s){return switchTier(s)>0?1:units(s);}
-    static int ports(int tier){return tier==1?4:tier==2?8:0;}
-    static int switchMbps(int tier){return tier==1?200:tier==2?2000:0;}
+    static int ports(int tier){return SwitchLimits.ports(tier);}
+    static int switchMbps(int tier){return SwitchLimits.totalMbps(tier);}
     static Item lan(int tier){return tier==2?PATCH2:tier==3?PATCH3:PATCH;}
-    static int portMbps(int tier){return tier==1?100:tier==2?1000:0;}
+    static int portMbps(int tier){return SwitchLimits.portMbps(tier);}
     static int switchPower(int tier){return tier==1?8:tier==2?20:0;}
     static int model(ItemStack s) {
         if(s.isEmpty()) return 0;

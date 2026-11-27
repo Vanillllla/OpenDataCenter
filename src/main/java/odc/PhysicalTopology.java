@@ -60,14 +60,18 @@ public final class PhysicalTopology {
     }
     private final Map<Pos,Cell> cells=new HashMap<>();
     private final Map<Pos,Domain> lanCache=new HashMap<>(),fiberCache=new HashMap<>();
-    private long topologyRevision;
+    private long topologyRevision, routingRevision;
     public long revision(){return topologyRevision;}
+    public long routingRevision(){return routingRevision;}
     public Map<Pos,Cell> cells(){return Collections.unmodifiableMap(cells);}
     public Cell cell(Pos p){return cells.get(p);}
     /** Metadata/occupancy changes do not invalidate the cable graph. */
-    public boolean put(Pos p,Cell c){Cell old=cells.get(p);if(Objects.equals(old,c))return false;if(c==null)cells.remove(p);else cells.put(p,c);
+    public boolean put(Pos p,Cell c){Cell old=cells.get(p);if(Objects.equals(old,c))return false;if(!sameRouting(old,c))routingRevision++;if(c==null)cells.remove(p);else cells.put(p,c);
         if(old==null||c==null||old.kind!=c.kind){lanCache.clear();fiberCache.clear();topologyRevision++;}return true;}
-    public void clear(){cells.clear();lanCache.clear();fiberCache.clear();topologyRevision++;}
+    // Ignore labels and legacy measured counters; they do not affect paths or capacities.
+    private static boolean sameRouting(Cell a,Cell b){if(a==null||b==null||a.kind!=b.kind||a.devices.size()!=b.devices.size())return false;
+        for(int i=0;i<a.devices.size();i++){Device x=a.devices.get(i),y=b.devices.get(i);if(!x.id.equals(y.id)||x.type!=y.type||!x.model.equals(y.model)||!x.pos.equals(y.pos)||x.dimension!=y.dimension||x.capacityMbps!=y.capacityMbps||x.powered!=y.powered||!Objects.equals(x.parent,y.parent)||x.slot!=y.slot||x.port!=y.port||!Objects.equals(x.patchId,y.patchId)||x.patchTier!=y.patchTier)return false;}return true;}
+    public void clear(){cells.clear();lanCache.clear();fiberCache.clear();topologyRevision++;routingRevision++;}
     private boolean lan(Pos p){Cell c=cells.get(p);return c!=null&&c.kind.lan();}
     private boolean fiber(Pos p){Cell c=cells.get(p);return c!=null&&c.kind==Kind.FIBER;}
     private Domain component(Pos p,Map<Pos,Domain> cache,Predicate<Pos> allowed){

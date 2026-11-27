@@ -3,7 +3,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.resources.I18n;
 import org.lwjgl.input.Mouse;
 import java.io.IOException;
-/** Stage 3 equipment list and temporary uplink editor. No provisional bandwidth is advertised as allocated traffic. */
+/** Stage 3 equipment list and temporary uplink editor. Stage 4 projection of reservations, not measured traffic. */
 final class NetworkInfoScreen extends GuiContainer {
     private final Menus.Menu menu;private int tier=1;private java.util.UUID selected;
     NetworkInfoScreen(Menus.Menu m){super(m);menu=m;xSize=300;ySize=232;}
@@ -14,9 +14,9 @@ final class NetworkInfoScreen extends GuiContainer {
         DataOSWidgets.rect(x,y,xSize,ySize,DataOSWidgets.EDGE);DataOSWidgets.rect(x+2,y+2,xSize-4,ySize-4,DataOSWidgets.WHITE);DataOSWidgets.rect(x+3,y+3,xSize-6,18,DataOSWidgets.BLUE);
         w.text(equipment(d[4]),x+8,y+8,284,0xffffffff);
         w.text(tr("capacity",d[1]),x+8,y+26,284,DataOSWidgets.FG);w.text(tr(d[0]==1?"powered":"unpowered")+" | "+d[3]+" FE/t",x+8,y+39,284,d[0]==1?0xff367849:DataOSWidgets.MUTED);
-        w.text(tr("peers",d[5]),x+8,y+52,284,DataOSWidgets.FG);w.text(tr("pending"),x+8,y+65,284,DataOSWidgets.MUTED);
+        w.text(tr("peers",d[5]),x+8,y+52,284,DataOSWidgets.FG);w.text(d[9]<0?tr("pending"):tr("projection",d[9]),x+8,y+65,284,DataOSWidgets.MUTED);
         w.header(x+6,y+79,288,14);w.text(tr("devices"),x+9,y+82,280,DataOSWidgets.BLUE);
-        for(int i=0;i<Math.min(6,Math.max(0,d[7]-d[8]));i++){int k=10+i*8,yy=y+93+i*13;w.row(i,x+6,yy,280,13,uuid(i).equals(selected));w.text((d[k+7]==-1&&d[8]+i<d[5]?"F | ":"L | ")+name(d[k],d[k+1])+ (d[k+7]>=0?" U"+(d[k+7]+1):""),x+9,yy+2,112,DataOSWidgets.FG);w.text(d[k+7]==-2?tr("separated")+" "+LogicalLinks.speed(d[112+i])+"M":d[112+i]>0?"LAN "+LogicalLinks.speed(d[112+i])+"M":d[k+2]+","+d[k+3]+","+d[k+4],x+125,yy+2,80,DataOSWidgets.MUTED);w.text(d[k+5]+" Mb/s",x+207,yy+2,68,DataOSWidgets.FG);DataOSWidgets.rect(x+278,yy+4,4,4,d[k+6]==2?0xff4e9b59:d[k+6]==1?0xffb48b50:0xff919ba4);}
+        for(int i=0;i<Math.min(6,Math.max(0,d[7]-d[8]));i++){int k=10+i*8,yy=y+93+i*13;w.row(i,x+6,yy,280,13,uuid(i).equals(selected));w.text((d[k+7]==-1&&d[8]+i<d[5]?"F | ":"L | ")+name(d[k],d[k+1])+ (d[k+7]>=0?" U"+(d[k+7]+1):""),x+9,yy+2,112,DataOSWidgets.FG);w.text(d[k+7]==-2?tr("separated")+" "+LogicalLinks.speed(d[112+i])+"M":d[112+i]>0?"LAN "+LogicalLinks.speed(d[112+i])+"M":d[k+2]+","+d[k+3]+","+d[k+4],x+125,yy+2,80,DataOSWidgets.MUTED);w.text((d[124+i]<0?"?":String.valueOf(d[124+i]))+"/"+d[k+5]+"M",x+207,yy+2,68,DataOSWidgets.FG);DataOSWidgets.rect(x+278,yy+4,4,4,d[k+6]==2?0xff4e9b59:d[k+6]==1?0xffb48b50:0xff919ba4);}
         DataOSUiState.Scroll scroll=new DataOSUiState.Scroll(78,d[7]*13);w.scroll(x+286,y+93,7,scroll,d[8]*13);
         w.text(d[7]==0?tr("empty"):tr("rows",d[8]+1,Math.min(d[7],d[8]+6),d[7]),x+8,y+174,284,DataOSWidgets.MUTED);
         w.text(tr("legend"),x+8,y+186,284,DataOSWidgets.MUTED);
