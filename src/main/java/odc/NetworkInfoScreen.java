@@ -12,7 +12,7 @@ final class NetworkInfoScreen extends GuiContainer {
     private String name(int type,int model){if(model>=0)return equipment(model);if(type==PhysicalTopology.Type.SWITCH.ordinal())return tr("switch");if(type==PhysicalTopology.Type.SERVER.ordinal())return tr("server");return tr("unknown");}
     @Override protected void drawGuiContainerBackgroundLayer(float f,int mx,int my){int x=guiLeft,y=guiTop;int[] d=menu.data;DataOSWidgets w=new DataOSWidgets(fontRenderer,mx,my);
         DataOSWidgets.rect(x,y,xSize,ySize,DataOSWidgets.EDGE);DataOSWidgets.rect(x+2,y+2,xSize-4,ySize-4,DataOSWidgets.WHITE);DataOSWidgets.rect(x+3,y+3,xSize-6,18,DataOSWidgets.BLUE);
-        w.text(equipment(d[4]),x+8,y+8,284,0xffffffff);
+        w.text(equipment(d[4]),x+8,y+8,menu.type==Menus.STATION_LIST?208:284,0xffffffff);if(menu.type==Menus.STATION_LIST)w.button(tr("map"),x+224,y+4,69,15,false,true);
         w.text(tr("capacity",d[1]),x+8,y+26,284,DataOSWidgets.FG);w.text(tr(d[0]==1?"powered":"unpowered")+" | "+d[3]+" FE/t",x+8,y+39,284,d[0]==1?0xff367849:DataOSWidgets.MUTED);
         w.text(tr("peers",d[5]),x+8,y+52,284,DataOSWidgets.FG);w.text(d[9]<0?tr("pending"):tr("projection",d[9]),x+8,y+65,284,DataOSWidgets.MUTED);
         w.header(x+6,y+79,288,14);w.text(tr("devices"),x+9,y+82,280,DataOSWidgets.BLUE);
@@ -24,7 +24,7 @@ final class NetworkInfoScreen extends GuiContainer {
 
     }
     private java.util.UUID uuid(int row){return new java.util.UUID(PanelMenu.getLong(menu.data,80+row*4),PanelMenu.getLong(menu.data,82+row*4));}
-    @Override protected void mouseClicked(int mx,int my,int button)throws IOException{int x=mx-guiLeft,y=my-guiTop;if(button==0&&menu.tile instanceof Tiles.NetworkTerminal&&x>=8&&x<293){if(y>=93&&y<171){int row=(y-93)/13;if(row<Math.min(6,Math.max(0,menu.data[7]-menu.data[8]))&&menu.data[10+row*8]==PhysicalTopology.Type.SWITCH.ordinal())selected=uuid(row);else selected=null;return;}if(y>=198&&y<213){tier=Math.min(3,(x-8)/95+1);return;}if(y>=215&&y<231&&selected!=null){int op=(x-8)/95;if(op<3)RackInteraction.channel.sendToServer(new UplinkCommand(menu.windowId,selected,op,tier));return;}}super.mouseClicked(mx,my,button);}
+    @Override protected void mouseClicked(int mx,int my,int button)throws IOException{int x=mx-guiLeft,y=my-guiTop;if(button==0&&menu.type==Menus.STATION_LIST&&x>=224&&x<293&&y>=4&&y<19){mc.playerController.sendEnchantPacket(menu.windowId,103);return;}if(button==0&&menu.tile instanceof Tiles.NetworkTerminal&&x>=8&&x<293){if(y>=93&&y<171){int row=(y-93)/13;if(row<Math.min(6,Math.max(0,menu.data[7]-menu.data[8]))&&menu.data[10+row*8]==PhysicalTopology.Type.SWITCH.ordinal())selected=uuid(row);else selected=null;return;}if(y>=198&&y<213){tier=Math.min(3,(x-8)/95+1);return;}if(y>=215&&y<231&&selected!=null){int op=(x-8)/95;if(op<3)RackInteraction.channel.sendToServer(new UplinkCommand(menu.windowId,selected,op,tier));return;}}super.mouseClicked(mx,my,button);}
     @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);}
     @Override public void handleMouseInput() throws IOException {super.handleMouseInput();int wheel=Mouse.getEventDWheel();if(wheel!=0&&mc.playerController!=null)mc.playerController.sendEnchantPacket(menu.windowId,wheel>0?100:101);}
 }

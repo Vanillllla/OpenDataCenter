@@ -1,0 +1,33 @@
+package odc;
+import java.util.*;
+
+public final class NetworkMonitorTest {
+    static int checks;static void check(boolean ok){checks++;if(!ok)throw new AssertionError("check "+checks);}static void near(double a,double b){check(Math.abs(a-b)<1e-5);}
+    static UUID id(int i){return new UUID(0,i);}
+    static PhysicalTopology.State node(int i,PhysicalTopology.Type t,int cap,boolean available){return new PhysicalTopology.State(new PhysicalTopology.Device(id(i),t,"node"+i,"model",new PhysicalTopology.Pos(i,0,0),0,cap,0,available,null,0,0),true);}
+    static LogicalLinks.Link link(int i,int a,int b,LogicalLinks.Kind kind,int cap){return new LogicalLinks.Link(id(i),id(a),id(b),kind,kind==LogicalLinks.Kind.FIBER?0:2,cap,LogicalLinks.State.ACTIVE,0);}
+    static PhysicalTopology.View view(List<PhysicalTopology.State> states){Map<UUID,PhysicalTopology.State> nodes=new LinkedHashMap<>();Set<PhysicalTopology.Pos> pos=new HashSet<>();for(PhysicalTopology.State n:states){nodes.put(n.device.id,n);pos.add(n.device.pos);}return new PhysicalTopology.View(null,true,nodes,Collections.emptyList(),Collections.emptySet(),pos);}
+    static BandwidthEngine.Result solve(List<PhysicalTopology.State> states,List<LogicalLinks.Link> links,List<BandwidthEngine.Request> req){List<BandwidthEngine.Node> ns=new ArrayList<>();List<BandwidthEngine.Edge> es=new ArrayList<>();for(PhysicalTopology.State n:states)ns.add(new BandwidthEngine.Node(n.device.id,n.device.type,n.device.capacityMbps,n.available));for(LogicalLinks.Link e:links)es.add(new BandwidthEngine.Edge(e.id,e.from,e.to,e.kind,e.capacityMbps,e.capacityMbps,e.state==LogicalLinks.State.ACTIVE));return new BandwidthEngine(ns,es).solve(req);}
+    public static void main(String[] args){
+        List<PhysicalTopology.State> all=Arrays.asList(node(1,PhysicalTopology.Type.RADIO,1000,true),node(2,PhysicalTopology.Type.TERMINAL,1000,true),node(3,PhysicalTopology.Type.TERMINAL,1000,true),node(4,PhysicalTopology.Type.SWITCH,1000,true),node(5,PhysicalTopology.Type.SWITCH,1000,true),node(6,PhysicalTopology.Type.SERVER,1000,true),node(7,PhysicalTopology.Type.SERVER,1000,true));
+        List<LogicalLinks.Link> links=Arrays.asList(link(10,1,2,LogicalLinks.Kind.FIBER,1000),link(11,1,3,LogicalLinks.Kind.FIBER,1000),link(12,2,4,LogicalLinks.Kind.UPLINK,1000),link(13,3,5,LogicalLinks.Kind.UPLINK,1000),link(14,4,6,LogicalLinks.Kind.PATCH,1000),link(15,5,7,LogicalLinks.Kind.PATCH,1000));
+        List<BandwidthEngine.Request> req=Arrays.asList(new BandwidthEngine.Request("local",id(6),null,300,300),new BandwidthEngine.Request("external",id(7),null,400,400));BandwidthEngine.Result flow=solve(all,links,req);
+        NetworkMonitor m=new NetworkMonitor(view(Arrays.asList(all.get(0),all.get(1),all.get(3),all.get(5))),links.subList(0,1),flow);near(m.wan,300);near(m.ingressFree,300);near(m.nodes.get(id(1)).usage.served,700);check(m.nodes.size()==4);check(!m.nodes.containsKey(id(3)));
+        m=new NetworkMonitor(view(all),links,flow);near(m.wan,700);near(m.ingressFree,300);check(m.active==6);check(m.unavailable==0);
+        // Competing antenna/terminal inputs require residual max flow, not a sum of endpoint caps.
+        List<PhysicalTopology.State> n=Arrays.asList(node(1,PhysicalTopology.Type.RADIO,1000,true),node(2,PhysicalTopology.Type.RADIO,1000,true),node(3,PhysicalTopology.Type.TERMINAL,1000,true),node(4,PhysicalTopology.Type.TERMINAL,1000,true));List<LogicalLinks.Link> e=Arrays.asList(link(20,1,3,LogicalLinks.Kind.FIBER,1000),link(21,1,4,LogicalLinks.Kind.FIBER,1000),link(22,2,3,LogicalLinks.Kind.FIBER,1000));m=new NetworkMonitor(view(n),e,solve(n,e,Collections.emptyList()));near(m.ingressFree,2000);
+        // Boundary link is counted but no remote endpoint is exposed.
+        m=new NetworkMonitor(view(Arrays.asList(all.get(0),all.get(1))),Arrays.asList(links.get(0),links.get(2)),flow);check(m.boundary==1&&m.links.size()==1&&m.unavailable==1);
+        // Unverified edge cannot add WAN capacity.
+        LogicalLinks.Link off=new LogicalLinks.Link(id(20),id(1),id(3),LogicalLinks.Kind.FIBER,0,1000,LogicalLinks.State.UNVERIFIED,-1);m=new NetworkMonitor(view(n),Arrays.asList(off),solve(n,Arrays.asList(off),Collections.emptyList()));near(m.ingressFree,0);check(m.unavailable==1);
+        // LAN request and shortfall diagnostics.
+        List<PhysicalTopology.State> lanNodes=Arrays.asList(node(30,PhysicalTopology.Type.SWITCH,1000,true),node(31,PhysicalTopology.Type.SERVER,1000,true),node(32,PhysicalTopology.Type.SERVER,1000,true));List<LogicalLinks.Link> lanLinks=Arrays.asList(link(40,30,31,LogicalLinks.Kind.PATCH,100),link(41,30,32,LogicalLinks.Kind.PATCH,1000));m=new NetworkMonitor(view(lanNodes),lanLinks,solve(lanNodes,lanLinks,Arrays.asList(new BandwidthEngine.Request("LAN",id(31),id(32),200,200))));near(m.lan,100);near(m.wan,0);near(m.ingressFree,0);check(m.nodes.get(id(31)).reasons.contains("BOTTLENECK"));check(m.nodes.get(id(31)).bottlenecks.contains(id(40)));
+        // Big topology layout, stable positions, zoom cursor invariance, hit testing.
+        NetworkMapLayout layout=new NetworkMapLayout();Map<UUID,Integer> layers=new LinkedHashMap<>();for(int i=1;i<=420;i++)layers.put(id(i),i<=12?0:i<=24?1:i<=64?2:3);layout.update(layers);layout.fit(310,250);check(layout.points.size()==420);for(Map.Entry<UUID,NetworkMapLayout.Point> p:layout.points.entrySet()){check(p.getValue().y==layers.get(p.getKey())*NetworkMapLayout.DY);check(p.getValue().x*layout.zoom+layout.panX>=0);check((p.getValue().x+NetworkMapLayout.CARD_W)*layout.zoom+layout.panX<=310);check(p.getValue().y*layout.zoom+layout.panY>=0);check((p.getValue().y+NetworkMapLayout.CARD_H)*layout.zoom+layout.panY<=250);}
+        layout.center(id(400),310,250);check(id(400).equals(layout.hit(155,125)));double z=layout.zoom,px=layout.panX,py=layout.panY;NetworkMapLayout.Point p=layout.points.get(id(400));layers.remove(id(2));layers.put(id(421),3);layout.update(layers);check(layout.points.get(id(400))==p);near(layout.zoom,z);near(layout.panX,px);near(layout.panY,py);check(!layout.points.containsKey(id(2)));check(layout.points.containsKey(id(421)));
+        for(int i=0;i<1000;i++){double x=i%310,y=i%250,wx=(x-layout.panX)/layout.zoom,wy=(y-layout.panY)/layout.zoom;layout.zoomAt(i%2==0?1.25:.8,x,y);near((x-layout.panX)/layout.zoom,wx);near((y-layout.panY)/layout.zoom,wy);}
+        // No overlapping cards within a row after additions.
+        List<NetworkMapLayout.Point> points=new ArrayList<>(layout.points.values());for(int i=0;i<points.size();i++)for(int j=i+1;j<points.size();j++)if(points.get(i).y==points.get(j).y)check(Math.abs(points.get(i).x-points.get(j).x)>=NetworkMapLayout.CARD_W);
+        System.out.println("NetworkMonitorTest: "+checks+" checks passed");
+    }
+}
