@@ -18,6 +18,7 @@ import javax.annotation.Nullable;
 final class Blocks {
     static final PropertyDirection FACING=PropertyDirection.create("facing",EnumFacing.Plane.HORIZONTAL);
     static final PropertyInteger PART=PropertyInteger.create("part",0,2);
+    static final PropertyBool UPPER=PropertyBool.create("upper");
     static final PropertyBool ACTIVE=PropertyBool.create("active");
     static final PropertyBool[] LINK={PropertyBool.create("down"),PropertyBool.create("up"),PropertyBool.create("north"),PropertyBool.create("south"),PropertyBool.create("west"),PropertyBool.create("east")};
     static abstract class Oriented extends BlockContainer {
@@ -54,7 +55,33 @@ final class Blocks {
         @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,ACTIVE);}
         @Override public TileEntity createNewTileEntity(World w,int meta){return type==1?new Tiles.Workbench():type==2?new Tiles.Computer():type==3?new Tiles.Battery():new Tiles.Station();}
         @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){TileEntity t=w.getTileEntity(p);return s.withProperty(ACTIVE,t instanceof Tiles.Powered?((Tiles.Powered)t).online:t instanceof Tiles.Battery);}
+        @Override public BlockRenderLayer getRenderLayer(){return type>=5?BlockRenderLayer.CUTOUT:BlockRenderLayer.SOLID;}
         @Override int gui(){return type==1?1:type==2?2:type>=5?5:-1;}
+    }
+    /** One two-block terminal, with the controller and energy buffer in its lower half only. */
+    static final class Terminal extends Oriented {
+        Terminal(){super("computer");setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false).withProperty(UPPER,false));}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,ACTIVE,UPPER);}
+        @Override public IBlockState getStateFromMeta(int m){return super.getStateFromMeta(m).withProperty(UPPER,(m&4)!=0);}
+        @Override public int getMetaFromState(IBlockState s){return super.getMetaFromState(s)|(s.getValue(UPPER)?4:0);}
+        @Override public boolean hasTileEntity(IBlockState s){return !s.getValue(UPPER);}
+        @Nullable @Override public TileEntity createNewTileEntity(World w,int meta){return (meta&4)!=0?null:new Tiles.Computer();}
+        static BlockPos base(IBlockAccess w,BlockPos p){IBlockState s=w.getBlockState(p);return s.getBlock() instanceof Terminal&&s.getValue(UPPER)?p.down():p;}
+        @Override public boolean canPlaceBlockAt(World w,BlockPos p){return p.getY()<w.getHeight()-1&&super.canPlaceBlockAt(w,p)&&w.getBlockState(p.up()).getBlock().isReplaceable(w,p.up());}
+        @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack item){super.onBlockPlacedBy(w,p,s,e,item);if(!w.isRemote&&!s.getValue(UPPER))w.setBlockState(p.up(),s.withProperty(UPPER,true),3);}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){TileEntity t=w.getTileEntity(base(w,p));return s.withProperty(ACTIVE,t instanceof Tiles.Computer&&((Tiles.Computer)t).online);}
+        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){BlockPos q=base(w,p);return super.onBlockActivated(w,q,w.getBlockState(q),player,hand,side,x,y,z);}
+        @Override public void onBlockHarvested(World w,BlockPos p,IBlockState s,EntityPlayer player){
+            if(!w.isRemote&&player.capabilities.isCreativeMode&&s.getValue(UPPER)){BlockPos low=p.down();IBlockState other=w.getBlockState(low);if(other.getBlock()==this&&!other.getValue(UPPER))w.setBlockToAir(low);}
+            super.onBlockHarvested(w,p,s,player);
+        }
+        @Override public net.minecraft.item.Item getItemDropped(IBlockState s,java.util.Random random,int fortune){return s.getValue(UPPER)?net.minecraft.init.Items.AIR:super.getItemDropped(s,random,fortune);}
+        @Override public void breakBlock(World w,BlockPos p,IBlockState s){
+            if(!w.isRemote){boolean upper=s.getValue(UPPER);BlockPos other=upper?p.down():p.up();IBlockState os=w.getBlockState(other);
+                if(os.getBlock()==this&&os.getValue(UPPER)!=upper){if(upper)w.destroyBlock(other,true);else w.setBlockToAir(other);}}
+            super.breakBlock(w,p,s);
+        }
+        @Override int gui(){return 2;}
     }
     static final class Decor extends Block {
         Decor(String id){super(Material.IRON);setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setHardness(2.0f);setResistance(8);setSoundType(SoundType.METAL);setCreativeTab(Hardware.TAB);}

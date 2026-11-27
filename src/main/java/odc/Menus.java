@@ -43,6 +43,7 @@ public final class Menus {
                 });}machineSlots=1+ServerSpec.COUNT;
             }else{parts=null;if(id==RACK){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<9;i++){final int j=i;addSlotToContainer(new Slot(r,i,rackX(i),rackY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
+                    @Override public boolean isItemValid(ItemStack s){return r.isItemValidForSlot(j,s);}
                     @Override public boolean isEnabled(){return j<r.capacity();}
                     @Override public boolean canTakeStack(EntityPlayer p){return j<r.capacity();}
                 });}machineSlots=9;}

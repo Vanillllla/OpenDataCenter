@@ -21,12 +21,13 @@ final class Network {
     static boolean isDataDevice(TileEntity t){return t instanceof Tiles.Rack||t instanceof Tiles.Computer||t instanceof Tiles.Station;}
     static boolean isPowerDevice(TileEntity t){return isDataDevice(t);}
     static boolean live(World w,TileEntity t){return t!=null&&!t.isInvalid()&&w.isBlockLoaded(t.getPos())&&w.getTileEntity(t.getPos())==t;}
+    static TileEntity deviceAt(World w,BlockPos p){return w.getTileEntity(Blocks.Terminal.base(w,p));}
     static boolean dataNode(World w,BlockPos p){
         if(!w.isBlockLoaded(p))return false;
         Block b=w.getBlockState(p).getBlock();
         if(b==Hardware.DATA_CABLE)return true;
         if(b!=Hardware.RACK&&b!=Hardware.RACK_GLASS&&b!=Hardware.COMPUTER&&b!=Hardware.STATION&&b!=Hardware.SATELLITE)return false;
-        TileEntity t=w.getTileEntity(p);return isDataDevice(t);
+        TileEntity t=deviceAt(w,p);return isDataDevice(t);
     }
     /** Null means the safety limit was exceeded. Never split a partially scanned domain and award duplicate capacity. */
     static Domain scan(World w,BlockPos origin){
@@ -61,7 +62,7 @@ final class Network {
             BlockPos p=q.removeFirst();for(EnumFacing f:EnumFacing.VALUES){BlockPos n=p.offset(f);if(!w.isBlockLoaded(n)||n.equals(origin))continue;
                 Block b=w.getBlockState(n).getBlock();
                 if(b==Hardware.POWER_CABLE||b==Hardware.RELAY&&!w.isBlockPowered(n)){if(seen.add(n)){if(seen.size()>LIMIT)return Collections.emptyList();q.addLast(n);}}
-                else if(ends.add(n)){TileEntity t=w.getTileEntity(n);if(isPowerDevice(t)){IEnergyStorage e=t.getCapability(CapabilityEnergy.ENERGY,f.getOpposite());if(e!=null&&e.canReceive()&&unique.add(e))out.add(new Endpoint(e));}}
+                else if(ends.add(n)){TileEntity t=deviceAt(w,n);if(isPowerDevice(t)){IEnergyStorage e=t.getCapability(CapabilityEnergy.ENERGY,f.getOpposite());if(e!=null&&e.canReceive()&&unique.add(e))out.add(new Endpoint(e));}}
             }
         }
         return out;

@@ -1,3 +1,1 @@
-{
-  "parent": "odc:block/power_relay_off"
-}
+{"parent":"odc:block/power_relay_item"}

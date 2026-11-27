@@ -18,6 +18,7 @@ import java.util.Locale;
 @Mod.EventBusSubscriber(modid=ODC.ID,value=Side.CLIENT)
 public final class Client {
     @SubscribeEvent public static void models(ModelRegistryEvent e){for(Block b:Hardware.BLOCKS)model(Item.getItemFromBlock(b));for(Item i:Hardware.ITEMS)model(i);ClientRegistry.bindTileEntitySpecialRenderer(Tiles.Rack.class,new RackRenderer());}
+    @SubscribeEvent public static void stitch(net.minecraftforge.client.event.TextureStitchEvent.Pre e){for(String name:RackRenderer.SPRITES)e.getMap().registerSprite(new net.minecraft.util.ResourceLocation(ODC.ID,"blocks/"+name));}
     private static void model(Item i){ModelLoader.setCustomModelResourceLocation(i,0,new ModelResourceLocation(i.getRegistryName(),"inventory"));}
     static String amount(int milli){return String.format(Locale.ROOT,"%.3f",milli/1000.0);}
     static String tr(String key,Object... args){return I18n.format("gui.odc."+key,args);}

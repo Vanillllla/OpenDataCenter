@@ -28,7 +28,7 @@ public final class Tiles {
         void changed(){markDirty();if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,3);}}
         @Override public NBTTagCompound getUpdateTag(){return writeToNBT(new NBTTagCompound());}
         @Override public SPacketUpdateTileEntity getUpdatePacket(){return new SPacketUpdateTileEntity(pos,0,getUpdateTag());}
-        @Override public void onDataPacket(NetworkManager net,SPacketUpdateTileEntity pkt){readFromNBT(pkt.getNbtCompound());if(world!=null)world.markBlockRangeForRenderUpdate(pos,pos);}
+        @Override public void onDataPacket(NetworkManager net,SPacketUpdateTileEntity pkt){readFromNBT(pkt.getNbtCompound());if(world!=null)world.markBlockRangeForRenderUpdate(pos,this instanceof Computer?pos.up():pos);}
     }
     public static abstract class InventoryTile extends Owned implements ISidedInventory {
         final NonNullList<ItemStack> slots;
@@ -81,7 +81,10 @@ public final class Tiles {
         void refund(int count,EntityPlayer player){if(count<=0||world==null||world.isRemote)return;ItemStack stack=new ItemStack(Hardware.PATCH,count);if(player!=null)player.inventory.addItemStackToInventory(stack);if(!stack.isEmpty())net.minecraft.inventory.InventoryHelper.spawnItemStack(world,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,stack);}
         int clearPorts(){return PortMap.clear(ports);}
         void detach(int i){if(world==null||world.isRemote)return;int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;}
-        @Override public void setInventorySlotContents(int i,ItemStack s){if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);}
+        @Override public void setInventorySlotContents(int i,ItemStack s){
+            if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
+            if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);
+        }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
         boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;enabledMask^=bit;if((enabledMask&bit)==0){poweredMask&=~bit;runningMask&=~bit;}changed();return true;}

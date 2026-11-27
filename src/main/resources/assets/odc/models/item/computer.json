@@ -1,3 +1,1 @@
-{
-  "parent": "odc:block/computer_on"
-}
+{"parent":"odc:block/computer_item","display":{"gui":{"rotation":[30,225,0],"translation":[0,-4,0],"scale":[0.42,0.42,0.42]},"ground":{"translation":[0,2,0],"scale":[0.2,0.2,0.2]},"fixed":{"rotation":[0,180,0],"translation":[0,-3,0],"scale":[0.4,0.4,0.4]}}}

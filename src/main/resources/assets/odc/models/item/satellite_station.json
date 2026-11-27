@@ -1,3 +1,1 @@
-{
-  "parent": "odc:block/satellite_station_off"
-}
+{"parent":"odc:block/satellite_station_off","display":{"gui":{"rotation":[30,225,0],"translation":[0,-2,0],"scale":[0.55,0.55,0.55]},"ground":{"scale":[0.25,0.25,0.25]},"fixed":{"scale":[0.5,0.5,0.5]}}}

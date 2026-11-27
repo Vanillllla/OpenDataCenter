@@ -15,10 +15,10 @@ items={'cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_2u','ch
 check({p.stem for p in (root/'blockstates').glob('*.json')}==blocks,'block state registry')
 check({p.stem for p in (root/'models/item').glob('*.json')}==blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
 for f in root.rglob('*.png'):
-    b=f.read_bytes();check(b[:8]==b'\x89PNG\r\n\x1a\n',f'PNG header {f.name}');w,h=struct.unpack('>II',b[16:24]);check(w==16 and h%16==0,f'16px texture {f.name}');
+    b=f.read_bytes();check(b[:8]==b'\x89PNG\r\n\x1a\n',f'PNG header {f.name}');w,h=struct.unpack('>II',b[16:24]);check(w in (16,32,64) and h%w==0 and h<=64,f'texture resolution {f.name}');
     meta=f.with_name(f.name+'.mcmeta')
-    if h>16:
-        check(meta.exists(),f'animation metadata {f.name}');anim=read(meta)['animation'];check(all(isinstance(i,int) and 0<=i<h//16 for i in anim['frames']),f'animation frames {f.name}')
+    if h>w:
+        check(meta.exists(),f'animation metadata {f.name}');anim=read(meta)['animation'];check(all(isinstance(i,int) and 0<=i<h//w for i in anim['frames']),f'animation frames {f.name}')
     else:check(not meta.exists(),f'unexpected animation metadata {f.name}')
 def model_ref(name):
     if name.startswith('odc:'):
@@ -31,7 +31,7 @@ for f in (root/'models').rglob('*.json'):
     for t in textures.values():tex_ref(t)
     for override in m.get('overrides',[]):model_ref(override['model'])
     for e in m.get('elements',[]):
-        check(all(0<=a<b<=16 for a,b in zip(e['from'],e['to'])),f'cuboid bounds {f.name}')
+        check(all(-16<=a<b<=32 for a,b in zip(e['from'],e['to'])),f'cuboid bounds {f.name}')
         for face,info in e['faces'].items():
             tex=info['texture'];check(not tex.startswith('#') or tex[1:] in textures,f'undefined model texture {f.name}:{tex}')
             check(len(info.get('uv',[]))==4 and all(0<=v<=16 for v in info['uv']),f'UV bounds {f.name}')
@@ -44,18 +44,36 @@ for name in ('rack','rack_glass'):
     check(set(data)=={f'facing={f},part={r}' for f in ('north','east','south','west') for r in range(3)},'rack state coverage')
     for role in range(3):
         model=read(root/'models/block'/f'{name}_{role}.json');els=model['elements']
-        check(any(e['from']==[0,0,1] and e['to']==[16,1,16] for e in els)==(role!=2),'bottom plate')
-        check(any(e['from']==[0,15,1] and e['to']==[16,16,16] for e in els)==(role!=1),'top plate')
+        if role==1:check(not any('up' in e['faces'] and e['to'][1]==16 for e in els),'no top seam faces')
+        if role==2:check(not any('down' in e['faces'] and e['from'][1]==0 for e in els),'no bottom seam faces')
 for name in ('data_cable','power_cable','power_relay'):
-    data=read(root/'blockstates'/f'{name}.json')['multipart']
+    data=read(root/'blockstates'/f'{name}.json')['variants']
+    props=sorted(('down','up','north','south','west','east','active'))
     for bits in itertools.product(('true','false'),repeat=7):
-        props=dict(zip(('down','up','north','south','west','east','active'),bits));found=[x for x in data if all(props.get(k)==v for k,v in x.get('when',{}).items())]
-        check(len(found)==1+bits[:6].count('true'),f'cable state {name}')
+        key=','.join(f'{p}={b}' for p,b in zip(props,bits));check(key in data,f'cable state {name} {key}')
+        m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
+        for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
+            if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
 for name in ('computer','creative_battery','workbench','radio_station','satellite_station'):
-    data=read(root/'blockstates'/f'{name}.json')['variants'];check(set(data)=={f'active={a},facing={f}' for a in ('true','false') for f in ('north','east','south','west')},f'machine states {name}')
+    data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
+# Geometric regression: no positive-area coplanar faces in redesigned axis-aligned meshes.
+# Rotated elements are checked separately by their bounding data, not by this plane test.
+mesh_count=0;quad_count=0;max_cable=0
+for p in (root/'models/block').glob('*.json'):
+    if not p.stem.startswith(('rack_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_')):continue
+    mesh_count+=1;m=read(p);planes={};quad_count+=sum(len(e['faces']) for e in m['elements'])
+    if p.stem.startswith(('data_cable_','power_cable_')):max_cable=max(max_cable,sum(len(e['faces']) for e in m['elements']))
+    for e in m['elements']:
+        if 'rotation' in e:continue
+        for f in e['faces']:
+            axis,sign={'down':(1,0),'up':(1,1),'north':(2,0),'south':(2,1),'west':(0,0),'east':(0,1)}[f];pos=e['to' if sign else 'from'][axis];k=(axis,pos);rest=[j for j in range(3) if j!=axis];rect=tuple((e['from'][j],e['to'][j]) for j in rest)
+            for old in planes.get(k,[]):check(not all(min(a[1],b[1])-max(a[0],b[0])>1e-8 for a,b in zip(rect,old)),f'coplanar overlap {p.stem} {f} {pos}')
+            planes.setdefault(k,[]).append(rect)
+check(max_cable<=24,'cable quad budget')
+print(f'Geometry: {mesh_count} meshes, {quad_count} authored faces, max {max_cable} quads per cable; no positive-area coplanar axis-aligned overlaps.')
 for u in (1,2,4):
     for state in ('ready','empty'):tex_ref(f'odc:blocks/server_{u}_{state}')
-for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window'):tex_ref('odc:blocks/'+name)
+for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window','led_activity','module_side','patch_up','patch_down'):tex_ref('odc:blocks/'+name)
 recipes=set()
 for f in (root/'recipes').glob('*.json'):
     data=read(f);pattern=data['pattern'];key=data['key'];check(len(pattern)<=3 and len(set(map(len,pattern)))==1 and len(pattern[0])<=3,f'recipe dimensions {f.name}')
