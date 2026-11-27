@@ -19,7 +19,7 @@ final class RackMultiblock {
         boolean keepLowSwitch=low.switchTier()>0;low.clearPorts();high.clearPorts();
         for(int i=0;i<4;i++){ItemStack item=high.slots.get(i);if(keepLowSwitch&&Hardware.switchTier(item)>0){high.removeUplinks(item);InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,item);}else low.slots.set(i+5,item);high.slots.set(i,ItemStack.EMPTY);low.remainder[i+5]=high.remainder[i];high.remainder[i]=0;}
         low.enabledMask|=high.enabledMask<<5;low.miningMask|=high.miningMask<<5;low.poweredMask=low.runningMask=0;high.enabledMask=high.miningMask=high.poweredMask=high.runningMask=0;
-        EventSystem.moveRackHistory(high,low.id);low.role=1;high.role=-1;low.revision++;high.revision++;low.changed();high.changed();Network.invalidate(w);return true;
+        EventSystem.moveRackHistory(high,low.id);low.role=1;high.role=-1;low.resetDoor();high.resetDoor();low.revision++;high.revision++;low.changed();high.changed();Network.invalidate(w);return true;
     }
     /** Called before the broken tile is removed. Master owns every item exactly once. */
     static void breakRack(World w,BlockPos p){Tiles.Rack r=at(w,p);if(r==null||w.isRemote)return;Tiles.Rack master=r.master();if(master==null)return;
@@ -31,6 +31,6 @@ final class RackMultiblock {
                 master.removeUplinks(stack);EventSystem.rack(master,i,Level.WARNING,Category.HARDWARE,"equipment_dropped","Rack dismantled: "+stack.getDisplayName());if(Hardware.units(stack)>0)TaskData.get(w).serverStopped(ClusterScheduler.serverId(stack),false);
                 InventoryHelper.spawnItemStack(w,p.getX()+.5,p.getY()+.5,p.getZ()+.5,stack);
             }master.slots.set(i,ItemStack.EMPTY);}
-        if(survivor!=master)EventSystem.moveRackHistory(master,survivor==null?EventSystem.survivor(master):survivor.id);Arrays.fill(master.remainder,0);master.revision++;if(survivor!=null){for(int i=0;i<9;i++)survivor.slots.set(i,i<4?retained[i]:ItemStack.EMPTY);Arrays.fill(survivor.remainder,0);System.arraycopy(rem,0,survivor.remainder,0,4);survivor.role=0;survivor.enabledMask=mask;survivor.miningMask=mining;survivor.poweredMask=survivor.runningMask=0;survivor.switchOnline=false;survivor.revision++;survivor.changed();}
+        if(survivor!=master)EventSystem.moveRackHistory(master,survivor==null?EventSystem.survivor(master):survivor.id);Arrays.fill(master.remainder,0);master.revision++;if(survivor!=null){for(int i=0;i<9;i++)survivor.slots.set(i,i<4?retained[i]:ItemStack.EMPTY);Arrays.fill(survivor.remainder,0);System.arraycopy(rem,0,survivor.remainder,0,4);survivor.role=0;survivor.resetDoor();survivor.enabledMask=mask;survivor.miningMask=mining;survivor.poweredMask=survivor.runningMask=0;survivor.switchOnline=false;survivor.revision++;survivor.changed();}
     }
 }

@@ -71,6 +71,20 @@ public final class Tiles {
         final int[] status=new int[9], work=new int[9], remainder=new int[9], fault=new int[9], cpuUsed=new int[9], diskUsed=new int[9], gpuUsed=new int[9], ramUsed=new int[9], netUsed=new int[9], powerUsed=new int[9];
         int role=0, enabledMask, miningMask, poweredMask, runningMask, lastPower, revision;
         boolean switchOnline;
+        boolean doorOpen;
+        double doorFrom;
+        long doorStart;
+        boolean glassRack(){return world!=null&&world.getBlockState(pos).getBlock()==Hardware.RACK_GLASS;}
+        double doorProgress(float partial){return RackLayout.Door.progress(doorOpen,doorFrom,world==null?0:world.getTotalWorldTime()-doorStart+partial);}
+        boolean doorAllowsAccess(){return RackLayout.Door.accessible(glassRack(),doorOpen,doorProgress(0));}
+        void resetDoor(){doorOpen=false;doorFrom=0;doorStart=0;}
+        void toggleDoor(){
+            if(world==null||world.isRemote||role==-1||!glassRack())return;
+            long now=world.getTotalWorldTime();if(doorStart==now&&doorFrom!=(doorOpen?1:0))return;
+            doorFrom=doorProgress(0);doorStart=now;doorOpen=!doorOpen;markDirty();
+            net.minecraft.block.state.IBlockState state=world.getBlockState(pos);world.notifyBlockUpdate(pos,state,state,3);
+            world.playSound(null,pos,doorOpen?net.minecraft.init.SoundEvents.BLOCK_IRON_DOOR_OPEN:net.minecraft.init.SoundEvents.BLOCK_IRON_DOOR_CLOSE,net.minecraft.util.SoundCategory.BLOCKS,.65f,1f);
+        }
         UUID id=UUID.randomUUID();
         public Rack(){super(9);}
         int capacity(){return role==1?9:4;}
@@ -107,9 +121,9 @@ public final class Tiles {
         boolean upgrade(int port,int tier,EntityPlayer p){if(!allows(p)||!LanPorts.canUpgrade(ports,cableTiers,Hardware.ports(switchTier()),port,tier)||!LanCables.take(p,tier))return false;int old=cableTier(port);cableTiers[port]=tier;LanCables.refund(world,pos,p,old);OfflineState.invalidateAt(world,pos);EventSystem.rack(this,ports[port]-1,Level.INFO,Category.NETWORK,"port_upgraded","Patch cable replaced: LAN T"+old+" -> T"+tier);changed();return true;}
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY&&master()!=null||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){Rack m=master();return c==CapabilityEnergy.ENERGY?(m==null?null:CapabilityEnergy.ENERGY.cast(m.energy)):super.getCapability(c,f);}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
-        @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
+        @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return glassRack()&&role!=-1?new net.minecraft.util.math.AxisAlignedBB(pos.add(-1,0,-1),pos.add(2,role==1?2:1,2)):new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }
     /** The only persistent inventory is the chassis. Parts are read/written inside its NBT. */

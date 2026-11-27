@@ -23,6 +23,27 @@ public final class Client {
         if(!e.getWorld().isRemote||e.getHand()!=net.minecraft.util.EnumHand.MAIN_HAND||!(e.getWorld().getBlockState(e.getPos()).getBlock() instanceof Blocks.Rack))return;
         if(net.minecraft.client.gui.GuiScreen.isCtrlKeyDown()){e.setCanceled(true);e.setCancellationResult(net.minecraft.util.EnumActionResult.SUCCESS);RackInteraction.channel.sendToServer(new RackInteraction.Remove(e.getPos()));}
     }
+    /** An open door extends outside its block, so vanilla block ray tracing alone cannot select it. */
+    @SubscribeEvent public static void glassDoorClick(net.minecraftforge.client.event.MouseEvent e){
+        net.minecraft.client.Minecraft mc=net.minecraft.client.Minecraft.getMinecraft();
+        if(mc.currentScreen!=null||mc.player==null||mc.world==null||mc.playerController==null||mc.player.isSpectator()||!e.isButtonstate()||e.getButton()<0||e.getButton()-100!=mc.gameSettings.keyBindUseItem.getKeyCode()||net.minecraft.client.gui.GuiScreen.isCtrlKeyDown())return;
+        net.minecraft.util.math.Vec3d eye=mc.player.getPositionEyes(1),look=mc.player.getLook(1);
+        double reach=Math.min(6,mc.playerController.getBlockReachDistance());
+        net.minecraft.util.math.Vec3d end=eye.addVector(look.x*reach,look.y*reach,look.z*reach);
+        net.minecraft.util.math.RayTraceResult obstruction=mc.world.rayTraceBlocks(eye,end,false,false,false);
+        Tiles.Rack nearest=null;double best=Double.POSITIVE_INFINITY;
+        // Only inspect racks in the small interaction volume, not the entire loaded world.
+        net.minecraft.util.math.BlockPos start=new net.minecraft.util.math.BlockPos(eye),finish=new net.minecraft.util.math.BlockPos(end);
+        for(int x=Math.min(start.getX(),finish.getX())-1;x<=Math.max(start.getX(),finish.getX())+1;x++)
+        for(int y=Math.min(start.getY(),finish.getY())-2;y<=Math.max(start.getY(),finish.getY())+1;y++)
+        for(int z=Math.min(start.getZ(),finish.getZ())-1;z<=Math.max(start.getZ(),finish.getZ())+1;z++){
+            Tiles.Rack r=RackMultiblock.at(mc.world,new net.minecraft.util.math.BlockPos(x,y,z));
+            if(r==null||r.role==-1||!r.glassRack()||(!r.doorOpen&&r.doorProgress(0)<=0))continue;
+            double hit=RackInteraction.doorHit(r,eye,end,obstruction);
+            if(hit>=0&&hit<best){nearest=r;best=hit;}
+        }
+        if(nearest!=null){e.setCanceled(true);RackInteraction.channel.sendToServer(new RackInteraction.DoorClick(nearest.getPos()));}
+    }
     private static void model(Item i){ModelLoader.setCustomModelResourceLocation(i,0,new ModelResourceLocation(i.getRegistryName(),"inventory"));}
     static String amount(int milli){return String.format(Locale.ROOT,"%.3f",milli/1000.0);}
     static String tr(String key,Object... args){return I18n.format("gui.odc."+key,args);}

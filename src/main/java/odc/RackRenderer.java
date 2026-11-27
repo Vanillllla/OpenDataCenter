@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Atlas-batched module mesh: one opaque draw, plus one glass draw if needed. */
 final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
-    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh"};
+    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","rack_frame","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh"};
     private BufferBuilder buffer;
     private TextureMap atlas;
     private void begin(){buffer=Tessellator.getInstance().getBuffer();buffer.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX_COLOR);}
@@ -32,6 +32,34 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
         quad("module_side",170,v(l,b,back),v(r,b,back),v(r,t,back),v(l,t,back));
         quad("module_side",220,v(l,t,z),v(r,t,z),v(r,t,back),v(l,t,back));
         quad("module_side",150,v(l,b,back),v(r,b,back),v(r,b,z),v(l,b,z));
+    }
+    private void solidBox(double l,double b,double z,double r,double t,double back){
+        String tex="rack_frame";
+        quad(tex,225,v(l,b,z),v(r,b,z),v(r,t,z),v(l,t,z));
+        quad(tex,175,v(r,b,back),v(l,b,back),v(l,t,back),v(r,t,back));
+        quad(tex,185,v(l,b,back),v(l,b,z),v(l,t,z),v(l,t,back));
+        quad(tex,205,v(r,b,z),v(r,b,back),v(r,t,back),v(r,t,z));
+        quad(tex,235,v(l,t,z),v(r,t,z),v(r,t,back),v(l,t,back));
+        quad(tex,155,v(l,b,back),v(r,b,back),v(r,b,z),v(l,b,z));
+    }
+    private void renderDoor(Tiles.Rack rack,double height,float partial){
+        double l=RackLayout.Door.LEFT,r=RackLayout.Door.RIGHT,b=RackLayout.Door.BOTTOM,t=height-b,z=RackLayout.Door.Z,th=RackLayout.Door.THICK/2,edge=.026;
+        GlStateManager.pushMatrix();
+        try{
+            GlStateManager.translate(l,0,z);GlStateManager.rotate((float)RackLayout.Door.angle(rack.doorProgress(partial)),0,1,0);GlStateManager.translate(-l,0,-z);
+            begin();
+            solidBox(l,b,z-th,l+edge,t,z+th);solidBox(r-edge,b,z-th,r,t,z+th);
+            solidBox(l+edge,b,z-th,r-edge,b+edge,z+th);solidBox(l+edge,t-edge,z-th,r-edge,t,z+th);
+            // A single raised handle travels with the door, at a convenient height in both rack sizes.
+            double hy=height==2?.88:.40,hx=r-.075;
+            solidBox(hx,hy,z-.047,hx+.027,hy+.035,z-th);
+            solidBox(hx,hy+.145,z-.047,hx+.027,hy+.18,z-th);
+            solidBox(hx,hy,z-.060,hx+.027,hy+.18,z-.043);
+            end();
+            GlStateManager.enableBlend();GlStateManager.tryBlendFuncSeparate(770,771,1,0);GlStateManager.depthMask(false);GlStateManager.disableAlpha();
+            try{begin();front("rack_window",l+edge,b+edge,r-edge,t-edge,z);end();}
+            finally{GlStateManager.enableAlpha();GlStateManager.depthMask(true);GlStateManager.disableBlend();}
+        }finally{GlStateManager.popMatrix();}
     }
     @Override public void render(Tiles.Rack rack,double x,double y,double z,float partial,int destroyStage,float alpha){
         if(rack.role==-1||rack.getWorld()==null||!(rack.getWorld().getBlockState(rack.getPos()).getBlock() instanceof Blocks.Rack))return;
@@ -69,11 +97,7 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
                 }
             }
             end();
-            if(rack.getWorld().getBlockState(rack.getPos()).getBlock()==Hardware.RACK_GLASS){
-                GlStateManager.enableBlend();GlStateManager.tryBlendFuncSeparate(770,771,1,0);GlStateManager.depthMask(false);GlStateManager.disableAlpha();
-                begin();front("rack_window",.10,.065,.90,height-.065,.038);end();
-                GlStateManager.enableAlpha();GlStateManager.depthMask(true);GlStateManager.disableBlend();
-            }
+            if(rack.glassRack())renderDoor(rack,height,partial);
         }finally{GlStateManager.color(1,1,1,1);GlStateManager.enableCull();GlStateManager.enableLighting();GlStateManager.popMatrix();}
     }
 }

@@ -10,6 +10,22 @@ public final class ServerSpecTest {
         p[ServerSpec.PSU]=model("AeroHot VX500");return p;
     }
     public static void main(String[] args){
+        for(int facing=0;facing<4;facing++){
+            double angle=Math.toRadians(180-facing*90),c=Math.cos(angle),s=Math.sin(angle);
+            for(double height:new double[]{1,2})for(double y:new double[]{.5,height-.2}){
+                double[] p=RackLayout.Door.local(.5+c*.1+s*(-1),y,.5-s*.1+c*(-1),facing);
+                check(Math.abs(p[0]-.6)<1e-8&&Math.abs(p[2]+.5)<1e-8,"door local rotation");
+                check(RackLayout.Door.hit(p,new double[]{.6,y,.5},0,height)>=0,"closed glass ray");
+                check(RackLayout.Door.hit(p,new double[]{.6,y,.5},90,height)<0,"open rack front unobstructed");
+                check(RackLayout.Door.hit(new double[]{-.5,y,-.4},new double[]{.8,y,-.4},90,height)>=0,"open leaf outside block selectable");
+                check(RackLayout.Door.hit(new double[]{-.5,height+.1,-.4},new double[]{.8,height+.1,-.4},90,height)<0,"above leaf miss");
+            }
+        }
+        check(RackLayout.Door.progress(true,0,5)==.5,"opening midpoint");
+        check(RackLayout.Door.progress(false,.5,2)==.3,"smooth reversal from current progress");
+        check(RackLayout.Door.angle(.5)==45&&RackLayout.Door.angle(1)==90,"door angle");
+        check(!RackLayout.Door.accessible(true,true,.99)&&RackLayout.Door.accessible(true,true,1),"access only fully open");
+        check(!RackLayout.Door.accessible(true,false,1)&&RackLayout.Door.accessible(false,false,0),"closing locks instantly; open rack unchanged");
         int onboard=0;for(Part p:Part.models)if(p.kind==Part.Kind.BOARD){int[] bare=new int[ServerSpec.COUNT];bare[ServerSpec.BOARD]=p.index;int expected=p.tier==3||p.sockets==2?1000:0;check(p.onboardNicMbps()==expected&&ServerSpec.nic(bare)==expected,"onboard NIC "+p.name);if(expected>0)onboard++;}check(onboard==5,"five boards with onboard NIC");
         int[] server=minimal();
         check(ServerSpec.state(1,server)==ServerSpec.READY,"complete server");

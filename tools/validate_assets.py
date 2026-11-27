@@ -111,6 +111,9 @@ for lang in ('en_us','ru_ru'):
     entries=dict(line.split('=',1) for line in (root/'lang'/f'{lang}.lang').read_text(encoding='utf8').splitlines() if line)
     check(all(f'tile.odc.{b}.name' in entries for b in blocks),f'block translations {lang}');check(all(f'item.odc.{i}.name' in entries for i in items),f'item translations {lang}');langs.append(entries)
 check(set(langs[0])==set(langs[1]),'EN/RU translation parity')
+for role in range(3):
+    elements=read(root/'models/block'/f'rack_glass_{role}.json')['elements']
+    check(not any(e['from'][0]>=13 and e['to'][0]<=13.75 and e['from'][2]<.16 and e['to'][2]<=.15 for e in elements),'glass rack handle rendered dynamically')
 for name in sorted(i for i in items if i.startswith('switch_')):
     model=read(root/'models/item'/f'{name}.json')
     check(model.get('display',{}).get('gui',{}).get('scale')==[0.8,0.8,0.8],f'compact switch inventory icon {name}')
