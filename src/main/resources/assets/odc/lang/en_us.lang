@@ -361,3 +361,17 @@ gui.odc.netmap.counts=Devices: %s | Active links: %s | Down: %s
 gui.odc.netmap.boundary=Separated boundary links: %s
 gui.odc.netmap.verified=Local topology verified
 gui.odc.netmap.partial=Partially unverified local topology
+
+gui.odc.netmap.connect=Connect
+gui.odc.netmap.snap=Snap
+gui.odc.netmap.reset=Auto layout
+gui.odc.netmap.routes=Routes
+gui.odc.netmap.remove=Remove
+gui.odc.netmap.upgrade=Upgrade
+gui.odc.netmap.rejected=Edit rejected
+gui.odc.netmap.saved=Saved
+gui.odc.netmap.pickpair=Select endpoints
+gui.odc.netmap.drag=Drag cards
+gui.odc.netmap.effective=Effective: %s
+gui.odc.netmap.automatic=Automatic connection
+gui.odc.netmap.idle_route=Route available; no reserved traffic

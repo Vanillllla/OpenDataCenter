@@ -1,4 +1,6 @@
-# OpenDataCenter 0.6.1.5-alpha
+# OpenDataCenter 0.6.1.6-alpha
+
+**0.6.1.6 — Interactive Network Editor:** drag cards, shared saved coordinates, snap/auto layout, two-click uplink editing, link properties and WAN route highlights. [Details](docs/NETWORK_EDITOR_0616.md).
 
 **0.6.1.5 — Network Terminal Interface:** интерактивная навигация по серверной карте сети, карточки устройств и линии LAN/оптики, поиск, свойства и мониторинг. Сетевой терминал открывает карту; кнопка «Настройка uplink» открывает прежний списочный редактор. Нагрузка расчётная по резервам; WAN free — остаточная ёмкость на входе терминалов, не гарантия полосы до серверов. См. [описание](docs/NETWORK_INTERFACE_0615.md). Следующий этап — 0.6.1.6.
 

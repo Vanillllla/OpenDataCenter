@@ -1,3 +1,7 @@
+## 0.6.1.6-alpha — Interactive Network Editor
+- Shared persisted card coordinates, snap and auto layout, map uplink editing, link properties and route diagnostics.
+- Forge/game verification pending.
+
 ## 0.6.1.5-alpha — Network Terminal Interface
 - Светлая карта: антенны, терминалы, коммутаторы, серверы, линии оптики/LAN, номиналы и расчётная загрузка, свойства и поиск.
 - Масштабирование относительно курсора, перемещение камеры, вписывание карты, поиск устройства, прокрутка панелей. Координаты существующих карточек и камера сохраняются при получении снимка.

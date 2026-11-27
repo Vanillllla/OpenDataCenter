@@ -361,3 +361,17 @@ gui.odc.netmap.counts=Устройств: %s | Связей: %s | Нет свя�
 gui.odc.netmap.boundary=Связей за границей сети: %s
 gui.odc.netmap.verified=Локальная топология подтверждена
 gui.odc.netmap.partial=Часть локальной сети не подтверждена
+
+gui.odc.netmap.connect=Соединить
+gui.odc.netmap.snap=Сетка
+gui.odc.netmap.reset=Авто
+gui.odc.netmap.routes=Маршруты
+gui.odc.netmap.remove=Удалить
+gui.odc.netmap.upgrade=Заменить
+gui.odc.netmap.rejected=Отказ
+gui.odc.netmap.saved=Сохранено
+gui.odc.netmap.pickpair=Выбери пару
+gui.odc.netmap.drag=Перетащи узел
+gui.odc.netmap.effective=Доступно: %s
+gui.odc.netmap.automatic=Автоматическая связь
+gui.odc.netmap.idle_route=Маршрут доступен; нет резерва
