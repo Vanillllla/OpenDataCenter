@@ -23,7 +23,13 @@ final class TaskConsole {
     static UUID rowId(String key){return UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
     Domain live(PanelMenu m,TaskData d,UUID anchor){
         Domain domain=d.domains.get(anchor);
-        return domain!=null && m.player.world.getTotalWorldTime()-domain.tick<=20?domain:null;
+        if(domain==null||m.player.world.getTotalWorldTime()-domain.tick>20)return null;
+        // The scheduler snapshot can be up to one second old. Filter against current LAN membership.
+        Set<UUID> connected=new HashSet<>();for(Menus.Target t:DataOSView.servers(m.tile))connected.add(ClusterScheduler.serverId(t.item));
+        List<TaskEngine.Node> nodes=new ArrayList<>();Set<Integer> excluded=new HashSet<>();
+        for(int i=0;i<domain.nodes.size();i++){TaskEngine.Node n=domain.nodes.get(i);if(!connected.contains(n.id))continue;if(domain.excluded.contains(i))excluded.add(nodes.size());nodes.add(n);}
+        if(nodes.size()==domain.nodes.size())return domain;
+        return new Domain(nodes,domain.caps,domain.wan,excluded,domain.tick,domain.world);
     }
     void reset(int next){section=next;assigning=false;type=-1;selected=NONE;draftPool=NONE;expanded=NONE;physicalOffset=0;draft.clear();commitError="";}
     void openDraft(UUID pool,TaskData.Job j){draftPool=pool;assigning=true;expanded=NONE;physicalOffset=0;draft.clear();if(j!=null)draft.addAll(j.bindings);commitError="";}

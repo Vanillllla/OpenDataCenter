@@ -9,10 +9,11 @@ import net.minecraft.item.ItemStack;
  * UUIDs remain internal for task allocations and stale-click protection. */
 final class DataOSView {
     static final int WINDOW=32;
+    /** Pool membership follows the physical LAN patch, independent of power or WAN availability. */
     static List<Menus.Target> servers(Tiles.Owned tile){
         List<Menus.Target> result=new ArrayList<>();Network.Domain domain=Network.scan(tile.getWorld(),tile.getPos());
         if(domain!=null)for(Tiles.Owned device:domain.devices)if(device instanceof Tiles.Rack&&Objects.equals(device.owner,tile.owner)){
-            Tiles.Rack rack=(Tiles.Rack)device;for(int bay=0;bay<rack.capacity();bay++)if(rack.isServer(bay))result.add(new Menus.Target(rack,bay));
+            Tiles.Rack rack=(Tiles.Rack)device;for(int bay=0;bay<rack.capacity();bay++)if(rack.networkConnected(bay))result.add(new Menus.Target(rack,bay));
         }return result;
     }
     static int id(Tiles.Rack rack,int bay){List<Menus.Target> all=servers(rack);for(int i=0;i<all.size();i++)if(all.get(i).rack==rack&&all.get(i).bay==bay)return i;return -1;}

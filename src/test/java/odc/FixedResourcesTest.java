@@ -38,6 +38,17 @@ public final class FixedResourcesTest {
         TaskEngine.Task partial=mining(6,a,0,0);partial.bindings.removeIf(x->x.kind==PoolResources.Kind.RAM);add(partial,b,PoolResources.Kind.RAM,0,1);check(!FixedResources.evaluate(partial,ledger(ns,Collections.emptyList(),null),true).error.isEmpty(),"resources cannot mix across hosts for one unit");
         // Randomized exclusive core/chip reservations: a second candidate cannot commit over an existing one.
         Random random=new Random(53);for(int i=0;i<1000;i++){int core=random.nextInt(4),gpu=random.nextInt(4);TaskEngine.Task x=mining(7,a,core,gpu),y=mining(8,a,random.nextInt(4),random.nextInt(4));boolean expect=!FixedResources.key(x.bindings.get(0)).equals(FixedResources.key(y.bindings.get(0)))&&!FixedResources.key(x.bindings.get(1)).equals(FixedResources.key(y.bindings.get(1)));check(FixedResources.evaluate(y,ledger(ns,Collections.singletonList(x),null),true).error.isEmpty()==expect,"random exclusivity");}
+        // Disconnect a host from a pool, preserve its UUID and retained storage, then reconnect.
+        int[] ports=new int[8];ports[0]=1;ports[1]=2;
+        Map<UUID,UUID> assignments=new HashMap<>();assignments.put(a.id,POOL);assignments.put(b.id,POOL);
+        List<TaskEngine.Node> connected=new ArrayList<>();for(int i=0;i<2;i++)if(PortMap.connected(ports,2,i))connected.add(ns.get(i));
+        check(connected.size()==2,"two LAN pool members");
+        PortMap.detach(ports,1);connected.clear();for(int i=0;i<2;i++)if(PortMap.connected(ports,2,i))connected.add(ns.get(i));
+        check(connected.size()==1&&!ledger(connected,Collections.singletonList(disk),null).index.containsKey(b.id),"disconnected host not allocatable");
+        check(assignments.get(b.id).equals(POOL)&&!disk.bindings.isEmpty(),"pool assignment and reserves retained");
+        p=run(connected,Collections.singletonList(next),5);check(p.tasks.get(5).units==0,"disconnected host cannot run");
+        ports[1]=2;connected.add(b);check(PortMap.connected(ports,2,1)&&b.pool.equals(assignments.get(b.id)),"original pool restored");
+        p=run(connected,Arrays.asList(disk,next),4,5);check(p.tasks.get(5).units==1&&p.disk[1]==128,"reconnected host resumes with retained data");
         System.out.println("PASS fixed resources: "+checks+" assertions");
     }
 }
