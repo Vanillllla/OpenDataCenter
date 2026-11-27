@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DCD",
+    "RNR",
+    "GCG"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "N": {
+      "item": "odc:nvme_basic"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "result": {
+    "item": "odc:nvme_pro",
+    "count": 1
+  }
+}

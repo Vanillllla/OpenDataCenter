@@ -2,5 +2,13 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "odc:items/chassis_2u"
-  }
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "odc:ready": 1.0
+      },
+      "model": "odc:item/chassis_2u_ready"
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 package odc;
 
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.inventory.ItemStackHelper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -30,9 +30,12 @@ public final class Tiles {
         @Override public SPacketUpdateTileEntity getUpdatePacket(){return new SPacketUpdateTileEntity(pos,0,getUpdateTag());}
         @Override public void onDataPacket(NetworkManager net,SPacketUpdateTileEntity pkt){readFromNBT(pkt.getNbtCompound());if(world!=null)world.markBlockRangeForRenderUpdate(pos,pos);}
     }
-    public static abstract class InventoryTile extends Owned implements IInventory {
+    public static abstract class InventoryTile extends Owned implements ISidedInventory {
         final NonNullList<ItemStack> slots;
         InventoryTile(int count){slots=NonNullList.withSize(count,ItemStack.EMPTY);}
+        @Override public int[] getSlotsForFace(EnumFacing side){return new int[0];}
+        @Override public boolean canInsertItem(int i,ItemStack s,EnumFacing side){return false;}
+        @Override public boolean canExtractItem(int i,ItemStack s,EnumFacing side){return false;}
         @Override public int getSizeInventory(){return slots.size();}
         @Override public boolean isEmpty(){for(ItemStack s:slots)if(!s.isEmpty())return false;return true;}
         @Override public ItemStack getStackInSlot(int i){return slots.get(i);}
@@ -50,71 +53,59 @@ public final class Tiles {
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);slots.clear();ItemStackHelper.loadAllItems(n,slots);}
     }
     static final class Buffer extends EnergyStorage {
-        final TileEntity tile;
+        final TileEntity tile; long lastFeed=Long.MIN_VALUE;
         Buffer(TileEntity tile,int capacity){super(capacity,50000,0);this.tile=tile;}
-        @Override public int receiveEnergy(int n,boolean simulate){if(n<=0)return 0;int v=super.receiveEnergy(n,simulate);if(v>0&&!simulate)tile.markDirty();return v;}
+        @Override public int receiveEnergy(int n,boolean simulate){if(n<=0)return 0;if(!simulate&&tile.getWorld()!=null)lastFeed=tile.getWorld().getTotalWorldTime();int v=super.receiveEnergy(n,simulate);if(v>0&&!simulate)tile.markDirty();return v;}
+        boolean fed(){return !ODC.requireEnergy||tile.getWorld()!=null&&lastFeed!=Long.MIN_VALUE&&tile.getWorld().getTotalWorldTime()-lastFeed<=5;}
         void load(int n){energy=Math.max(0,Math.min(capacity,n));}
-        boolean use(int n){if(n<0)return false;if(!ODC.requireEnergy)return true;if(energy<n)return false;energy-=n;tile.markDirty();return true;}
+        boolean use(int n){if(n<0)return false;if(!ODC.requireEnergy)return true;if(!fed()||energy<n)return false;energy-=n;tile.markDirty();return true;}
     }
     public static final class Rack extends InventoryTile {
-        final Buffer energy=new Buffer(this,12000);
-        final int[] assignments=new int[4], remainder=new int[4];
-        final Object[] editors=new Object[4];
-        final int[] status=new int[4], usedMbps=new int[4], neededMbps=new int[4], work=new int[4];
-        UUID controller;
-        BlockPos controllerPosition;
-        int runningMask, nextMask, lastPower, totalMbps, totalReward;
-        public Rack(){super(4);}
-        int[] layout(){int[] size=new int[4];for(int i=0;i<4;i++)size[i]=Hardware.units(slots.get(i));return size;}
+        final Buffer energy=new Buffer(this,100000);
+        final int[] ports=new int[8]; // 0 empty, otherwise bay+1
+        final int[] status=new int[9], work=new int[9], remainder=new int[9];
+        int role=0, enabledMask, miningMask, poweredMask, runningMask, lastPower, revision;
+        boolean switchOnline;
+        UUID id=UUID.randomUUID();
+        public Rack(){super(9);}
+        int capacity(){return role==1?9:4;}
+        Rack master(){if(role!=-1)return this;if(world==null||!world.isBlockLoaded(pos.down()))return null;TileEntity t=world.getTileEntity(pos.down());return t instanceof Rack&&((Rack)t).role==1?(Rack)t:null;}
+        int[] layout(){int[] a=new int[capacity()];for(int i=0;i<a.length;i++)a[i]=Hardware.rackUnits(slots.get(i));return a;}
         int startAt(int bay){return RackLayout.startAt(layout(),bay);}
-        int bayType(int bay){int i=startAt(bay);if(i<0)return 0;int type=Hardware.gpus(slots.get(i))>0?2:1;return type+((runningMask&(1<<i))!=0?2:0);}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){return editors[i]==null&&RackLayout.canInsert(layout(),i,Hardware.units(s));}
-        int hash(){int n=0;for(ItemStack s:slots)n+=Hardware.hash(s);return n;}
-        int watts(){int n=0;for(ItemStack s:slots)n+=Hardware.power(s);return n;}
-        int serverCount(){int n=0;for(int i=0;i<4;i++)if(startAt(i)==i)n++;return n;}
-        private void resetBay(int i){assignments[i]=0;remainder[i]=0;runningMask&=~(1<<i);nextMask&=~(1<<i);status[i]=0;usedMbps[i]=neededMbps[i]=work[i]=0;}
-        @Override public void setInventorySlotContents(int i,ItemStack s){if((world==null||!world.isRemote)&&(s.isEmpty()||!ItemStack.areItemStacksEqual(slots.get(i),s)))resetBay(i);super.setInventorySlotContents(i,s);}
-        @Override public ItemStack decrStackSize(int i,int count){if((world==null||!world.isRemote)&&count>0&&!slots.get(i).isEmpty())resetBay(i);return super.decrStackSize(i,count);}
-        @Override public ItemStack removeStackFromSlot(int i){if(world==null||!world.isRemote)resetBay(i);return super.removeStackFromSlot(i);}
-        @Override public void clear(){if(world==null||!world.isRemote)for(int i=0;i<4;i++)resetBay(i);super.clear();}
-        boolean cycleController(){List<Computer> choices=Network.controllers(world,this);int at=-1;for(int i=0;i<choices.size();i++)if(choices.get(i).id.equals(controller))at=i;
-            // Including an explicit disconnected state after the last controller.
-            int next=at+1;Computer c=next<choices.size()?choices.get(next):null;
-            UUID id=c==null?null:c.id;if(Objects.equals(controller,id))return false;
-            controller=id;controllerPosition=c==null?null:c.getPos();for(int i=0;i<4;i++)resetBay(i);changed();return true;}
-        boolean cycleTask(int bay){if(bay<0||bay>=4||startAt(bay)!=bay||editors[bay]!=null)return false;
-            if(controller==null){List<Computer> choices=Network.controllers(world,this);if(choices.isEmpty())return false;controller=choices.get(0).id;controllerPosition=choices.get(0).getPos();}
-            assignments[bay]=(assignments[bay]+1)%4;runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=0;changed();return true;}
-        boolean beginEdit(int bay,Object token){if(bay<0||bay>=4||startAt(bay)!=bay||editors[bay]!=null)return false;editors[bay]=token;runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=ComputeEngine.MAINTENANCE;changed();return true;}
-        void endEdit(int bay,Object token){if(editors[bay]==token){editors[bay]=null;changed();}}
-        boolean editing(int bay){return editors[bay]!=null;}
-        void partsChanged(int bay){runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=ComputeEngine.MAINTENANCE;remainder[bay]=0;usedMbps[bay]=neededMbps[bay]=work[bay]=0;changed();}
-        void resetCycle(){nextMask=0;lastPower=totalMbps=totalReward=0;controllerPosition=null;
-            for(int i=0;i<4;i++){status[i]=editing(i)?ComputeEngine.MAINTENANCE:!slots.get(i).isEmpty()&&Hardware.state(slots.get(i))!=ServerSpec.READY?ComputeEngine.INCOMPLETE:assignments[i]==0?ComputeEngine.IDLE:ComputeEngine.NO_CONTROLLER;usedMbps[i]=neededMbps[i]=work[i]=0;}}
-        void finishCycle(){if(runningMask!=nextMask){runningMask=nextMask;changed();}}
-        @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY||super.hasCapability(c,f);}
-        @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY?CapabilityEnergy.ENERGY.cast(energy):super.getCapability(c,f);}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());if(controller!=null)n.setUniqueId("Controller",controller);n.setIntArray("Tasks",assignments);n.setIntArray("RewardRemainders",remainder);n.setInteger("RunningMask",runningMask);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));controller=n.hasUniqueId("Controller")?n.getUniqueId("Controller"):null;int[] tasks=n.getIntArray("Tasks"),rem=n.getIntArray("RewardRemainders");
-            for(int i=0;i<4;i++){assignments[i]=i<tasks.length&&tasks[i]>=1&&tasks[i]<=3&&startAt(i)==i&&controller!=null?tasks[i]:0;remainder[i]=i<rem.length?Math.max(0,Math.min(999,rem[i])):0;}runningMask=n.getInteger("RunningMask")&15;}
-        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){runningMask=0;nextMask=0;}}
+        int switchTier(){for(ItemStack s:slots){int t=Hardware.switchTier(s);if(t>0)return t;}return 0;}
+        int switchBay(){for(int i=0;i<capacity();i++)if(Hardware.switchTier(slots.get(i))>0)return i;return -1;}
+        int portOf(int bay){return PortMap.portOf(ports,bay);}
+        int serverCount(){int n=0;for(int i=0;i<capacity();i++)if(Hardware.units(slots.get(i))>0)n++;return n;}
+        boolean isServer(int bay){return bay>=0&&bay<capacity()&&Hardware.units(slots.get(bay))>0;}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){return role!=-1&&i<capacity()&&slots.get(i).isEmpty()&&RackLayout.canInsert(layout(),i,Hardware.rackUnits(s))&&(Hardware.switchTier(s)==0||switchTier()==0);}
+        void refund(int count,EntityPlayer player){if(count<=0||world==null||world.isRemote)return;ItemStack stack=new ItemStack(Hardware.PATCH,count);if(player!=null)player.inventory.addItemStackToInventory(stack);if(!stack.isEmpty())net.minecraft.inventory.InventoryHelper.spawnItemStack(world,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,stack);}
+        int clearPorts(){return PortMap.clear(ports);}
+        void detach(int i){if(world==null||world.isRemote)return;int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;}
+        @Override public void setInventorySlotContents(int i,ItemStack s){if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);}
+        @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
+        @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
+        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;enabledMask^=bit;if((enabledMask&bit)==0){poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
+        boolean connect(int bay,int port,EntityPlayer p){if(!isServer(bay)||Hardware.nic(slots.get(bay))==0)return false;
+            int found=-1;for(int i=0;i<p.inventory.mainInventory.size();i++)if(!p.inventory.mainInventory.get(i).isEmpty()&&p.inventory.mainInventory.get(i).getItem()==Hardware.PATCH){found=i;break;}
+            int result=PortMap.toggle(ports,Hardware.ports(switchTier()),port,bay,found>=0);if(result==PortMap.REJECT)return false;
+            if(result==PortMap.CONNECTED){p.inventory.mainInventory.get(found).shrink(1);p.inventory.markDirty();}else refund(1,p);changed();return true;
+        }
+        @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY&&master()!=null||super.hasCapability(c,f);}
+        @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){Rack m=master();return c==CapabilityEnergy.ENERGY?(m==null?null:CapabilityEnergy.ENERGY.cast(m.energy)):super.getCapability(c,f);}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setIntArray("Ports",ports);n.setIntArray("Remainder",remainder);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
+        @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
+        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }
-    public static final class Assembler extends InventoryTile {
-        // Keep legacy slots 0..6 unchanged: chassis, CPU, GPUs, output.
-        static final int[] PART_SLOTS={7,1,8,9,10,11,12,13,2,3,4,5};
-        public Assembler(){super(14);}
-        int chassis(){return Hardware.size(slots.get(0));}
-        NonNullList<ItemStack> parts(){NonNullList<ItemStack> p=Hardware.emptyParts();for(int i=0;i<p.size();i++)p.set(i,slots.get(PART_SLOTS[i]));return p;}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){
-            if(i==0)return Hardware.size(s)>0;
-            for(int j=0;j<PART_SLOTS.length;j++)if(PART_SLOTS[j]==i){int u=chassis(),board=Hardware.partTier(0,slots.get(7));return Hardware.accepts(j,s)&&(u==0||ServerSpec.fits(u,board,j));}return false;
-        }
-        boolean assemble(){int u=chassis();if(u==0||!slots.get(6).isEmpty())return false;
-            NonNullList<ItemStack> p=parts();int state=ServerSpec.state(u,Hardware.tiers(p));
-            // Allow incomplete chassis for fitting inside rack, but never illegal contents.
-            if(state==ServerSpec.INVALID||state==ServerSpec.CAPACITY)return false;
-            slots.set(6,Hardware.build(u,p));slots.set(0,ItemStack.EMPTY);for(int i:PART_SLOTS)slots.set(i,ItemStack.EMPTY);changed();return true;
-        }
+    /** The only persistent inventory is the chassis. Parts are read/written inside its NBT. */
+    public static final class Workbench extends InventoryTile {
+        Object editor;
+        public Workbench(){super(1);}
+        int chassis(){return Hardware.units(slots.get(0));}
+        NonNullList<ItemStack> parts(){return Hardware.parts(slots.get(0));}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){return i==0&&Hardware.units(s)>0;}
+        @Override public void setInventorySlotContents(int i,ItemStack s){if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);}
+        void write(NonNullList<ItemStack> parts){Hardware.writeParts(slots.get(0),parts);changed();}
     }
     /** Powered devices consume their own idle load each game tick. */
     public static abstract class Powered extends Owned implements ITickable {
@@ -128,18 +119,16 @@ public final class Tiles {
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){online=false;markDirty();}}
     }
     public static final class Computer extends Powered {
-        UUID id=UUID.randomUUID();int enabledMask;
-        final int[][] jobStats=new int[3][6]; // assigned, active, effective work, allocated Mbps, milli-NTC/s, requested Mbps
+        UUID id=UUID.randomUUID();
+        int[] miningStats=new int[6]; // assigned, active, effective work, allocated Mbps, milli-NTC/s, requested Mbps
         int racks, servers, uplink, switching, networkUsed, clusterPower;
         @Override int idlePower(){return 5;}
-        boolean enabled(int task){return task>=1&&task<=3&&(enabledMask&(1<<(task-1)))!=0;}
-        void toggle(int task){if(task>=1&&task<=3){enabledMask^=1<<(task-1);markDirty();}}
-        void resetCycle(){for(int[] s:jobStats)Arrays.fill(s,0);racks=servers=uplink=switching=networkUsed=clusterPower=0;}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setUniqueId("ControllerId",id);n.setInteger("EnabledTasks",enabledMask);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("ControllerId"))id=n.getUniqueId("ControllerId");enabledMask=n.getInteger("EnabledTasks")&7;}
+        void resetCycle(){Arrays.fill(miningStats,0);racks=servers=uplink=switching=networkUsed=clusterPower=0;}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setUniqueId("ControllerId",id);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("ControllerId"))id=n.getUniqueId("ControllerId");}
     }
-    public static final class Switch extends Powered {@Override int idlePower(){return 8;}}
-    public static final class Station extends Powered {@Override int idlePower(){return 12;}}
+    
+    public static final class Station extends Powered {boolean satellite(){return world!=null&&world.getBlockState(pos).getBlock()==Hardware.SATELLITE;} int bandwidth(){return satellite()?512:128;} @Override int idlePower(){return satellite()?40:12;}}
     public static final class Battery extends Owned implements ITickable {
         int round=0;
         @Override public void update(){if(world.isRemote||world.getTotalWorldTime()%5!=0)return;List<Network.Endpoint> ends=Network.power(world,pos);if(ends.isEmpty())return;int budget=ODC.batteryOutput*5;int start=Math.floorMod(round++,ends.size());for(int i=0;i<ends.size()&&budget>0;i++){Network.Endpoint end=ends.get((start+i)%ends.size());budget-=end.energy.receiveEnergy(budget,false);}}

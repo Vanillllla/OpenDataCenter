@@ -1,0 +1,80 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "active": "false"
+      },
+      "apply": {
+        "model": "odc:power_relay_off"
+      }
+    },
+    {
+      "when": {
+        "active": "true"
+      },
+      "apply": {
+        "model": "odc:power_relay_on"
+      }
+    },
+    {
+      "when": {
+        "north": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "when": {
+        "east": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 0,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 0,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 0,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 270,
+        "y": 0
+      }
+    },
+    {
+      "when": {
+        "down": "true"
+      },
+      "apply": {
+        "model": "odc:power_cable_arm",
+        "x": 90,
+        "y": 0
+      }
+    }
+  ]
+}

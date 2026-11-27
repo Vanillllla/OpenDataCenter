@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "NSN",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "N": {
+      "item": "odc:nic_pro"
+    },
+    "S": {
+      "item": "odc:switch_basic"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    }
+  },
+  "result": {
+    "item": "odc:switch_pro",
+    "count": 1
+  }
+}

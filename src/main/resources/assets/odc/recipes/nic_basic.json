@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GRG",
+    "ICI",
+    " E "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "odc:cpu_basic"
+    },
+    "E": {
+      "item": "odc:ethernet_patch"
+    }
+  },
+  "result": {
+    "item": "odc:nic_basic",
+    "count": 1
+  }
+}

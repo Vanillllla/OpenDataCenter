@@ -1,5 +1,4 @@
 package odc;
-
 import net.minecraft.block.Block;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.Gui;
@@ -7,8 +6,10 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
@@ -16,70 +17,41 @@ import java.util.Locale;
 
 @Mod.EventBusSubscriber(modid=ODC.ID,value=Side.CLIENT)
 public final class Client {
-    @SubscribeEvent public static void models(ModelRegistryEvent e){for(Block b:Hardware.BLOCKS)model(Item.getItemFromBlock(b));for(Item i:Hardware.ITEMS)model(i);}
+    @SubscribeEvent public static void models(ModelRegistryEvent e){for(Block b:Hardware.BLOCKS)model(Item.getItemFromBlock(b));for(Item i:Hardware.ITEMS)model(i);ClientRegistry.bindTileEntitySpecialRenderer(Tiles.Rack.class,new RackRenderer());}
     private static void model(Item i){ModelLoader.setCustomModelResourceLocation(i,0,new ModelResourceLocation(i.getRegistryName(),"inventory"));}
     static String amount(int milli){return String.format(Locale.ROOT,"%.3f",milli/1000.0);}
     static String tr(String key,Object... args){return I18n.format("gui.odc."+key,args);}
-    static String task(int n){return tr("task."+Math.max(0,Math.min(3,n)));}
     public static final class Screen extends GuiContainer {
-        final Menus.Menu menu;
-        final int TEXT=0xffe2e5e5,MUTED=0xffa5adb0,GREEN=0xff8cdda4,AMBER=0xffe5bf76,RED=0xffeb9888;
+        final Menus.Menu menu;final int TEXT=0xffe2e5e5,MUTED=0xffa5adb0,GREEN=0xff8cdda4,AMBER=0xffe5bf76,RED=0xffeb9888;
         Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=Menus.H;}
-        @Override public void initGui(){super.initGui();
-            if(menu.type==Menus.ASSEMBLY)button(0,139,81,65,20,tr("assemble"));
-            if(menu.type==Menus.SERVER)button(21,173,7,64,16,tr("back"));
-            if(menu.type==Menus.RACK){button(9,161,26,77,18,tr("link"));for(int i=0;i<4;i++){button(i+1,53,47+i*23,67,20,task(0));button(30+i,122,47+i*23,43,20,tr("edit"));}}
-            if(menu.type==Menus.CONTROL){button(20,173,7,64,16,tr("market"));for(int i=0;i<3;i++)button(i+1,181,76+i*23,56,20,tr("start"));}
-            if(menu.type==Menus.MARKET){button(21,173,7,64,16,tr("back"));for(int i=0;i<4;i++)button(10+i,10+i*60,109,48,19,tr("buy"));}
+        @Override public void initGui(){super.initGui();int type=menu.type;
+            if(type==Menus.RACK){for(int i=0;i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i);button(10+i,x+49,y-1,32,18,"On");button(30+i,x+83,y-1,43,18,"Link");}for(int i=0;i<8;i++)button(50+i,12+i*34,138,32,17,"P"+(i+1));}
+            if(type==Menus.CONTROL){button(102,184,6,48,18,tr("refresh"));button(2,234,6,57,18,tr("market"));button(1,10,128,56,18,tr("start_all"));button(3,68,128,56,18,tr("stop_all"));button(100,192,128,23,18,"<");button(101,268,128,23,18,">");for(int i=0;i<5;i++){button(20+i,205,47+i*16,42,15,"Mine");button(30+i,249,47+i*16,41,15,"On");}}
+            if(type==Menus.MARKET){button(2,234,6,57,18,tr("back"));for(int i=0;i<4;i++)button(10+i,10+i*68,99,64,18,tr("buy"));}
         }
         void button(int id,int x,int y,int w,int h,String label){buttonList.add(new GuiButton(id,guiLeft+x,guiTop+y,w,h,label));}
         @Override protected void actionPerformed(GuiButton b){if(b.enabled&&mc.playerController!=null)mc.playerController.sendEnchantPacket(menu.windowId,b.id);}
-        @Override public void updateScreen(){super.updateScreen();int[] d=menu.data;
-            for(GuiButton b:buttonList){
-                if(menu.type==Menus.RACK&&b.id>=1&&b.id<=4){int i=b.id-1;b.enabled=d[7+i]==i+1&&d[32+i]==0;b.displayString=task(d[11+i]);}
-                if(menu.type==Menus.RACK&&b.id>=30&&b.id<34){int i=b.id-30;b.enabled=d[7+i]==i+1&&d[32+i]==0;}
-                if(menu.type==Menus.ASSEMBLY&&b.id==0){int u=menu.chassis(),state=ServerSpec.state(u,Hardware.tiers(menu.parts()));b.enabled=u>0&&state!=ServerSpec.INVALID&&state!=ServerSpec.CAPACITY&&!menu.getSlot(menu.machineSlots-1).getHasStack();}
-                if(menu.type==Menus.CONTROL&&b.id>=1&&b.id<=3){b.enabled=d[1]==1;b.displayString=tr((d[8]&(1<<(b.id-1)))!=0?"stop":"start");}
-                if(menu.type==Menus.MARKET&&b.id>=10&&b.id<=13){int p=d[3+b.id-10];b.enabled=d[1]==1&&p>0&&d[0]>=p;b.displayString=p>0?amount(p):"--";}
-            }
+        @Override public void updateScreen(){super.updateScreen();int[] d=menu.data;for(GuiButton b:buttonList){int id=b.id;
+            if(menu.type==Menus.RACK){if(id>=50){int i=id-50;b.visible=i<Hardware.ports(d[3]);b.enabled=b.visible;b.displayString=(d[5]==i?">":"")+(i+1)+":"+(d[40+i]>0?d[40+i]:"-");}else {int i=id>=30?id-30:id-10;ItemStack s=menu.getSlot(i).getStack();b.visible=i<d[0]&&Hardware.units(s)>0;b.enabled=b.visible;if(id>=30){b.displayString=d[20+i]>0?"P"+d[20+i]+" -":"+ P"+(d[5]+1);b.enabled=b.visible&&Hardware.nic(s)>0&&(d[20+i]>0||d[3]>0&&d[40+d[5]]==0);}else{b.displayString=(d[6]&(1<<i))!=0?tr("off_short"):tr("on_short");b.enabled=b.visible&&((d[6]&(1<<i))!=0||Hardware.state(s)==ServerSpec.READY);}}}
+            if(menu.type==Menus.CONTROL){if(id>=20&&id<35){int i=id>=30?id-30:id-20,k=20+i*8;b.visible=d[k]==1;b.enabled=b.visible&&d[1]==1;b.displayString=id>=30?((d[k+5]&1)!=0?tr("off_short"):tr("on_short")):((d[k+5]&2)!=0?tr("stop_short"):tr("mine_short"));}else if(id==100)b.enabled=d[10]>0;else if(id==101)b.enabled=d[10]+1<d[11];else if(id==1||id==3)b.enabled=d[1]==1;}
+            if(menu.type==Menus.MARKET&&id>=10&&id<=13){int price=d[3+id-10];b.enabled=d[1]==1&&price>0&&d[0]>=price;b.displayString=price>0?amount(price):"--";}}
         }
-        void panel(int x,int y,int w,int h,int color){Gui.drawRect(guiLeft+x,guiTop+y,guiLeft+x+w,guiTop+y+h,color);}
+        void panel(int x,int y,int w,int h,int c){Gui.drawRect(guiLeft+x,guiTop+y,guiLeft+x+w,guiTop+y+h,c);}
         void slot(int x,int y){panel(x-1,y-1,18,18,0xff687174);panel(x,y,16,16,0xff171c1e);}
-        @Override protected void drawGuiContainerBackgroundLayer(float partialTicks,int mx,int my){
-            panel(0,0,xSize,ySize,0xff111517);panel(1,1,xSize-2,ySize-2,0xff51575a);panel(3,3,xSize-6,ySize-6,0xff2d3335);
-            panel(4,4,xSize-8,21,0xff202527);panel(4,24,xSize-8,1,0xff6d787b);panel(8,27,xSize-16,122,0xff22292b);panel(8,151,xSize-16,77,0xff303638);
-            for(net.minecraft.inventory.Slot s:menu.inventorySlots)slot(s.xPos,s.yPos);
-            if(menu.type==Menus.RACK){for(int i=0;i<4;i++){int start=menu.data[7+i]-1;if(start>=0&&start!=i)panel(14,49+i*23,16,16,0xff51595b);}}
-            if(menu.type==Menus.SERVER||menu.type==Menus.ASSEMBLY){for(int i=0;i<ServerSpec.COUNT;i++){int index=i+(menu.type==Menus.ASSEMBLY?1:0);if(!menu.fits(i)&&!menu.getSlot(index).getHasStack()){int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);panel(x,y,16,16,0xff45494a);panel(x+3,y+7,10,2,0xff666d70);}}}
-            if(menu.type==Menus.CONTROL){int[] d=menu.data;int cap=Math.min(d[5],d[6]);panel(12,65,224,5,0xff121719);if(cap>0)panel(12,65,(int)Math.min(224,(long)224*d[7]/cap),5,0xff67b68a);for(int i=0;i<3;i++)panel(10,75+i*23,228,21,i%2==0?0xff30383a:0xff283032);}
+        @Override protected void drawGuiContainerBackgroundLayer(float f,int mx,int my){panel(0,0,xSize,ySize,0xff111719);panel(1,1,xSize-2,ySize-2,0xff717a7e);panel(3,3,xSize-6,ySize-6,0xff2c353a);panel(4,4,xSize-8,21,0xff1d282e);panel(5,27,xSize-10,129,0xff222c31);panel(5,158,xSize-10,78,0xff354047);
+            for(net.minecraft.inventory.Slot s:menu.inventorySlots)if(s.isEnabled())slot(s.xPos,s.yPos);
+            if(menu.type==Menus.RACK){for(int i=0;i<9;i++)if(i<menu.data[0]){int start=menu.data[10+i]-1;if(start>=0&&start!=i)panel(Menus.Menu.rackX(i),Menus.Menu.rackY(i),16,16,0xff526067);}}
+            if(menu.type==Menus.WORKBENCH)for(int i=0;i<ServerSpec.COUNT;i++)if(!menu.fits(i)){int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);panel(x,y,16,16,0xff454d50);panel(x+3,y+7,10,2,0xff6b7478);}
+            if(menu.type==Menus.CONTROL)for(int i=0;i<5;i++)panel(9,47+i*16,282,15,i%2==0?0xff303d44:0xff28353c);
         }
-        void label(String s,int x,int y,int col){fontRenderer.drawString(s,x,y,col);}
-        void clipped(String s,int x,int y,int width,int col){label(fontRenderer.trimStringToWidth(s,width),x,y,col);}
-        @Override protected void drawGuiContainerForegroundLayer(int mx,int my){
-            String[] names={"rack","assembly","control","market","switch","station","hardware"};label(tr(names[menu.type]),10,11,TEXT);int[] d=menu.data;
-            if(menu.type==Menus.RACK){
-                String linked=d[3]==0?tr("unlinked"):d[3]==1?tr("link_lost"):tr("linked",d[4],d[5],d[6]);clipped(linked,12,31,145,d[3]==2?GREEN:MUTED);
-                for(int i=0;i<4;i++){int start=d[7+i]-1;label((i+1)+"U",34,54+i*23,MUTED);if(start==i){int status=d[15+i];if(status==ComputeEngine.IDLE&&Hardware.state(menu.getSlot(i).getStack())!=ServerSpec.READY)status=ComputeEngine.INCOMPLETE;clipped(tr("status."+status),169,49+i*23,68,status==ComputeEngine.RUNNING?GREEN:status==ComputeEngine.THROTTLED?AMBER:MUTED);clipped(d[19+i]+"/"+d[23+i]+" Mb/s",169,59+i*23,68,TEXT);}else if(start>=0)label(tr("occupied",start+1),169,54+i*23,MUTED);}
-                clipped(d[0]+" FE | "+d[1]+" FE/t | "+d[2]+" Mb/s",12,139,224,TEXT);
-            }else if(menu.type==Menus.ASSEMBLY||menu.type==Menus.SERVER){
-                boolean assembly=menu.type==Menus.ASSEMBLY;
-                if(assembly)clipped(tr("chassis"),10,31,37,MUTED);else label(menu.chassis()+"U",14,47,TEXT);
-                clipped(tr("board"),46,31,32,MUTED);label("CPU",78,31,MUTED);label("RAM",110,31,MUTED);clipped(tr("drives"),187,31,49,MUTED);
-                label(tr("gpu_slots"),12,71,MUTED);if(assembly)clipped(tr("output"),210,71,32,MUTED);
-                int[] p=Hardware.tiers(menu.parts());int state=ServerSpec.state(menu.chassis(),p);
-                clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),12,108,224,state==ServerSpec.READY?GREEN:AMBER);
-                int vram=4*ServerSpec.gpuCount(p,1)+16*ServerSpec.gpuCount(p,2);
-                clipped(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB Disk | "+vram+" GB VRAM",12,120,224,TEXT);
-                clipped(tr(assembly?"assemble_help":"maintenance_help"),12,134,224,MUTED);
-            }
-            else if(menu.type==Menus.CONTROL){
-                label(d[1]==1?tr("online"):tr("offline"),12,30,d[1]==1?GREEN:RED);clipped(tr("wallet",amount(d[0])),116,30,121,GREEN);
-                clipped(tr("cluster",d[3],d[4])+" | "+d[27]+" FE/t",12,42,224,TEXT);
-                clipped(tr("network",d[5],d[6],d[7]),12,54,224,MUTED);
-                for(int i=0;i<3;i++){int base=9+i*6;int y=76+i*23;label(task(i+1),13,y,TEXT);label(d[base+1]+"/"+d[base],67,y,MUTED);String units=i==0?" H/s":i==1?" CU/s":" GB-eq";clipped(d[base+2]+units,100,y,78,GREEN);clipped(d[base+3]+"/"+d[base+5]+" Mb/s | "+amount(d[base+4])+" NTC/s",13,y+10,163,MUTED);}
-                label(tr("assign_hint"),12,144,MUTED);
-            }else if(menu.type==Menus.MARKET){label(tr("wallet",amount(d[0])),12,34,GREEN);label(d[1]==1?tr("market_hint"):tr("offline"),12,49,d[1]==1?MUTED:RED);label(tr("market_price"),12,64,TEXT);}
-            else {label(d[0]==1?tr("online"):tr("offline"),12,34,d[0]==1?GREEN:RED);label(tr("capacity",d[0]==1?d[1]:0,d[1]),12,51,TEXT);label(d[2]+" FE | "+d[3]+" FE/t",12,68,MUTED);label(tr(menu.type==Menus.SWITCH?"switch_hint":"station_hint"),12,91,TEXT);label(tr("network_hint"),12,105,MUTED);}
+        void label(String s,int x,int y,int c){fontRenderer.drawString(s,x,y,c);}
+        void clipped(String s,int x,int y,int width,int c){label(fontRenderer.trimStringToWidth(s,width),x,y,c);}
+        @Override protected void drawGuiContainerForegroundLayer(int mx,int my){int[] d=menu.data;String name=menu.type==Menus.RACK?tr("rack")+" "+d[0]+"U":menu.type==Menus.WORKBENCH?tr("assembly"):menu.type==Menus.CONTROL?tr("control"):menu.type==Menus.MARKET?tr("market"):tr("station");label(name,10,11,TEXT);
+            if(menu.type==Menus.RACK){label(d[1]+" FE | "+d[2]+" FE/t | "+tr("switch")+": "+(d[4]==1?"ON":"OFF"),12,27,MUTED);for(int i=0;i<d[0]&&i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i),start=d[10+i]-1;ItemStack s=menu.getSlot(i).getStack();label((i+1)+"U",x+19,y+3,MUTED);if(Hardware.units(s)>0)label((d[7]&(1<<i))!=0?"●":"·",x+39,y+3,(d[8]&(1<<i))!=0?GREEN:MUTED);else if(Hardware.switchTier(s)>0)clipped("SW T"+Hardware.switchTier(s),x+43,y+3,76,d[4]==1?GREEN:MUTED);else if(start>=0)clipped("↑ "+(start+1)+"U",x+45,y+3,70,MUTED);}if(d[3]==0)label(tr("no_switch"),12,141,AMBER);else clipped(tr("port_hint"),156,122,133,MUTED);}
+            else if(menu.type==Menus.WORKBENCH){clipped(tr("chassis"),10,27,33,MUTED);clipped(tr("board"),44,27,35,MUTED);label("CPU",82,27,MUTED);label("NIC",118,27,MUTED);label("NVMe",183,27,MUTED);label("RAM",12,59,MUTED);label("GPU",183,59,MUTED);label("SATA",12,94,MUTED);label("PSU",183,94,MUTED);int[] p=Hardware.spec(menu.getSlot(0).getStack());int state=ServerSpec.state(menu.chassis(),p);clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),12,125,276,state==0?GREEN:AMBER);clipped(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB | "+ServerSpec.psu(p)+" FE/t PSU | "+ServerSpec.nic(p)+" Mb/s",12,138,276,TEXT);}
+            else if(menu.type==Menus.CONTROL){clipped((d[1]==1?"ONLINE":"OFFLINE")+" | "+amount(d[0])+" NTC | "+d[8]+" H/s | "+d[2]+" FE/t",12,27,276,d[1]==1?GREEN:RED);clipped("WAN "+d[5]+" | LAN "+d[6]+" | "+d[7]+" Mb/s | "+d[4]+" SRV",12,37,276,MUTED);for(int i=0;i<5;i++){int k=20+i*8;if(d[k]==0)continue;clipped(d[k+1]+","+d[k+2]+","+d[k+3]+" / U"+d[k+4],12,51+i*16,112,TEXT);clipped(tr("status."+d[k+6])+" "+d[k+7],125,51+i*16,77,MUTED);}label((d[10]+1)+"/"+Math.max(1,d[11]),219,133,TEXT);clipped(amount(d[9])+" NTC/s",130,133,61,GREEN);}
+            else if(menu.type==Menus.MARKET){label(tr("wallet",amount(d[0])),12,35,GREEN);label(d[1]==1?tr("market_hint"):tr("offline"),12,49,MUTED);}
+            else {label(d[0]==1?tr("online"):tr("offline"),12,35,d[0]==1?GREEN:RED);label(d[1]+" Mb/s WAN | "+d[3]+" FE/t",12,51,TEXT);label(d[2]+" FE",12,66,MUTED);}
         }
         @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);renderHoveredToolTip(x,y);}
     }

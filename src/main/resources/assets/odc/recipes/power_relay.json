@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "CPC",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "C": {
+      "item": "odc:power_cable"
+    },
+    "P": {
+      "item": "minecraft:lever"
+    }
+  },
+  "result": {
+    "item": "odc:power_relay",
+    "count": 1
+  }
+}

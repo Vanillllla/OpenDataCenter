@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "CPC",
+    "IGI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "C": {
+      "item": "odc:power_cable"
+    },
+    "P": {
+      "item": "odc:psu_basic"
+    }
+  },
+  "result": {
+    "item": "odc:psu_pro",
+    "count": 1
+  }
+}

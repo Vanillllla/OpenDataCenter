@@ -1,5 +1,4 @@
 package odc;
-
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.common.Mod;
@@ -7,84 +6,41 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import java.util.*;
 
-/** Single authoritative scheduling pass per loaded server world, per 20 game ticks.
- * A physical server executes at most one workload. Multiple servers contribute to each task.
- * Each local domain shares its owner-specific uplink and switch capacity across all controllers.
- */
+/** Temporary single-workload engine for 0.3. No resource reservation, no offline earnings. */
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ClusterScheduler {
     private ClusterScheduler(){}
-    private static final class Request {
-        final Tiles.Rack rack;final Tiles.Computer controller;final int bay,task,rackIndex;final ComputeEngine.Profile profile;
-        Request(Tiles.Rack r,Tiles.Computer c,int b,int t,ComputeEngine.Profile p,int index){rack=r;controller=c;bay=b;task=t;profile=p;rackIndex=index;}
-    }
+    static final class Request { final Tiles.Rack rack;final int bay;final ComputeEngine.Profile profile;Request(Tiles.Rack r,int b,ComputeEngine.Profile p){rack=r;bay=b;profile=p;} }
     @SubscribeEvent public static void tick(TickEvent.WorldTickEvent e){
-        if(e.phase!=TickEvent.Phase.END||e.world.isRemote||e.world.getTotalWorldTime()%ComputeEngine.TICKS!=0)return;
-        World w=e.world;List<TileEntity> loaded=new ArrayList<>();
-        for(TileEntity t:new ArrayList<>(w.loadedTileEntityList))if(Network.isDataDevice(t)&&Network.live(w,t))loaded.add(t);
-        loaded.sort(Network.ORDER);
-        List<Tiles.Rack> racks=new ArrayList<>();
-        for(TileEntity t:loaded){if(t instanceof Tiles.Rack){Tiles.Rack r=(Tiles.Rack)t;r.resetCycle();racks.add(r);}else if(t instanceof Tiles.Computer)((Tiles.Computer)t).resetCycle();}
-        List<Network.Domain> domains=Network.domains(w,loaded);
-        if(domains!=null){int rotation=(int)(w.getTotalWorldTime()/ComputeEngine.TICKS);
-            for(Network.Domain d:domains){Map<UUID,List<Tiles.Owned>> byOwner=new LinkedHashMap<>();
-                for(Tiles.Owned t:d.devices)if(t.owner!=null)byOwner.computeIfAbsent(t.owner,k->new ArrayList<>()).add(t);
-                for(Map.Entry<UUID,List<Tiles.Owned>> group:byOwner.entrySet())runGroup(w,group.getKey(),group.getValue(),rotation);
-            }
-        }
-        for(Tiles.Rack r:racks)r.finishCycle();
+        World w=e.world;if(e.phase!=TickEvent.Phase.END||w.isRemote||w.getTotalWorldTime()%20!=0)return;
+        Network.revokeDisconnected(w);
+        List<TileEntity> loaded=new ArrayList<>();List<Tiles.Rack> racks=new ArrayList<>();Map<Tiles.Rack,Integer> old=new IdentityHashMap<>();
+        for(TileEntity t:new ArrayList<>(w.loadedTileEntityList))if(Network.isDataDevice(t)&&Network.live(w,t)){
+            loaded.add(t);if(t instanceof Tiles.Computer)((Tiles.Computer)t).resetCycle();
+            if(t instanceof Tiles.Rack&&((Tiles.Rack)t).role!=-1){Tiles.Rack r=(Tiles.Rack)t;racks.add(r);old.put(r,r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0));r.poweredMask=r.runningMask=r.lastPower=0;r.switchOnline=false;Arrays.fill(r.work,0);Arrays.fill(r.status,0);}}
+        loaded.sort(Network.ORDER);int rotation=(int)(w.getTotalWorldTime()/20);
+        // Idle loads are charged even without an active terminal or WAN connection.
+        for(Tiles.Rack r:racks){int st=r.switchTier();if(st>0&&r.energy.use(20*Hardware.switchPower(st))){r.switchOnline=true;r.lastPower+=Hardware.switchPower(st);}
+            for(int b=0;b<r.capacity();b++)if(r.isServer(b)){if(Hardware.state(r.slots.get(b))!=ServerSpec.READY){r.status[b]=ComputeEngine.INCOMPLETE;continue;}if((r.enabledMask&(1<<b))==0)continue;int idle=Hardware.idle(r.slots.get(b));if(r.energy.use(idle*20)){r.poweredMask|=1<<b;r.lastPower+=idle;}else r.status[b]=ComputeEngine.NO_POWER;}}
+        for(Network.Domain d:Network.domains(w,loaded)){Map<UUID,List<Tiles.Owned>> owners=new LinkedHashMap<>();for(Tiles.Owned t:d.devices)if(t.owner!=null)owners.computeIfAbsent(t.owner,k->new ArrayList<>()).add(t);for(Map.Entry<UUID,List<Tiles.Owned>> o:owners.entrySet())run(w,o.getKey(),o.getValue(),rotation);}
+        for(Tiles.Rack r:racks){int now=r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0);if(now!=old.get(r))r.changed();}
     }
     private static int add(int a,int b){return (int)Math.min(Integer.MAX_VALUE,(long)a+b);}
-    private static void runGroup(World w,UUID owner,List<Tiles.Owned> devices,int rotation){
-        int uplink=0,switching=0,clusterPower=0;
-        List<Tiles.Rack> racks=new ArrayList<>();Map<UUID,Tiles.Computer> controllers=new LinkedHashMap<>();
-        for(Tiles.Owned t:devices){
-            if(t instanceof Tiles.Station&&((Tiles.Station)t).online){uplink=add(uplink,ODC.stationBandwidth);clusterPower=add(clusterPower,12);}
-            else if(t instanceof Tiles.Switch&&((Tiles.Switch)t).online){switching=add(switching,ODC.switchBandwidth);clusterPower=add(clusterPower,8);}
-            else if(t instanceof Tiles.Computer){Tiles.Computer c=(Tiles.Computer)t;controllers.putIfAbsent(c.id,c);if(c.online)clusterPower=add(clusterPower,5);}
-            else if(t instanceof Tiles.Rack)racks.add((Tiles.Rack)t);
-        }
-        int capacity=ComputeEngine.networkCapacity(uplink,switching),serverCount=0;
-        for(Tiles.Rack r:racks)serverCount+=r.serverCount();
-        List<Request> requests=new ArrayList<>();
-        int[] budgets=new int[racks.size()];
-        for(int rackIndex=0;rackIndex<racks.size();rackIndex++){
-            Tiles.Rack r=racks.get(rackIndex);budgets[rackIndex]=ODC.requireEnergy?r.energy.getEnergyStored():Integer.MAX_VALUE;
-            Tiles.Computer c=controllers.get(r.controller);
-            if(c==null)continue;
-            r.controllerPosition=c.getPos();
-            for(int bay=0;bay<4;bay++){
-                int task=r.assignments[bay];if(r.startAt(bay)!=bay)continue;
-                if(task!=0)c.jobStats[task-1][0]++;
-                if(r.editing(bay)){r.status[bay]=ComputeEngine.MAINTENANCE;continue;}
-                if(Hardware.state(r.slots.get(bay))!=ServerSpec.READY){r.status[bay]=ComputeEngine.INCOMPLETE;continue;}
-                if(task==0)continue;
-                int[] stats=c.jobStats[task-1];
-                ComputeEngine.Profile p=Hardware.profile(r.slots.get(bay),task);r.neededMbps[bay]=p.mbps;stats[5]=add(stats[5],p.mbps);
-                if(!c.online){r.status[bay]=ComputeEngine.CONTROLLER_OFFLINE;continue;}
-                if(!c.enabled(task)){r.status[bay]=ComputeEngine.TASK_DISABLED;continue;}
-                if(p.work==0){r.status[bay]=ComputeEngine.INCOMPATIBLE;continue;}
-                if(capacity==0){r.status[bay]=ComputeEngine.NO_NETWORK;continue;}
-                requests.add(new Request(r,c,bay,task,p,rackIndex));
-            }
-        }
-        ComputeEngine.Profile[] profiles=new ComputeEngine.Profile[requests.size()];int[] rackOf=new int[requests.size()];
-        for(int i=0;i<requests.size();i++){profiles[i]=requests.get(i).profile;rackOf[i]=requests.get(i).rackIndex;}
-        ComputeEngine.Plan plan=ComputeEngine.plan(profiles,rackOf,budgets,capacity,rotation);int used=0;
-        Market.Ledger ledger=null;
-        for(int i=0;i<requests.size();i++){
-            Request q=requests.get(i);Tiles.Rack r=q.rack;int b=q.bay,grant=plan.bandwidth[i];
-            if(grant==0){r.status[b]=plan.energyLimitedBandwidth[i]==0?ComputeEngine.NO_POWER:ComputeEngine.NO_NETWORK;continue;}
-            int cost=plan.energyCost[i];
-            if(!r.energy.use(cost)){r.status[b]=ComputeEngine.NO_POWER;continue;}
-            long micro=q.profile.reward(grant)+r.remainder[b];int reward=(int)Math.min(Integer.MAX_VALUE,micro/1000);r.remainder[b]=(int)(micro%1000);
-            if(reward>0){if(ledger==null)ledger=Market.Ledger.get(w);ledger.credit(owner,reward);}
-            r.markDirty();r.nextMask|=1<<b;r.status[b]=grant<q.profile.mbps?ComputeEngine.THROTTLED:ComputeEngine.RUNNING;
-            r.usedMbps[b]=grant;r.work[b]=q.profile.effectiveWork(grant);r.totalMbps=add(r.totalMbps,grant);r.totalReward=add(r.totalReward,reward);
-            r.lastPower=add(r.lastPower,(cost+ComputeEngine.TICKS-1)/ComputeEngine.TICKS);used=add(used,grant);
-            int[] s=q.controller.jobStats[q.task-1];s[1]++;s[2]=add(s[2],r.work[b]);s[3]=add(s[3],grant);s[4]=add(s[4],reward);
-        }
-        for(Tiles.Rack r:racks)clusterPower=add(clusterPower,r.lastPower);
-        for(Tiles.Computer c:controllers.values()){c.racks=racks.size();c.servers=serverCount;c.uplink=uplink;c.switching=switching;c.networkUsed=used;c.clusterPower=clusterPower;}
+    private static void run(World w,UUID owner,List<Tiles.Owned> devices,int rotation){
+        List<Tiles.Rack> racks=new ArrayList<>();List<Tiles.Computer> cs=new ArrayList<>();int wan=0,lan=0,servers=0,power=0;boolean online=false;
+        for(Tiles.Owned t:devices){if(t instanceof Tiles.Station){Tiles.Station s=(Tiles.Station)t;if(s.online&&s.energy.fed()){wan=add(wan,s.bandwidth());power=add(power,s.idlePower());}}else if(t instanceof Tiles.Computer){Tiles.Computer c=(Tiles.Computer)t;cs.add(c);if(c.online&&c.energy.fed()){online=true;power=add(power,5);}}else if(t instanceof Tiles.Rack){Tiles.Rack r=(Tiles.Rack)t;racks.add(r);servers=add(servers,r.serverCount());if(r.switchOnline)lan=add(lan,Hardware.switchMbps(r.switchTier()));}}
+        List<Request> requests=new ArrayList<>();List<Integer> portCaps=new ArrayList<>(),rackOf=new ArrayList<>();int assigned=0,requested=0;
+        int[] switchCaps=new int[racks.size()],budgets=new int[racks.size()];
+        for(int ri=0;ri<racks.size();ri++){Tiles.Rack r=racks.get(ri);int st=r.switchTier();switchCaps[ri]=r.switchOnline?Hardware.switchMbps(st):0;budgets[ri]=ODC.requireEnergy?r.energy.getEnergyStored():Integer.MAX_VALUE;
+            for(int b=0;b<r.capacity();b++){if(!r.isServer(b)||(r.miningMask&(1<<b))==0)continue;assigned++;if((r.poweredMask&(1<<b))==0)continue;if(!online){r.status[b]=ComputeEngine.NO_CONTROLLER;continue;}
+                ComputeEngine.Profile profile=Hardware.profile(r.slots.get(b));requested=add(requested,profile.mbps);if(!r.switchOnline||r.portOf(b)<0||wan==0||profile.work<=0){r.status[b]=ComputeEngine.NO_NETWORK;continue;}
+                requests.add(new Request(r,b,profile));portCaps.add(Math.min(Hardware.nic(r.slots.get(b)),Hardware.portMbps(st)));rackOf.add(ri);}}
+        int n=requests.size();ComputeEngine.Profile[] profiles=new ComputeEngine.Profile[n];int[] owners=new int[n],limits=new int[n];for(int i=0;i<n;i++){profiles[i]=requests.get(i).profile;owners[i]=rackOf.get(i);limits[i]=portCaps.get(i);}
+        ComputeEngine.Plan plan=ComputeEngine.plan(profiles,owners,limits,switchCaps,budgets,wan,rotation);int[] grant=plan.bandwidth;
+        int active=0,hash=0,used=0,reward=0;Market.Ledger ledger=null;
+        for(int i=0;i<grant.length;i++){Request q=requests.get(i);Tiles.Rack r=q.rack;int b=q.bay,g=grant[i];if(g<=0){r.status[b]=plan.local[i]>0&&plan.energyLimited[i]==0?ComputeEngine.NO_POWER:ComputeEngine.NO_NETWORK;continue;}int cost=plan.energyCost[i];if(!r.energy.use(cost)){r.status[b]=ComputeEngine.NO_POWER;continue;}
+            r.runningMask|=1<<b;r.status[b]=g<q.profile.mbps?ComputeEngine.THROTTLED:ComputeEngine.RUNNING;r.work[b]=q.profile.effectiveWork(g);r.lastPower=add(r.lastPower,(cost+19)/20);long micro=q.profile.reward(g)+r.remainder[b];int amount=(int)Math.min(Integer.MAX_VALUE,micro/1000);r.remainder[b]=(int)(micro%1000);r.markDirty();if(amount>0){if(ledger==null)ledger=Market.Ledger.get(w);ledger.credit(owner,amount);}active++;hash=add(hash,r.work[b]);used=add(used,g);reward=add(reward,amount);}
+        for(Tiles.Rack r:racks)power=add(power,r.lastPower);
+        for(Tiles.Computer c:cs){c.racks=racks.size();c.servers=servers;c.uplink=wan;c.switching=lan;c.networkUsed=used;c.clusterPower=power;c.miningStats=new int[]{assigned,active,hash,used,reward,requested};}
     }
 }

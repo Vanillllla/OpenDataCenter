@@ -14,7 +14,7 @@ def render(instances,scale=8):
     def proj(p):x,y,z=p;return np.array([(.866*x+.5*z)*scale,(.30*x-.30*z-y)*scale])
     view=np.array([.5,.4098,-.866]);face_data=[];allp=[]
     for name,offset in instances:
-        m=json.loads((assets/f'models/block/{name}.json').read_text());offset=np.array(offset)
+        m=name if isinstance(name,dict) else json.loads((assets/f'models/block/{name}.json').read_text());offset=np.array(offset)
         for e in m['elements']:
             x,y,z=np.array(e['from'])+offset;X,Y,Z=np.array(e['to'])+offset
             for f,points,shade in [('north',[(x,Y,z),(X,Y,z),(x,y,z)],1.0),('east',[(X,Y,z),(X,Y,Z),(X,y,z)],.75),('up',[(x,Y,Z),(X,Y,Z),(x,Y,z)],1.12)]:
@@ -34,26 +34,42 @@ def render(instances,scale=8):
         out[y0:y1,x0:x1][mask]=rgba[mask];region[mask]=depth[mask]
     return Image.fromarray(out,'RGBA')
 
-def rack_state(glass,values,offset=(0,0,0)):
-    return [('rack_glass' if glass else 'rack',offset)]+[(f'bay{i}_{v}',offset) for i,v in enumerate(values) if v]
+def dynamic_module(start,units,total,kind='server',ready=True,active=True):
+    pitch=30/9 if total==9 else 14/4
+    b=1+start*pitch+.144;t=1+(start+units)*pitch-.144
+    textures={'steel':'odc:blocks/steel','front':'odc:blocks/'+(f'server_{units}_'+('ready' if ready else 'empty') if kind=='server' else 'switch_panel_2'),'led':'odc:blocks/'+('led_on' if active else 'led_off')}
+    def elem(a,b,tex):return {'from':a,'to':b,'faces':{f:{'texture':'#'+(tex if f=='north' else 'steel'),'uv':[0,0,16,16]} for f in ('north','east','up')}}
+    elements=[elem([1.92,b,1.76],[14.08,t,14.4],'front')]
+    if kind=='server':
+        elements+=[elem([12.96,t-(t-b)*.22,1.72],[13.6,t-(t-b)*.10,1.75],'led'),elem([11.84,t-(t-b)*.22,1.72],[12.48,t-(t-b)*.10,1.75],'led')]
+    else:
+        for i in range(8):elements.append(elem([1.92+(2+i*1.65)*.76,t-(t-b)*.20,1.72],[1.92+(3+i*1.65)*.76,t-(t-b)*.08,1.75],'led'))
+    return {'textures':textures,'elements':elements}
 
-canvas=Image.new('RGB',(1440,930),'#202527');d=ImageDraw.Draw(canvas)
-d.rectangle((0,0,1439,5),fill='#7ab58d');d.text((35,24),'OPEN DATA CENTER',font=font(39,True),fill='#e4e7e8');d.text((38,78),'0.2.1-alpha  /  original 16x16 textures  /  model preview, not in-game',font=font(19),fill='#b4babb')
-# One large example: same blocks stacked to produce a two-block cabinet wall.
-d.rectangle((32,121,695,880),fill='#303638',outline='#495053',width=2)
-stack=[]
-for col in range(3):
-    for row in range(2):stack+=rack_state(col==0,[3,4,0,2] if col==0 else [1,2,3,4] if col==1 else [4,4,4,4],(col*16,row*16,0))
-im=render(stack,9);canvas.paste(im,(32+(663-im.width)//2,168),im)
-d.text((56,650),'Modular 4U cabinets',font=font(28,True),fill='#e4e7e8');d.text((56,692),'1 Minecraft block per rack; stackable',font=font(20),fill='#b4babb');d.text((56,725),'Dark gray steel, simple pixel geometry',font=font(20),fill='#b4babb');d.text((56,758),'Independent green LEDs per running server',font=font(20),fill='#b4babb')
-# Compare off/on LED faces, plus actual new devices.
-for idx,(name,label) in enumerate([('network_switch_on','Network switch'),('network_station_on','Network station'),('computer_on','DataOS computer'),('assembler_off','Assembly station'),('creative_battery_on','Creative battery'),('network_switch_off','Switch / off')]):
-    x=717+(idx%3)*232;y=121+(idx//3)*240;d.rectangle((x,y,x+218,y+222),fill='#303638',outline='#495053',width=2)
-    im=render([(name,(0,0,0))],6.5);canvas.paste(im,(x+(218-im.width)//2,y+10),im);d.text((x+10,y+194),label,font=font(16,True),fill='#dce0e1')
-# Bottom panel displays all four actual front textures and component sprites.
-x=717;y=601;d.rectangle((x,y,1400,880),fill='#303638',outline='#495053',width=2);d.text((x+15,y+14),'SERVER PANEL STATES / ACTUAL PIXELS',font=font(20,True),fill='#dce0e1')
-for idx,name in enumerate(['cpu_face_off','cpu_face_on','gpu_face_off','gpu_face_on']):
-    im=Image.open(assets/f'textures/blocks/{name}.png').crop((0,0,12,3)).resize((144,36),Image.Resampling.NEAREST);xx=x+16+idx*165;canvas.paste(im,(xx,y+54),im);d.text((xx,y+99),['CPU off','CPU active','GPU off','GPU active'][idx],font=font(16),fill='#b4babb')
-for idx,name in enumerate(['cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_4u']):
-    im=Image.open(assets/f'textures/items/{name}.png').resize((64,64),Image.Resampling.NEAREST);xx=x+18+idx*110;canvas.paste(im,(xx,y+139),im);d.text((xx,y+209),['CPU T1','CPU T2','GPU T1','GPU T2','1U','4U'][idx],font=font(14),fill='#b4babb')
+def rack(total,modules,offset=(0,0,0),glass=False):
+    name='rack_glass' if glass else 'rack'
+    x,y,z=offset
+    instances=[(name+'_0',offset)] if total==4 else [(name+'_1',offset),(name+'_2',(x,y+16,z))]
+    return instances+[(dynamic_module(*m[:2],total,*m[2:]),offset) for m in modules]
+
+canvas=Image.new('RGB',(1500,1050),'#23282b');d=ImageDraw.Draw(canvas)
+d.rectangle((0,0,1499,5),fill='#83b996');d.text((35,23),'OPEN DATA CENTER',font=font(40,True),fill='#edf0f1');d.text((38,79),'0.3.0 ALPHA / HARDWARE & INFRASTRUCTURE / OFFLINE MODEL PREVIEW',font=font(19),fill='#bfc9cc')
+def panel(x,y,w,h):d.rectangle((x,y,x+w,y+h),fill='#30383c',outline='#4a575d',width=2)
+def paste_center(im,x,y,w,h):canvas.paste(im,(x+(w-im.width)//2,y+(h-im.height)//2),im)
+panel(30,122,690,725)
+# 4U+1U+4U, middle-spanning 4U, and distinct 1U/2U units in a glass rack frame.
+a=rack(9,[(0,4,'server',True,True),(4,1,'switch',True,True),(5,4,'server',True,True)],(0,0,0))
+a+=rack(9,[(0,1,'switch',True,True),(1,2,'server',True,False),(3,4,'server',True,True),(7,2,'server',False,False)],(17,0,0))
+a+=rack(4,[(0,1,'server',True,True),(1,2,'server',True,False),(3,1,'switch',True,True)],(34,0,0),True)
+im=render(a,10);paste_center(im,35,145,680,550)
+d.text((52,700),'4U / 9U modular racks',font=font(27,True),fill='#edf0f1');d.text((52,745),'Left: 4U + switch + 4U',font=font(19),fill='#bfc9cc');d.text((52,773),'Middle: a 4U server crosses the block seam',font=font(19),fill='#bfc9cc');d.text((52,800),'Right: 4U glass frame (window rendered in-game)',font=font(18),fill='#bfc9cc')
+# model previews, exact block cuboids and texture UVs
+for idx,(name,label,subtitle) in enumerate([('radio_station_on','Radio station','128 Mb/s WAN'),('satellite_station_on','Satellite station','512 Mb/s WAN'),('power_relay_off','Power relay','Closed / no redstone'),('workbench_off','Server workbench','Hardware editing'),('data_cable_item','Data cable','Bundled conductors'),('power_cable_item','Power cable','Armored jacket')]):
+    x=745+(idx%2)*363;y=122+(idx//2)*240;panel(x,y,347,224)
+    im=render([(name,(0,0,0))],7.5);paste_center(im,x+8,y+7,330,160)
+    d.text((x+13,y+176),label,font=font(20,True),fill='#edf0f1');d.text((x+13,y+201),subtitle,font=font(15),fill='#bfc9cc')
+panel(30,870,1430,151);d.text((49,882),'HARDWARE ICONS / ACTUAL 16px SPRITES',font=font(19,True),fill='#edf0f1')
+icons=['board_basic','board_pro','board_advanced','ram_advanced','hdd_pro','ssd_pro','nvme_pro','psu_basic','psu_pro','nic_pro','switch_basic','switch_pro','ethernet_patch','chassis_4u','chassis_4u_ready']
+for i,n in enumerate(icons):
+    im=Image.open(assets/f'textures/items/{n}.png').convert('RGBA').resize((48,48),Image.Resampling.NEAREST);x=48+i*94;canvas.paste(im,(x+14,915),im);d.text((x,973),n.replace('_',' ')[:14],font=font(11),fill='#bfc9cc')
 canvas.save(root/'preview.png')
