@@ -1,4 +1,8 @@
-# OpenDataCenter 0.6.1.6-alpha
+# OpenDataCenter 0.6.1.7-alpha
+
+**0.6.1.7 — Network Integration:** единый движок WAN для задач, редактора ресурсов, DataOS и сетевого терминала; защита принятых резервов, диагностика маршрутов и журнал. Виртуальная симуляция ограничена полностью выгруженными подтверждёнными независимыми сетями. LAN остаётся API; действующие контракты используют WAN. Forge и игровая проверка не выполнены. [Описание и проверки](docs/NETWORK_INTEGRATION_0617.md). Следующий этап — 0.6.2 (питание).
+
+**История предыдущих этапов:**
 
 **0.6.1.6 — Interactive Network Editor:** drag cards, shared saved coordinates, snap/auto layout, two-click uplink editing, link properties and WAN route highlights. [Details](docs/NETWORK_EDITOR_0616.md).
 

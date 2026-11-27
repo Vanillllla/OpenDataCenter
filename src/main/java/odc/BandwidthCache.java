@@ -17,5 +17,6 @@ final class BandwidthCache {
         if(!ordered.equals(last)){result=engine.solve(ordered);last=ordered;}
         return result;
     }
+    BandwidthEngine engine(){return engine;}
     void clear(){engine=null;last=null;result=null;}
 }

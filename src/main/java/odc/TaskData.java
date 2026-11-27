@@ -28,7 +28,7 @@ public final class TaskData extends WorldSavedData {
         if(name.equals(PoolResources.DEFAULT))pools.remove(server);else pools.put(server,name);
         OfflineState.invalidateAt(rack.getWorld(),rack.getPos());domains.clear();cache.clear();markDirty();rack.changed();return true;
     }
-    final List<Job> jobs=new ArrayList<>();final Map<UUID,long[]> wallets=new HashMap<>();final EventJournal journal=new EventJournal(ODC.journalLimit); Map<UUID,EventSystem.Topology> eventTopology=new HashMap<>(); final Map<UUID,Boolean> resourceFaults=new HashMap<>(),networkState=new HashMap<>();int next=0;long ticks;int[] rate={1000,1500};
+    final List<Job> jobs=new ArrayList<>();final Map<UUID,long[]> wallets=new HashMap<>();final EventJournal journal=new EventJournal(ODC.journalLimit); Map<UUID,EventSystem.Topology> eventTopology=new HashMap<>(); final Map<UUID,Boolean> routeFaults=new HashMap<>(); final Map<UUID,Boolean> resourceFaults=new HashMap<>(),networkState=new HashMap<>();int next=0;long ticks;int[] rate={1000,1500};
     public TaskData(){super(KEY);}public TaskData(String name){super(name);}
     static TaskData get(World w){net.minecraft.world.storage.MapStorage s=w.getPerWorldStorage();TaskData d=(TaskData)s.getOrLoadData(TaskData.class,KEY);if(d==null){d=new TaskData();s.setData(KEY,d);}return d;}
     long[] wallet(UUID a){return wallets.computeIfAbsent(a,k->new long[2]);}
@@ -53,9 +53,12 @@ public final class TaskData extends WorldSavedData {
     private long lastNanos; long elapsedMillis;
     List<Job> reservingJobs(){List<Job> result=new ArrayList<>();for(Job j:jobs)if(!j.terms.hasKey("End")&&!j.terms.getBoolean("Finished"))result.add(j);return result;}
     TaskEngine.Plan plan(UUID anchor,List<TaskEngine.Node> nodes,List<Job> jobs,int[] caps,int wan,Set<Integer> excluded) {
+        return plan(anchor,nodes,jobs,caps,wan,excluded,null);
+    }
+    TaskEngine.Plan plan(UUID anchor,List<TaskEngine.Node> nodes,List<Job> jobs,int[] caps,int wan,Set<Integer> excluded,Set<Integer> networkBlocked) {
         if(anchor!=null)usedCaches.add(anchor);
         Set<Integer> local=new HashSet<>();for(Job j:jobs)if(!j.terms.hasKey("End"))local.add(j.id);
-        List<Job> reservations=reservingJobs();return anchor==null?FixedResources.plan(nodes,reservations,local,caps,wan,excluded):cache.computeIfAbsent(anchor,id->new AllocationCache()).get(nodes,reservations,local,caps,wan,excluded);
+        List<Job> reservations=reservingJobs();return anchor==null?FixedResources.plan(nodes,reservations,local,caps,wan,excluded,networkBlocked):cache.computeIfAbsent(anchor,id->new AllocationCache()).get(nodes,reservations,local,caps,wan,excluded,networkBlocked);
     }
     void clock(){
         ticks++;
@@ -72,6 +75,9 @@ public final class TaskData extends WorldSavedData {
     void jobEvent(Job j,Level l,Category c,String code,String message){jobEvent(j,l,c,code,message,-1,0);}
     void jobEvent(Job j,Level l,Category c,String code,String message,int coin,long amount){record(j.owner,j.anchor,j.terms.getUniqueId("Key"),l,c,Target.TASK,code,"#"+j.id+" "+message,coin,amount);}
     void resourceState(Job j,boolean fault){UUID id=j.terms.getUniqueId("Key");Boolean before=resourceFaults.put(id,fault);if(fault&&!Boolean.TRUE.equals(before))jobEvent(j,Level.ERROR,Category.RESOURCE,"resources_unavailable","Reserved resources unavailable");else if(!fault&&Boolean.TRUE.equals(before))jobEvent(j,Level.SUCCESS,Category.RESOURCE,"resources_restored","Reserved resources available");}
+    private final Map<UUID,Map<UUID,PhysicalTopology.Type>> discoveredNetwork=new HashMap<>();
+    void observeNetwork(Tiles.Computer controller,UUID anchor){if(anchor==null||controller.owner==null)return;PhysicalTopology.View view=PhysicalNetwork.view(controller.getWorld(),controller.getPos());Map<UUID,PhysicalTopology.Type> current=new HashMap<>();for(PhysicalTopology.State state:view.devices.values()){PhysicalTopology.Device device=state.device;if(device.type==PhysicalTopology.Type.SERVER||device.type==PhysicalTopology.Type.SWITCH)continue;current.put(device.id,device.type);}Map<UUID,PhysicalTopology.Type> old=discoveredNetwork.getOrDefault(anchor,Collections.emptyMap());for(Map.Entry<UUID,PhysicalTopology.Type> e:current.entrySet())if(!old.containsKey(e.getKey()))record(controller.owner,anchor,e.getKey(),Level.INFO,Category.NETWORK,Target.NONE,e.getValue()==PhysicalTopology.Type.TERMINAL?"network_terminal_connected":"antenna_discovered",e.getValue()==PhysicalTopology.Type.TERMINAL?"Network terminal discovered":"Optical antenna discovered",-1,0);if(view.complete)for(Map.Entry<UUID,PhysicalTopology.Type> e:old.entrySet())if(!current.containsKey(e.getKey()))record(controller.owner,anchor,e.getKey(),Level.WARNING,Category.NETWORK,Target.NONE,e.getValue()==PhysicalTopology.Type.TERMINAL?"network_terminal_disconnected":"antenna_disconnected",e.getValue()==PhysicalTopology.Type.TERMINAL?"Network terminal disconnected":"Optical antenna disconnected",-1,0);if(!view.complete)for(Map.Entry<UUID,PhysicalTopology.Type> e:old.entrySet())current.putIfAbsent(e.getKey(),e.getValue());discoveredNetwork.put(anchor,current);}
+    void routeState(Job j,boolean ok){UUID id=j.terms.getUniqueId("Key");Boolean old=routeFaults.put(id,!ok);if(!ok&&!Boolean.TRUE.equals(old))jobEvent(j,Level.WARNING,Category.NETWORK,"bandwidth_lost","Reserved network bandwidth unavailable");else if(ok&&Boolean.TRUE.equals(old))jobEvent(j,Level.SUCCESS,Category.NETWORK,"bandwidth_restored","Reserved network bandwidth restored");}
     void networkState(Tiles.Rack rack,int bay,boolean online){UUID id=ClusterScheduler.serverId(rack.slots.get(bay));Boolean before=networkState.put(id,online);if(Boolean.TRUE.equals(before)&&!online)EventSystem.rack(rack,bay,Level.WARNING,Category.NETWORK,"network_lost","Server network connection lost");else if(Boolean.FALSE.equals(before)&&online)EventSystem.rack(rack,bay,Level.SUCCESS,Category.NETWORK,"network_restored","Server network connection restored");}
     List<Entry> recentEvents(Tiles.Owned tile,int count){return EventSystem.recent(tile,this,count);}
     int errorCount(Tiles.Owned tile){return EventSystem.errors(tile,this);}
@@ -140,7 +146,7 @@ public final class TaskData extends WorldSavedData {
             if(j.periodic()) interrupt(j,false);
             else {j.machines=Collections.emptySet();j.cachedRate=0;}
         }
-        Set<UUID> liveJobs=new HashSet<>();for(Job j:jobs)if(j.enabled&&!j.terms.hasKey("End")){liveJobs.add(j.terms.getUniqueId("Key"));}resourceFaults.keySet().retainAll(liveJobs);
+        Set<UUID> liveJobs=new HashSet<>();for(Job j:jobs)if(j.enabled&&!j.terms.hasKey("End")){liveJobs.add(j.terms.getUniqueId("Key"));}resourceFaults.keySet().retainAll(liveJobs);routeFaults.keySet().retainAll(liveJobs);
         domains.keySet().retainAll(usedCaches);cache.keySet().retainAll(usedCaches);
         usedCaches.clear();
     }

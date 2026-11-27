@@ -9,7 +9,9 @@ final class FixedResources {
     static boolean storage(PoolResources.Kind k){return k==PoolResources.Kind.HDD||k==PoolResources.Kind.SSD||k==PoolResources.Kind.NVME;}
     static Map<String,Integer> amounts(Collection<PoolResources.Binding> bs){Map<String,Integer> m=new LinkedHashMap<>();for(PoolResources.Binding b:bs)m.merge(key(b),b.amount,(a,c)->(int)Math.min(Integer.MAX_VALUE,(long)a+c));return m;}
     static Set<UUID> hosts(Collection<PoolResources.Binding> bs){Set<UUID> s=new HashSet<>();for(PoolResources.Binding b:bs)s.add(b.server);return s;}
+    interface NetworkRoom {int free(UUID server,Map<String,Integer> draft);}
     static final class Ledger {
+        NetworkRoom networkRoom;boolean routedNetwork;
         final List<TaskEngine.Node> nodes;final int[] caps;final int wan;final Set<Integer> excluded;
         final Map<UUID,Integer> index=new HashMap<>();final Map<String,PoolResources.Device> devices=new LinkedHashMap<>();final Map<String,Integer> held=new HashMap<>(),heldIO=new HashMap<>();
         final List<PoolResources.Device> links=new ArrayList<>();
@@ -22,7 +24,8 @@ final class FixedResources {
         int free(PoolResources.Device d,UUID pool,Map<String,Integer> draft){
             int i=index.get(d.server);if(excluded.contains(i)||!Objects.equals(nodes.get(i).pool,pool))return 0;
             long free=(long)capacity(d)-held.getOrDefault(d.key(),0)-draft.getOrDefault(d.key(),0);
-            if(d.kind==PoolResources.Kind.NETWORK){long room=wan,rack=caps[nodes.get(i).rack];for(PoolResources.Device other:links){long n=(long)held.getOrDefault(other.key(),0)+draft.getOrDefault(other.key(),0);room-=n;if(nodes.get(index.get(other.server)).rack==nodes.get(i).rack)rack-=n;}free=Math.min(free,Math.min(room,rack));}
+            if(d.kind==PoolResources.Kind.NETWORK&&routedNetwork)return Math.max(0,capacity(d)-draft.getOrDefault(d.key(),0));
+            if(d.kind==PoolResources.Kind.NETWORK){long room=wan,rack=caps[nodes.get(i).rack];for(PoolResources.Device other:links){long n=(long)held.getOrDefault(other.key(),0)+draft.getOrDefault(other.key(),0);room-=n;if(nodes.get(index.get(other.server)).rack==nodes.get(i).rack)rack-=n;}free=Math.min(free,Math.min(room,rack));if(networkRoom!=null)free=Math.min(free,networkRoom.free(d.server,draft));}
             return (int)Math.max(0,free);
         }
         int freeIO(PoolResources.Device d){return Math.max(0,d.speed-heldIO.getOrDefault(d.key(),0));}
@@ -77,6 +80,9 @@ final class FixedResources {
     }
     /** Reservations apply globally, even across a split network; only local jobs may execute. */
     static TaskEngine.Plan plan(List<TaskEngine.Node> nodes,List<? extends TaskEngine.Task> jobs,Set<Integer> local,int[] caps,int wan,Set<Integer> excluded){
+        return plan(nodes,jobs,local,caps,wan,excluded,null);
+    }
+    static TaskEngine.Plan plan(List<TaskEngine.Node> nodes,List<? extends TaskEngine.Task> jobs,Set<Integer> local,int[] caps,int wan,Set<Integer> excluded,Set<Integer> networkBlocked){
         TaskEngine.Plan p=new TaskEngine.Plan(nodes.size());p.usedCores=new BitSet[nodes.size()];p.freeSpace=new int[nodes.size()][ServerSpec.PSU];p.freeIO=new int[nodes.size()][ServerSpec.PSU];
         Ledger all=new Ledger(nodes,caps,wan,excluded,jobs,null);BitSet[] runningCores=new BitSet[nodes.size()];int[] runningGpu=new int[nodes.size()];
         for(int i=0;i<nodes.size();i++){p.usedCores[i]=new BitSet();runningCores[i]=new BitSet();for(int s=ServerSpec.SATA;s<ServerSpec.PSU;s++){Part d=Part.at(nodes.get(i).parts[s]);p.freeSpace[i][s]=d.speed>0?d.gb:0;p.freeIO[i][s]=d.speed;}}
@@ -87,8 +93,8 @@ final class FixedResources {
             case RAM:p.ram[i]+=used;break;case NETWORK:p.net[i]+=used*10;break;default:p.disk[i]+=used;p.freeSpace[i][d.slot]-=used;p.freeIO[i][d.slot]=Math.max(0,d.speed-all.heldIO.getOrDefault(d.key(),0));break;}
         }
         for(TaskEngine.Task t:jobs)if(local.contains(t.id)){
-            TaskEngine.Result r=new TaskEngine.Result();p.tasks.put(t.id,r);if(!t.enabled)continue;
-            Evaluation e=evaluate(t,new Ledger(nodes,caps,wan,excluded,jobs,t));if(!e.error.isEmpty())continue;
+            TaskEngine.Result r=new TaskEngine.Result();p.tasks.put(t.id,r);if(!t.enabled||networkBlocked!=null&&networkBlocked.contains(t.id))continue;
+            Ledger jobLedger=new Ledger(nodes,caps,wan,excluded,jobs,t);jobLedger.routedNetwork=networkBlocked!=null;Evaluation e=evaluate(t,jobLedger);if(!e.error.isEmpty())continue;
             r=e.result;p.tasks.put(t.id,r);for(TaskEngine.Slice s:r.slices){runningCores[s.node].or(s.cores);runningGpu[s.node]|=s.mask;}
         }
         for(int i=0;i<nodes.size();i++)if(!excluded.contains(i)){TaskEngine.Node n=nodes.get(i);int watts=n.watts(runningCores[i],runningGpu[i]);if(watts>ServerSpec.psu(n.parts))p.overload.add(i);p.power[i]=n.fe(watts);}

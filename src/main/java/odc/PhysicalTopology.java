@@ -97,6 +97,11 @@ public final class PhysicalTopology {
     }
     /** Direct optical endpoints only; a shared source retains one identity across all domains. */
     public List<Peer> opticalPeers(Pos origin,Predicate<Pos> loaded){Cell c=cells.get(origin);if(c==null||c.kind!=Kind.ANTENNA&&c.kind!=Kind.TERMINAL)return Collections.emptyList();Kind target=c.kind==Kind.ANTENNA?Kind.TERMINAL:Kind.ANTENNA;Set<Pos> live=verifiedOpticalPeers(origin,target,loaded);List<Peer> result=new ArrayList<>();for(Pos p:opticalPeers(origin,target))for(Device d:cells.get(p).devices)result.add(new Peer(d,live.contains(p),loaded.test(p)));return result;}
+    /** All cable cells and endpoints needed to certify a wholly unloaded LAN.
+     * Shared sources outside the LAN are not eligible for independent virtual snapshots. */
+    Set<Pos> exclusiveFootprint(Pos origin,Predicate<Pos> loaded){Domain lan=lanDomain(origin);if(lan==null)return Collections.emptySet();Set<Pos> out=new HashSet<>(lan.positions);Set<Pos> sources=new HashSet<>();for(Pos p:lan.positions){Cell c=cells.get(p);if(c.kind!=Kind.TERMINAL)continue;for(Pos a:antennas(p))sources.add(a);for(Pos n:p.adjacent()){Domain f=fiberDomain(n);if(f!=null)out.addAll(f.positions);}}
+        for(Pos a:sources){out.add(a);for(Pos other:opticalPeers(a,Kind.TERMINAL))if(!lan.positions.contains(other))return Collections.emptySet();for(Pos n:a.adjacent()){Domain f=fiberDomain(n);if(f!=null)out.addAll(f.positions);}}
+        for(Pos p:out)if(!loaded.test(p))return Collections.emptySet();return out;}
     private void addDevice(Device d,Predicate<Pos> loaded,Map<UUID,State> out,Set<UUID> ambiguous){if(ambiguous.contains(d.id))return;State prev=out.get(d.id);if(prev!=null){if(!prev.device.equals(d)){out.remove(d.id);ambiguous.add(d.id);}return;}out.put(d.id,new State(d,loaded.test(d.pos)));}
     public View view(Pos origin,Predicate<Pos> loaded){Domain domain=lanDomain(origin);Map<UUID,State> out=new LinkedHashMap<>();List<Link> links=new ArrayList<>();Set<UUID> ambiguous=new HashSet<>();if(domain==null)return new View(null,false,out,links,ambiguous,Collections.emptySet());
         boolean complete=true;for(Pos p:new TreeSet<>(domain.positions)){complete&=loaded.test(p);for(Device d:cells.get(p).devices)addDevice(d,loaded,out,ambiguous);}

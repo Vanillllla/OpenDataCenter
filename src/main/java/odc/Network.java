@@ -46,13 +46,6 @@ public final class Network {
         if(component==null)return null;
         out.positions.addAll(component);
         for(BlockPos p:component){TileEntity t=w.getTileEntity(p);if(isLanDevice(t)&&live(w,t)&&(!(t instanceof Tiles.Rack)||((Tiles.Rack)t).role!=-1))out.devices.add((Tiles.Owned)t);}
-        // Transitional old WAN: a directly attached old station can feed one loaded LAN only.
-        // It is a leaf, never a bridge between LANs. Fiber WAN is not credited until Stage 4/7.
-        Set<BlockPos> stationEnds=new HashSet<>();for(BlockPos p:component)for(EnumFacing f:EnumFacing.VALUES){BlockPos n=p.offset(f);if(!w.isBlockLoaded(n)||!stationEnds.add(n))continue;
-            TileEntity t=w.getTileEntity(n);if(!(t instanceof Tiles.Station)||!live(w,t))continue;
-            boolean shared=false;for(EnumFacing g:EnumFacing.VALUES){BlockPos q=n.offset(g);if(dataNode(w,q)&&!component.contains(q)){shared=true;break;}}
-            if(!shared){out.devices.add((Tiles.Station)t);out.positions.add(n);}
-        }
         out.devices.sort(ORDER);return out;
     }
     static List<Domain> domains(World w,List<TileEntity> loaded){

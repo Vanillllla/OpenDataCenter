@@ -13,8 +13,8 @@ final class TaskConsole {
     static final int PHYSICAL_WINDOW=128;
     String commitError="";
     static final class Domain {
-        final List<TaskEngine.Node> nodes;final int[] caps;final int wan;final Set<Integer> excluded;final long tick;TaskEngine.Plan plan;
-        Domain(List<TaskEngine.Node> n,int[] c,int w,Set<Integer> e,long t){nodes=n;caps=c;wan=w;excluded=e;tick=t;}
+        final List<TaskEngine.Node> nodes;final int[] caps;final int wan;final Set<Integer> excluded;final long tick;final net.minecraft.world.World world;TaskEngine.Plan plan;
+        Domain(List<TaskEngine.Node> n,int[] c,int w,Set<Integer> e,long t,net.minecraft.world.World world){nodes=n;caps=c;wan=w;excluded=e;tick=t;this.world=world;}
     }
     static TaskData.Job find(List<TaskData.Job> jobs,UUID id){
         for(TaskData.Job j:jobs)if(j.terms.getUniqueId("Key").equals(id))return j;
@@ -27,7 +27,7 @@ final class TaskConsole {
     }
     void reset(int next){section=next;assigning=false;type=-1;selected=NONE;draftPool=NONE;expanded=NONE;physicalOffset=0;draft.clear();commitError="";}
     void openDraft(UUID pool,TaskData.Job j){draftPool=pool;assigning=true;expanded=NONE;physicalOffset=0;draft.clear();if(j!=null)draft.addAll(j.bindings);commitError="";}
-    FixedResources.Ledger ledger(TaskData d,Domain domain,TaskData.Job current){return new FixedResources.Ledger(domain.nodes,domain.caps,domain.wan,domain.excluded,d.reservingJobs(),current);}
+    FixedResources.Ledger ledger(TaskData d,Domain domain,TaskData.Job current){FixedResources.Ledger l=new FixedResources.Ledger(domain.nodes,domain.caps,domain.wan,domain.excluded,d.reservingJobs(),current);NetworkAdmission.Quote q=PhysicalNetwork.quote(domain.world,current);l.networkRoom=(server,draft)->{Map<UUID,Integer> requested=new TreeMap<>();for(PoolResources.Device dev:l.links){int amount=draft.getOrDefault(dev.key(),0);if(amount>0)requested.merge(dev.server,amount,Integer::sum);}return q.additional(server,requested);};return l;}
     TaskEngine.Task candidate(TaskData d,TaskData.Job current){TaskEngine.Task t=new TaskEngine.Task(current==null?d.next:current.id,type);t.pool=draftPool;t.enabled=true;t.auto=false;if(current!=null)t.base=current.base;t.bindings.addAll(locked(current)?current.bindings:draft);return t;}
     boolean locked(TaskData.Job j){return j!=null&&j.terms.hasKey("Start")&&j.terms.getBoolean("Fixed");}
     Map<String,List<PoolResources.Device>> families(FixedResources.Ledger l){Map<String,List<PoolResources.Device>> result=new TreeMap<>();for(PoolResources.Device device:l.devices.values())if(draftPool.equals(l.nodes.get(l.index.get(device.server)).pool))result.computeIfAbsent(device.family(),k->new ArrayList<>()).add(device);return result;}
@@ -44,9 +44,9 @@ final class TaskConsole {
     }
     boolean canEdit(TaskData.Job j,long now){return j==null||!j.enabled||Workload.contract(j.type)&&!locked(j)||j.periodic()&&j.notice>0&&now>=j.notice;}
     boolean physicalCurrent(PanelMenu m,TaskData d,Domain domain){
-        Network.Domain topology=Network.scan(m.tile.getWorld(),m.tile.getPos());if(topology==null)return false;int wan=0;boolean online=false;
-        for(Tiles.Owned device:topology.devices)if(Objects.equals(device.owner,m.tile.owner)){if(device instanceof Tiles.Station){Tiles.Station st=(Tiles.Station)device;if(st.online&&st.energy.fed())wan=ClusterScheduler.add(wan,st.bandwidth());}else if(device instanceof Tiles.Computer){Tiles.Computer c=(Tiles.Computer)device;if(c.online&&c.energy.fed())online=true;}}
-        if(!online||domain.wan!=wan)return false;
+        Network.Domain topology=Network.scan(m.tile.getWorld(),m.tile.getPos());if(topology==null)return false;boolean online=false;
+        for(Tiles.Owned device:topology.devices)if(Objects.equals(device.owner,m.tile.owner)){if(device instanceof Tiles.Computer){Tiles.Computer c=(Tiles.Computer)device;if(c.online&&c.energy.fed())online=true;}}
+        if(!online)return false;
         Map<UUID,Menus.Target> live=new HashMap<>();for(Menus.Target target:DataOSView.servers(m.tile))live.put(ClusterScheduler.serverId(target.item),target);
         for(PoolResources.Binding b:draft){Menus.Target t=live.get(b.server);Integer i=null;for(int k=0;k<domain.nodes.size();k++)if(domain.nodes.get(k).id.equals(b.server)){i=k;break;}
             if(t==null||i==null||!t.rack.allows(m.player)||!t.rack.energy.fed()||(t.rack.enabledMask&(1<<t.bay))==0||!Arrays.equals(Hardware.spec(t.item),domain.nodes.get(i).parts)||!draftPool.equals(d.poolId(m.tile.owner,b.server)))return false;
@@ -80,9 +80,11 @@ final class TaskConsole {
         if(!assigning||type<0||domain==null||!canEdit(j,now))return "offline";
         if(j==null&&(!selected.equals(NONE)||Workload.contract(type)||jobs.size()>=256))return "selection";
         String restricted=restrictions(j);if(!restricted.isEmpty())return restricted;
+        if(!networkFailure(domain,j).isEmpty())return "bandwidth";
         FixedResources.Evaluation e=FixedResources.evaluate(candidate(d,j),ledger(d,domain,j),!locked(j));
         return e.error;
     }
+    String networkFailure(Domain domain,TaskData.Job j){if(domain==null)return "";return PhysicalNetwork.quote(domain.world,j).failure(NetworkAdmission.amounts(locked(j)?j.bindings:draft));}
     void command(PanelMenu m,TaskData d,TaskCommand cmd){
         UUID wallet=ClusterScheduler.key((Tiles.Computer)m.tile),owner=m.tile.owner;
         if(owner==null||!m.tile.allows(m.player))return;
@@ -109,7 +111,7 @@ final class TaskConsole {
         if(cmd.op==6){
             if(!selected.equals(cmd.key)||!selectionExists(d,owner,jobs,now))return;
             if(current!=null){d.settle(current,now);if(current.terms.hasKey("End"))return;}
-            String error=validate(d,domain,jobs,current,now);if(!error.isEmpty()){commitError=error;if(current!=null)d.jobEvent(current,Level.WARNING,Category.RESOURCE,"allocation_rejected","Resource allocation rejected: "+error);return;}
+            PhysicalNetwork.refreshRouting(m.player.world);String error=validate(d,domain,jobs,current,now);if(!error.isEmpty()){commitError=error;if(current!=null)d.jobEvent(current,Level.WARNING,error.equals("bandwidth")?Category.NETWORK:Category.RESOURCE,"allocation_rejected","Resource allocation rejected: "+error);else if(error.equals("bandwidth"))d.record(owner,wallet,wallet,Level.WARNING,Category.NETWORK,Target.NONE,"allocation_rejected","Network bandwidth insufficient",-1,0);return;}
             if(!physicalCurrent(m,d,domain)){commitError="unavailable";return;}
             FixedResources.Evaluation accepted=FixedResources.evaluate(candidate(d,current),ledger(d,domain,current),!locked(current));
             if(current==null){current=new TaskData.Job(d.next++,type,wallet,owner);current.pool=draftPool;current.poolLabel=DataOSView.poolName(m.tile,d,draftPool);d.jobs.add(current);}
@@ -150,11 +152,11 @@ final class TaskConsole {
             if(!expanded.equals(key))continue;
             devices.sort(Comparator.comparing((PoolResources.Device x)->names.getOrDefault(x.server,x.server.toString())).thenComparingInt(x->x.slot).thenComparingInt(x->x.unit));
             int start=Math.min(Math.max(0,physicalOffset),Math.max(0,devices.size()-1));out.setInteger("PhysicalCount",devices.size());out.setInteger("PhysicalStart",start);
-            for(int i=start;i<Math.min(devices.size(),start+PHYSICAL_WINDOW);i++){PoolResources.Device dev=devices.get(i);int n=chosen.getOrDefault(dev.key(),0);NBTTagCompound r=deviceRow(dev,rowId(dev.key()),n,n+l.free(dev,draftPool,chosen));r.setString("Host",names.getOrDefault(dev.server,dev.server.toString().substring(0,8)));r.setInteger("Slot",dev.slot);r.setInteger("Unit",dev.unit);physical.appendTag(r);}
+            for(int i=start;i<Math.min(devices.size(),start+PHYSICAL_WINDOW);i++){PoolResources.Device dev=devices.get(i);int n=chosen.getOrDefault(dev.key(),0);NBTTagCompound r=deviceRow(dev,rowId(dev.key()),n,n+l.free(dev,draftPool,chosen));r.setString("Host",names.getOrDefault(dev.server,dev.server.toString().substring(0,8)));r.setInteger("Slot",dev.slot);r.setInteger("Unit",dev.unit);if(dev.kind==PoolResources.Kind.NETWORK){r.setInteger("NIC",dev.capacity);r.setInteger("Held",l.held.getOrDefault(dev.key(),0));r.setInteger("Available",l.free(dev,draftPool,chosen));}physical.appendTag(r);}
         }
         FixedResources.Evaluation e=FixedResources.evaluate(candidate(d,current),l,!locked(current));TaskEngine.Result p=e.result;
         out.setInteger("CountUnits",p.units);out.setLong("Rate",p.rate);out.setInteger("CPU",p.cpu);out.setInteger("GPU",p.gpus);out.setInteger("RAM",p.ram);out.setInteger("Disk",p.disk);out.setInteger("Net",p.net);
-        String error=validate(d,domain,jobs,current,now);out.setString("Error",commitError.isEmpty()?error:commitError);out.setString("Diagnostic",e.detail);out.setBoolean("DraftAvailable",canEdit(current,now)&&!locked(current));out.setBoolean("CanCommit",error.isEmpty());
+        String error=validate(d,domain,jobs,current,now);out.setString("Error",commitError.isEmpty()?error:commitError);String networkError=networkFailure(domain,current);if(networkError.isEmpty()&&e.error.equals("local requirements")){Map<UUID,Integer> requested=NetworkAdmission.amounts(draft);int minimum=(candidate(d,current).net+9)/10;NetworkAdmission.Quote quote=PhysicalNetwork.quote(domain.world,current);for(UUID host:FixedResources.hosts(draft))if(requested.getOrDefault(host,0)<minimum){int have=requested.getOrDefault(host,0);int free=quote.additional(host,requested);if(have+free<minimum){Map<UUID,Integer> probe=new TreeMap<>(requested);probe.put(host,minimum);networkError=quote.failure(probe);if(!networkError.isEmpty())break;}else{networkError=host.toString().substring(0,8)+": NET "+have+" / "+minimum+" Mb/s (selected / required)";break;}}}if(!networkError.isEmpty())for(Map.Entry<UUID,String> host:names.entrySet())networkError=networkError.replace(host.getKey().toString().substring(0,8),host.getValue());out.setString("Diagnostic",networkError.isEmpty()?e.detail:networkError);out.setBoolean("DraftAvailable",canEdit(current,now)&&!locked(current));out.setBoolean("CanCommit",error.isEmpty());
     }
     NBTTagCompound snapshot(PanelMenu m,TaskData d){
         List<TaskData.Job> jobs=DataOSView.jobs(m.tile,d);long now=d.now();

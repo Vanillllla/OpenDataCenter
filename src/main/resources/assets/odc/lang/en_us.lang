@@ -375,3 +375,5 @@ gui.odc.netmap.drag=Drag cards
 gui.odc.netmap.effective=Effective: %s
 gui.odc.netmap.automatic=Automatic connection
 gui.odc.netmap.idle_route=Route available; no reserved traffic
+
+gui.odc.netmap.routable=Additional WAN to server: %s

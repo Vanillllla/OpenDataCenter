@@ -375,3 +375,5 @@ gui.odc.netmap.drag=Перетащи узел
 gui.odc.netmap.effective=Доступно: %s
 gui.odc.netmap.automatic=Автоматическая связь
 gui.odc.netmap.idle_route=Маршрут доступен; нет резерва
+
+gui.odc.netmap.routable=Доп. WAN до сервера: %s

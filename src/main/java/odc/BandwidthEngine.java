@@ -129,6 +129,13 @@ public final class BandwidthEngine {
         for(Edge e:edges.values()){int i=ei.get(e.id);f.resources[i]=g.add(ni.get(e.from)*2+1,ni.get(e.to)*2,room[i]);}
         for(int j=0;j<cs.size();j++){UUID id=cs.get(j).request.server;Integer i=nodes.containsKey(id)&&nodes.get(id).type==PhysicalTopology.Type.SERVER?ni.get(id):null;int from=i==null?source:i*2+1;f.endpoints[j]=from;f.sinks[j]=g.add(from,sink,i==null?0:targets[j]);}
         f.total=g.solve(source,sink);return f;}
+    /** Additional end-to-end WAN with existing routes held fixed; no double counting across selected hosts. */
+    double additional(Result base,Collection<UUID> servers){
+        double[] room=cap.clone();for(Map.Entry<UUID,Usage> e:base.devices.entrySet()){Integer i=ni.get(e.getKey());if(i!=null)room[i]=Math.max(0,room[i]-e.getValue().served);}for(Map.Entry<UUID,Usage> e:base.links.entrySet()){Integer i=ei.get(e.getKey());if(i!=null)room[i]=Math.max(0,room[i]-e.getValue().served);}
+        List<Candidate> cs=new ArrayList<>();for(UUID id:new TreeSet<>(servers))if(ni.containsKey(id)&&nodes.get(id).type==PhysicalTopology.Type.SERVER)cs.add(new Candidate(new Request("probe:"+id,id,null,Integer.MAX_VALUE,0),Collections.emptyList()));double[] targets=new double[cs.size()];Arrays.fill(targets,Integer.MAX_VALUE);return cs.isEmpty()?0:flow(cs,targets,room).total;
+    }
+    boolean hasWanRoute(UUID id){for(Path p:wan(id))if(open(p,cap))return true;return false;}
+    String constraint(UUID id){Node n=nodes.get(id);if(n!=null)return n.type.name();Edge e=edges.get(id);return e==null?"NO_ROUTE":e.kind==LogicalLinks.Kind.PATCH&&e.portLimit<e.installed?"SWITCH_PORT":e.kind==LogicalLinks.Kind.FIBER?"FIBER":"LAN T"+(e.installed==100?1:e.installed==1000?2:3);}
     public Result solve(Collection<Request> demands){List<Request> ordered=new ArrayList<>(demands);ordered.sort(Comparator.comparing(r->r.id));Set<String> ids=new HashSet<>();List<Candidate> cs=new ArrayList<>();for(Request r:ordered){if(!ids.add(r.id))throw new IllegalArgumentException("duplicate request");cs.add(new Candidate(r,r.traffic==Traffic.WAN?wan(r.server):lan(r.server,r.peer)));}
         double[] room=cap.clone(),limits=new double[cs.size()];for(int j=0;j<cs.size();j++)limits[j]=cs.get(j).request.reserved;phase(cs,limits,room);
         for(int j=0;j<cs.size();j++){Candidate c=cs.get(j);c.reservedServed=c.served;limits[j]=Math.max(0,c.request.requested-c.request.reserved);}phase(cs,limits,room);
