@@ -1,30 +1,101 @@
-# OpenDataCenter 0.6.1.8-alpha
+<div align="center">
 
-**0.6.1.8 — Rack Switch Expansion:** десять моделей 1U с 2/4/8 портами, общей полосой 100–50000 Мбит/с, отдельными лимитами портов и объёмными патч-кордами. [Описание](docs/SWITCHES_0618.md).
+# OpenDataCenter
 
-**0.6.1.7 — Network Integration:** единый движок WAN для задач, редактора ресурсов, DataOS и сетевого терминала; защита принятых резервов, диагностика маршрутов и журнал. Виртуальная симуляция ограничена полностью выгруженными подтверждёнными независимыми сетями. LAN остаётся API; действующие контракты используют WAN. Forge и игровая проверка не выполнены. [Описание и проверки](docs/NETWORK_INTEGRATION_0617.md). Следующий этап — 0.6.2 (питание).
+**Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-**История предыдущих этапов:**
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.1.8-alpha`
 
-**0.6.1.6 — Interactive Network Editor:** drag cards, shared saved coordinates, snap/auto layout, two-click uplink editing, link properties and WAN route highlights. [Details](docs/NETWORK_EDITOR_0616.md).
+[Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
-**0.6.1.5 — Network Terminal Interface:** интерактивная навигация по серверной карте сети, карточки устройств и линии LAN/оптики, поиск, свойства и мониторинг. Сетевой терминал открывает карту; кнопка «Настройка uplink» открывает прежний списочный редактор. Нагрузка расчётная по резервам; WAN free — остаточная ёмкость на входе терминалов, не гарантия полосы до серверов. См. [описание](docs/NETWORK_INTERFACE_0615.md). Следующий этап — 0.6.1.6.
+<img src="patch-preview.png" alt="Серверные стойки с патч-кордами / Server racks with patch cords" width="520">
 
-**0.6.1.4 — Network Bandwidth Engine:** общий серверный расчёт WAN/LAN по физической и логической сети, равномерное распределение и альтернативные WAN-маршруты, отдельный учёт номинала и обслуженных резервов. Временные окна оборудования показывают расчётную нагрузку. Запуск задач и доходы пока используют старый механизм; интеграция запланирована на 0.6.1.7. См. [описание этапа](docs/BANDWIDTH_ENGINE_0614.md). 
+</div>
 
-Minecraft 1.12.2, Forge 14.23.5.2860, JDK 8. Рекомендуется новый мир.
+## Русский
 
-Раздел «Задачи» терминала DataOS объединяет постоянные вычисления, контракты и периодические услуги. На рынке одновременно доступно до 20 предложений на владельца в измерении. При принятии контракта выберите пул. В редакторе ресурсов раскройте CPU/GPU/RAM/HDD/SSD/NVMe/сеть, назначьте количество по модели и при необходимости раскройте модель для выбора конкретных экземпляров. Применение фиксирует физические резервы. Каждая единица задачи выполняется целиком на одном сервере. Скорость локальных накопителей и пропускная способность сети учитываются отдельно. Глобальные коэффициенты выплат находятся в разделе tasks конфигурации Forge.
+**OpenDataCenter** — мод для Minecraft Forge, в котором вы собираете серверы из отдельных комплектующих, размещаете их в стойках и соединяете в сеть. Через терминал **DataOS** вы управляете вычислительными пулами, распределяете ресурсы и зарабатываете игровую валюту на контрактах.
 
-Сборка и автоматические проверки запускаются через build.bat или build.sh. Основные проверки задач выполняют Gradle-задачи verifyFixedResources, verifyTaskEngine и verifyTaskSystem. Сценарии для игрового клиента перечислены в [чек-листе](docs/TASKS_MANUAL_CHECK.md).
+### Что уже есть
 
-## Hotfix рабочего стола
+- **Серверное оборудование.** Стойки 4U и 9U, сборка серверов на верстаке, выбор CPU, GPU, памяти и накопителей.
+- **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
+- **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
+- **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
 
-Исправлена обработка курсора и NBT-слотов при сборке. Модель рабочего стола показывает корпус 1U, 2U или 4U, находящийся внутри. [Чек-лист проверки](docs/WORKBENCH_MANUAL_CHECK.md).
+### Версия 0.6.1.8-alpha
 
-## Дорожная карта
+Добавлены десять моделей коммутаторов 1U с 2, 4 или 8 портами, отдельными лимитами портов и общей пропускной способностью от 100 до 50 000 Мбит/с в зависимости от модели. Восемь новых моделей доступны в творческом режиме. Для этой версии в журнале изменений зафиксированы автономные проверки и проверка ресурсов. Сборку Forge и поведение в игре ещё предстоит подтвердить. [Описание коммутаторов](docs/SWITCHES_0618.md) · [Журнал изменений](CHANGELOG.md)
 
-- [Полный roadmap](OpenDataCenter-ROADMAP-FULL.md) — концепция и план развития.
-- [Рабочий чек-лист](OpenDataCenter-ROADMAP-CHECKLIST.md) — состояние задач.
+### Сборка и запуск
 
-При каждом обновлении изменять номер версии в документах и отмечать только реализованные пункты; изменения концепции вносить в оба файла. Неподтверждённые идеи оставлять в Backlog.
+Для сборки нужен **JDK 8**. В корне репозитория запустите подходящую команду.
+
+| Система | Команда |
+| --- | --- |
+| Windows | `.\build.bat` |
+| Linux / macOS | `bash build.sh` |
+
+После успешной сборки JAR появится в `build/libs/`. Поместите его в папку `mods` профиля **Minecraft 1.12.2** с **Forge 14.23.5.2860**. Для первого запуска рекомендуется новый мир.
+
+### Дорожная карта
+
+![Иллюстрация дорожной карты OpenDataCenter от DataOS до версии 1.0.0](docs/roadmap.png)
+
+| Версия | Этап | Статус |
+| --- | --- | --- |
+| **0.5.x** | DataOS, вычислительные пулы, задачи, журнал и сводка по кошельку | В исходниках |
+| **0.6.1.x** | Физическая и логическая сеть, расчёт полосы, интерактивная карта, интеграция WAN с задачами и новые коммутаторы | В исходниках · игровая проверка впереди |
+| **0.6.2** | Энергосети, батареи, блоки питания, расчёт расхода и вкладка «Питание» | Следующий этап |
+| **0.6.3–0.6.4** | Охлаждение, перегрев и троттлинг, доработка моделей и индикаторов | Запланировано |
+| **0.7.x** | Игровые счета и организации, ноутбук с магазином, валютная биржа и баланс выживания | Запланировано |
+| **0.8.x** | Публичный API и конфигурация, интеграции с энергетическими модами и OpenComputers | Запланировано |
+| **0.9.x–1.0.0** | Стабилизация, многопользовательская игра, производительность, документация и выпуск | Запланировано |
+
+Номера будущих версий предварительные. [Полная дорожная карта](OpenDataCenter-ROADMAP-FULL.md) · [Чек-лист задач](OpenDataCenter-ROADMAP-CHECKLIST.md)
+
+[Архитектура](docs/ARCHITECTURE.md) · [Интеграция WAN](docs/NETWORK_INTEGRATION_0617.md) · [Сценарии проверки задач](docs/TASKS_MANUAL_CHECK.md) · [Чек-лист сборочного верстака](docs/WORKBENCH_MANUAL_CHECK.md)
+
+---
+
+## English
+
+**OpenDataCenter** is a Minecraft Forge mod where you assemble servers from individual components, mount them in racks, and connect them to a network. Use the **DataOS** terminal to manage compute pools, allocate resources, and earn in-game currency by completing contracts.
+
+### What's available
+
+- **Server hardware.** Build servers at a workbench with your choice of CPUs, GPUs, memory, and drives, then mount them in 4U or 9U racks.
+- **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
+- **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
+- **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.1.8-alpha
+
+This update adds ten 1U switch models with 2, 4, or 8 ports, per-port limits, and aggregate bandwidth from 100 to 50,000 Mbit/s depending on the model. The eight new models are available in Creative mode. The changelog records standalone checks and asset validation for this version. The Forge build and in-game behavior still need verification. [Switch details](docs/SWITCHES_0618.md) · [Changelog](CHANGELOG.md)
+
+### Build and run
+
+Building requires **JDK 8**. Run the command for your platform from the repository root.
+
+| Platform | Command |
+| --- | --- |
+| Windows | `.\build.bat` |
+| Linux / macOS | `bash build.sh` |
+
+After a successful build, find the JAR in `build/libs/`. Place it in the `mods` folder of a **Minecraft 1.12.2** profile running **Forge 14.23.5.2860**. A new world is recommended for the first launch.
+
+### Roadmap
+
+| Version | Milestone | Status |
+| --- | --- | --- |
+| **0.5.x** | DataOS, compute pools, jobs, event log, and wallet overview | In source |
+| **0.6.1.x** | Physical and logical networking, bandwidth allocation, interactive network map, WAN integration for jobs, and new switches | In source · in-game verification pending |
+| **0.6.2** | Power networks, batteries, power supplies, consumption tracking, and the Power tab | Up next |
+| **0.6.3–0.6.4** | Cooling, overheating and throttling, and visual refinements | Planned |
+| **0.7.x** | In-game accounts and organizations, a laptop marketplace, currency exchange, and survival balancing | Planned |
+| **0.8.x** | Public API and configuration, energy-mod integrations, and OpenComputers support | Planned |
+| **0.9.x–1.0.0** | Stabilization, multiplayer, performance, documentation, and release | Planned |
+
+Future version numbers are provisional. [Illustrated roadmap](docs/roadmap.png) · [Full roadmap in Russian](OpenDataCenter-ROADMAP-FULL.md) · [Development checklist in Russian](OpenDataCenter-ROADMAP-CHECKLIST.md)
+
+[Architecture](docs/ARCHITECTURE.md) · [WAN integration](docs/NETWORK_INTEGRATION_0617.md) · [Job verification scenarios](docs/TASKS_MANUAL_CHECK.md) · [Workbench verification checklist](docs/WORKBENCH_MANUAL_CHECK.md)
