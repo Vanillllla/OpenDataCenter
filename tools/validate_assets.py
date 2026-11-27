@@ -56,13 +56,26 @@ for name in ('data_cable','power_cable','power_relay'):
         m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
         for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
             if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
-for name in ('computer','creative_battery','workbench','radio_station','satellite_station'):
+for name in ('computer','creative_battery','radio_station','satellite_station'):
     data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
+# The workbench is empty in inventory and has exactly one model for each case size and rotation.
+bench=read(root/'blockstates/workbench.json')['variants']
+check(set(bench)=={f'chassis={i},facing={f}' for i in range(4) for f in ('north','east','south','west')},'workbench state coverage')
+base=read(root/'models/block/workbench_empty.json')['elements']
+heights=[]
+for i,u in enumerate((1,2,4),1):
+    name=f'workbench_{u}u'
+    check(all(bench[f'chassis={i},facing={f}']['model']==f'odc:{name}' for f in ('north','east','south','west')),'workbench model routing')
+    elements=read(root/'models/block'/f'{name}.json')['elements']
+    check(elements[:len(base)]==base,'workbench base preserved')
+    extra=elements[len(base):];check(len(extra)==3 and all(e['from'][1]==11 and e['to'][1]<=16 for e in extra),'case rests on mat')
+    heights.append(max(e['to'][1] for e in extra))
+check(heights==sorted(set(heights)),'distinct case heights')
 # Geometric regression: no positive-area coplanar faces in redesigned axis-aligned meshes.
 # Rotated elements are checked separately by their bounding data, not by this plane test.
 mesh_count=0;quad_count=0;max_cable=0
 for p in (root/'models/block').glob('*.json'):
-    if not p.stem.startswith(('rack_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_')):continue
+    if not p.stem.startswith(('rack_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_','workbench_')):continue
     mesh_count+=1;m=read(p);planes={};quad_count+=sum(len(e['faces']) for e in m['elements'])
     if p.stem.startswith(('data_cable_','power_cable_')):max_cable=max(max_cable,sum(len(e['faces']) for e in m['elements']))
     for e in m['elements']:

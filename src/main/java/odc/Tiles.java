@@ -107,11 +107,16 @@ public final class Tiles {
     public static final class Workbench extends InventoryTile {
         Object editor;
         public Workbench(){super(1);}
+        @Override void changed(){if(world!=null)super.changed();}
         int chassis(){return Hardware.units(slots.get(0));}
         NonNullList<ItemStack> parts(){return Hardware.parts(slots.get(0));}
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return i==0&&Hardware.units(s)>0;}
         @Override public void setInventorySlotContents(int i,ItemStack s){if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);}
-        void write(NonNullList<ItemStack> parts){Hardware.writeParts(slots.get(0),parts);changed();}
+        void write(NonNullList<ItemStack> parts){
+            Hardware.writeParts(slots.get(0),parts);
+            // Only the chassis size affects the world model. Container synchronization handles parts.
+            if(world!=null)markDirty();
+        }
     }
     /** Powered devices consume their own idle load each game tick. */
     public static abstract class Powered extends Owned implements ITickable {

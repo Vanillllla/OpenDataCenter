@@ -18,7 +18,7 @@ import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.storage.*;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-/** Exercise the normal vanilla QUICK_MOVE click and the actual chassis NBT inventory. */
+/** Regression tests for cursor clicks, QUICK_MOVE and the actual chassis NBT inventory. */
 public final class WorkbenchTransferTest {
     private static final class BenchWorld extends World {
         Tiles.Workbench bench;
@@ -41,6 +41,10 @@ public final class WorkbenchTransferTest {
         return Hardware.MODELS.entrySet().stream().filter(e->e.getValue().name.equals(name)).findFirst().get().getKey();
     }
     private static void move(Menus.Menu menu,int slot) { menu.slotClick(slot,0,ClickType.QUICK_MOVE,menu.player); }
+    private static void click(Menus.Menu menu,int slot,int button) { menu.slotClick(slot,button,ClickType.PICKUP,menu.player); }
+    private static void cursor(EntityPlayer p,Item item,int count,String message){
+        ItemStack held=p.inventory.getItemStack();check(count==0?held.isEmpty():held.getItem()==item&&held.getCount()==count,message);
+    }
     private static int inChassis(ItemStack chassis,Item item) {
         int count=0;
         for(ItemStack s:Hardware.parts(chassis)) if(s.getItem()==item) count+=s.getCount();
@@ -83,6 +87,56 @@ public final class WorkbenchTransferTest {
         check(menu.getSlot(1+ServerSpec.RAM+1).getStack().isEmpty(),"detached slots empty");
         move(menu,bag+1);
         check(menu.getSlot(bag+1).getStack().isEmpty() && inChassis(bench.slots.get(0),ram)==1,"reinserted chassis keeps one DIMM");
-        System.out.println("PASS workbench QUICK_MOVE");
+        // Reproduce the reported bug: click a single DIMM, place it, then click a second slot.
+        // Use a fresh bench so no contents from the shift-click tests can hide a duplicate.
+        menu.onContainerClosed(player);
+        player.inventory.clear();
+        bench=new Tiles.Workbench();world.bench=bench;bench.setWorld(world);
+        menu=new Menus.Menu(Menus.WORKBENCH,player,bench);
+        bag=menu.machineSlots;
+        player.inventory.setItemStack(new ItemStack(Hardware.CHASSIS1));
+        click(menu,0,0);cursor(player,Hardware.CHASSIS1,0,"chassis must leave cursor");
+        player.inventory.setItemStack(new ItemStack(board));
+        click(menu,1+ServerSpec.BOARD,0);cursor(player,board,0,"board must leave cursor");
+        int dimm=1+ServerSpec.RAM;
+        menu.getSlot(bag).putStack(new ItemStack(ram));
+        click(menu,bag,0);cursor(player,ram,1,"one DIMM picked up");
+        click(menu,dimm,0);cursor(player,ram,0,"last DIMM must leave cursor");
+        click(menu,dimm+1,0);check(inChassis(bench.slots.get(0),ram)==1,"empty cursor cannot duplicate DIMM");
+        click(menu,dimm,0);cursor(player,ram,1,"removed DIMM comes back exactly once");
+        check(inChassis(bench.slots.get(0),ram)==0,"normal removal updates NBT");
+        click(menu,dimm+1,1);cursor(player,ram,0,"right-click also consumes final item");
+        menu.getSlot(bag).putStack(ItemStack.EMPTY);
+        for(int i=bag+1;i<menu.inventorySlots.size();i++)menu.getSlot(i).putStack(new ItemStack(Items.APPLE,64));
+        move(menu,dimm+1);move(menu,dimm+1);
+        check(menu.getSlot(bag).getStack().getCount()==1&&inChassis(bench.slots.get(0),ram)==0,"shift extraction cannot recover phantom copy");
+        click(menu,bag,0);click(menu,dimm,0);
+        player.inventory.setItemStack(new ItemStack(ram,3));
+        click(menu,dimm,0);cursor(player,ram,3,"full identical slot does not consume or duplicate");
+        click(menu,dimm+1,1);cursor(player,ram,2,"stack insertion consumes precisely one");
+        check(inChassis(bench.slots.get(0),ram)==2,"two physical DIMMs");
+        click(menu,1+ServerSpec.BOARD,0);cursor(player,ram,2,"incompatible placement rejected");
+        player.inventory.setItemStack(ItemStack.EMPTY);
+        click(menu,1+ServerSpec.BOARD,0);check(menu.getSlot(1+ServerSpec.BOARD).getHasStack(),"populated board cannot be removed");
+        Item otherRam=model("KingStoned Value 8");
+        player.inventory.setItemStack(new ItemStack(otherRam));
+        click(menu,dimm,0);cursor(player,ram,1,"swap returns exactly the previous DIMM");
+        check(inChassis(bench.slots.get(0),otherRam)==1&&inChassis(bench.slots.get(0),ram)==1,"swap commits to chassis NBT");
+        player.inventory.setItemStack(ItemStack.EMPTY);
+        click(menu,0,0);cursor(player,Hardware.CHASSIS1,1,"packed chassis is on cursor");
+        check(bench.chassis()==0&&menu.getSlot(dimm).getStack().isEmpty(),"removal clears virtual slots");
+        check(inChassis(player.inventory.getItemStack(),ram)==1&&inChassis(player.inventory.getItemStack(),otherRam)==1,"chassis retains both real DIMMs");
+        click(menu,0,1);cursor(player,Hardware.CHASSIS1,0,"reinserting packed chassis consumes cursor");
+        check(inChassis(bench.slots.get(0),otherRam)==1,"packed chassis survives reinsertion");
+        // Render state is a pure function of the stored chassis, including after NBT reload.
+        odc.Blocks.Workbench block=(odc.Blocks.Workbench)Hardware.WORKBENCH;
+        Item[] cases={Hardware.CHASSIS1,Hardware.CHASSIS2,Hardware.CHASSIS4};
+        for(int i=0;i<cases.length;i++){
+            bench.setInventorySlotContents(0,new ItemStack(cases[i]));
+            check(block.getActualState(block.getDefaultState(),world,BlockPos.ORIGIN).getValue(odc.Blocks.Workbench.CHASSIS)==i+1,"model matches chassis size");
+        }
+        bench.removeStackFromSlot(0);
+        check(block.getActualState(block.getDefaultState(),world,BlockPos.ORIGIN).getValue(odc.Blocks.Workbench.CHASSIS)==0,"empty bench model");
+        System.out.println("PASS workbench PICKUP, QUICK_MOVE, swap and render state");
     }
 }

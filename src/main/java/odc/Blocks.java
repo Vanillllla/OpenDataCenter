@@ -50,6 +50,19 @@ final class Blocks {
         @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){if(hand==EnumHand.MAIN_HAND)return RackInteraction.interact(w,p,player,side,y,false);return true;}
         @Override int gui(){return 0;}
     }
+    /** The model is derived from the real inventory, never from a second saved item. */
+    static final class Workbench extends Oriented {
+        // Render index 3 denotes the 4U case (there is no 3U item).
+        static final PropertyInteger CHASSIS=PropertyInteger.create("chassis",0,3);
+        Workbench(){super("workbench");setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(CHASSIS,0));}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,CHASSIS);}
+        @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Workbench();}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){
+            TileEntity t=w.getTileEntity(p);int units=t instanceof Tiles.Workbench?((Tiles.Workbench)t).chassis():0;
+            return s.withProperty(CHASSIS,units==4?3:units==2?2:units==1?1:0);
+        }
+        @Override int gui(){return Menus.WORKBENCH;}
+    }
     static final class Machine extends Oriented {
         final int type;
         Machine(String id,int type){super(id);this.type=type;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false));}

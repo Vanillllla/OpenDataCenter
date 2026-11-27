@@ -1,35 +1,67 @@
 {
   "variants": {
-    "active=false,facing=north": {
-      "model": "odc:workbench_off",
+    "chassis=0,facing=north": {
+      "model": "odc:workbench_empty",
       "y": 0
     },
-    "active=false,facing=east": {
-      "model": "odc:workbench_off",
+    "chassis=0,facing=east": {
+      "model": "odc:workbench_empty",
       "y": 90
     },
-    "active=false,facing=south": {
-      "model": "odc:workbench_off",
+    "chassis=0,facing=south": {
+      "model": "odc:workbench_empty",
       "y": 180
     },
-    "active=false,facing=west": {
-      "model": "odc:workbench_off",
+    "chassis=0,facing=west": {
+      "model": "odc:workbench_empty",
       "y": 270
     },
-    "active=true,facing=north": {
-      "model": "odc:workbench_on",
+    "chassis=1,facing=north": {
+      "model": "odc:workbench_1u",
       "y": 0
     },
-    "active=true,facing=east": {
-      "model": "odc:workbench_on",
+    "chassis=1,facing=east": {
+      "model": "odc:workbench_1u",
       "y": 90
     },
-    "active=true,facing=south": {
-      "model": "odc:workbench_on",
+    "chassis=1,facing=south": {
+      "model": "odc:workbench_1u",
       "y": 180
     },
-    "active=true,facing=west": {
-      "model": "odc:workbench_on",
+    "chassis=1,facing=west": {
+      "model": "odc:workbench_1u",
+      "y": 270
+    },
+    "chassis=2,facing=north": {
+      "model": "odc:workbench_2u",
+      "y": 0
+    },
+    "chassis=2,facing=east": {
+      "model": "odc:workbench_2u",
+      "y": 90
+    },
+    "chassis=2,facing=south": {
+      "model": "odc:workbench_2u",
+      "y": 180
+    },
+    "chassis=2,facing=west": {
+      "model": "odc:workbench_2u",
+      "y": 270
+    },
+    "chassis=3,facing=north": {
+      "model": "odc:workbench_4u",
+      "y": 0
+    },
+    "chassis=3,facing=east": {
+      "model": "odc:workbench_4u",
+      "y": 90
+    },
+    "chassis=3,facing=south": {
+      "model": "odc:workbench_4u",
+      "y": 180
+    },
+    "chassis=3,facing=west": {
+      "model": "odc:workbench_4u",
       "y": 270
     }
   }

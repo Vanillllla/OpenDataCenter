@@ -1,5 +1,7 @@
 package odc;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.play.server.SPacketSetSlot;
 import net.minecraft.inventory.*;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
@@ -26,24 +28,30 @@ public final class Menus {
         Parts(Tiles.Workbench b){super("Hardware",false,ServerSpec.COUNT);bench=b;}
         @Override public ItemStack getStackInSlot(int i){return bench.parts().get(i);}
         @Override public boolean isEmpty(){for(ItemStack s:bench.parts())if(!s.isEmpty())return false;return true;}
-        @Override public ItemStack decrStackSize(int i,int count){if(count<=0)return ItemStack.EMPTY;NonNullList<ItemStack> p=bench.parts();ItemStack s=p.get(i);p.set(i,ItemStack.EMPTY);bench.write(p);return s;}
+        @Override public ItemStack decrStackSize(int i,int count){if(count<=0)return ItemStack.EMPTY;NonNullList<ItemStack> p=bench.parts();ItemStack s=p.get(i);if(s.isEmpty())return ItemStack.EMPTY;ItemStack taken=s.splitStack(count);if(s.isEmpty())p.set(i,ItemStack.EMPTY);bench.write(p);return taken;}
         @Override public ItemStack removeStackFromSlot(int i){return decrStackSize(i,1);}
-        @Override public void setInventorySlotContents(int i,ItemStack s){if(bench.chassis()==0)return;NonNullList<ItemStack> p=bench.parts();ItemStack one=s.copy();if(!one.isEmpty())one.setCount(1);p.set(i,one);bench.write(p);}
+        @Override public void setInventorySlotContents(int i,ItemStack s){if(bench.chassis()==0)return;NonNullList<ItemStack> p=bench.parts();ItemStack one=s.copy();if(!one.isEmpty())one.setCount(1);if(ItemStack.areItemStacksEqual(p.get(i),one))return;p.set(i,one);bench.write(p);}
         @Override public int getInventoryStackLimit(){return 1;}
         @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassis(),Hardware.spec(bench.slots.get(0)),i,part);}
     }
     static final class Target {final Tiles.Rack rack;final int bay;final ItemStack item;Target(Tiles.Rack r,int b){rack=r;bay=b;item=r.slots.get(b);}}
     public static final class Menu extends Container {
-        final int type,machineSlots,revision;final EntityPlayer player;final Tiles.Owned tile;final Parts parts;
+        final int type,machineSlots,revision;final EntityPlayer player;final Tiles.Owned tile;final Parts parts;final Tiles.Workbench assembly;
         final InventoryBasic offers=new InventoryBasic("Offers",false,4);
         final int[] data=new int[100],previous=new int[200];int page,selectedPort;boolean pageDirty=true;long lastTopology=Long.MIN_VALUE;final List<Target> visible=new ArrayList<>();List<Target> snapshot=new ArrayList<>(),reachable=new ArrayList<>();
         Menu(int id,EntityPlayer p,Tiles.Owned t){type=id;player=p;tile=t;revision=t instanceof Tiles.Rack?((Tiles.Rack)t).revision:0;Arrays.fill(previous,-1);
-            if(id==WORKBENCH){Tiles.Workbench a=(Tiles.Workbench)t;if(!p.world.isRemote)a.editor=this;parts=new Parts(a);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
+            if(id==WORKBENCH){
+                Tiles.Workbench actual=(Tiles.Workbench)t;
+                // Window packets own the client inventory view. Tile packets for world rendering
+                // must never replace the chassis NBT during an in-flight GUI click.
+                if(p.world.isRemote){assembly=new Tiles.Workbench();assembly.setInventorySlotContents(0,actual.slots.get(0).copy());}
+                else{assembly=actual;actual.editor=this;}
+                Tiles.Workbench a=assembly;parts=new Parts(a);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return parts.isItemValidForSlot(j,s);}
                     @Override public boolean canTakeStack(EntityPlayer p){return j!=0||ServerSpec.canRemoveBoard(Hardware.spec(a.slots.get(0)));}
                 });}machineSlots=1+ServerSpec.COUNT;
-            }else{parts=null;if(id==RACK){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<9;i++){final int j=i;addSlotToContainer(new Slot(r,i,rackX(i),rackY(i)){
+            }else{assembly=null;parts=null;if(id==RACK){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<9;i++){final int j=i;addSlotToContainer(new Slot(r,i,rackX(i),rackY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return r.isItemValidForSlot(j,s);}
                     @Override public boolean isEnabled(){return j<r.capacity();}
@@ -70,15 +78,57 @@ public final class Menus {
             if(i<ServerSpec.PCIE) return 31;
             return 112;
         }
-        int chassis(){return type==WORKBENCH?((Tiles.Workbench)tile).chassis():0;}
-        boolean fits(int i){return type==WORKBENCH&&ServerSpec.fits(chassis(),Hardware.spec(((Tiles.Workbench)tile).slots.get(0))[0],i);}
+        int chassis(){return assembly==null?0:assembly.chassis();}
+        boolean fits(int i){return type==WORKBENCH&&ServerSpec.fits(chassis(),Hardware.spec(assembly.slots.get(0))[0],i);}
         @Override public void onContainerClosed(EntityPlayer p){super.onContainerClosed(p);if(type==WORKBENCH&&!p.world.isRemote&&((Tiles.Workbench)tile).editor==this)((Tiles.Workbench)tile).editor=null;}
         @Override public boolean canInteractWith(EntityPlayer p){return tile.getWorld()==p.world&&p.world.getTileEntity(tile.getPos())==tile&&p.getDistanceSq(tile.getPos().getX()+.5,tile.getPos().getY()+.5,tile.getPos().getZ()+.5)<=64&&tile.allows(p)&&(type!=RACK||((Tiles.Rack)tile).role!=-1&&((Tiles.Rack)tile).revision==revision)&&(type!=WORKBENCH||p.world.isRemote||((Tiles.Workbench)tile).editor==this);}
         @Override public ItemStack slotClick(int slot,int drag,ClickType click,EntityPlayer p){if(!p.world.isRemote&&!canInteractWith(p)||type==MARKET&&slot>=0&&slot<4)return ItemStack.EMPTY;
             if(slot>=0&&slot<machineSlots){if(click==ClickType.QUICK_CRAFT||click==ClickType.SWAP||click==ClickType.PICKUP_ALL||click==ClickType.CLONE)return ItemStack.EMPTY;if(type==RACK&&slot>=((Tiles.Rack)tile).capacity())return ItemStack.EMPTY;}
             // Double click/drag from player inventory could otherwise bypass protected slots.
             if((type==WORKBENCH||type==RACK)&&(click==ClickType.PICKUP_ALL||click==ClickType.QUICK_CRAFT))return ItemStack.EMPTY;
+            if(type==WORKBENCH){
+                ItemStack result;
+                if(slot>=0&&slot<machineSlots&&click==ClickType.PICKUP)
+                    result=pickupWorkbench(slot,drag,p);
+                else result=super.slotClick(slot,drag,click,p);
+                // Vanilla may suppress the normal cursor update for an accepted predicted click.
+                // Always send the actual cursor; a stale client cursor must never be authoritative.
+                if(!p.world.isRemote&&p instanceof EntityPlayerMP&&((EntityPlayerMP)p).connection!=null)
+                    ((EntityPlayerMP)p).connection.sendPacket(new SPacketSetSlot(-1,-1,p.inventory.getItemStack().copy()));
+                return result;
+            }
             return super.slotClick(slot,drag,click,p);
+        }
+        /** PICKUP on NBT-backed slots must not depend on mutating detached ItemStack references. */
+        private ItemStack pickupWorkbench(int index,int button,EntityPlayer p){
+            if(button!=0&&button!=1)return ItemStack.EMPTY;
+            Slot slot=inventorySlots.get(index);
+            ItemStack old=slot.getStack().copy(),cursor=p.inventory.getItemStack();
+            if(cursor.isEmpty()){
+                if(!old.isEmpty()&&slot.canTakeStack(p)){
+                    ItemStack taken=slot.decrStackSize(button==0?old.getCount():(old.getCount()+1)/2);
+                    p.inventory.setItemStack(taken);
+                    slot.onTake(p,taken);
+                }
+            }else if(old.isEmpty()){
+                if(slot.isItemValid(cursor)){
+                    ItemStack one=cursor.copy();one.setCount(1);
+                    slot.putStack(one);
+                    // Only debit the cursor when insertion actually succeeded.
+                    if(slot.getHasStack()){
+                        cursor.shrink(1);
+                        p.inventory.setItemStack(cursor.isEmpty()?ItemStack.EMPTY:cursor);
+                    }
+                }
+            }else if(slot.canTakeStack(p)&&slot.isItemValid(cursor)&&cursor.getCount()==1){
+                // Never mutate or alias the cursor, the chassis, or a detached parts stack.
+                if(!ItemStack.areItemsEqual(old,cursor)||!ItemStack.areItemStackTagsEqual(old,cursor)){
+                    slot.putStack(cursor.copy());
+                    p.inventory.setItemStack(old);
+                }
+            }
+            // Vanilla click transactions compare the slot contents before the click.
+            return old;
         }
         @Override public ItemStack transferStackInSlot(EntityPlayer p,int index){if(!canInteractWith(p)||index<0||index>=inventorySlots.size()||type!=RACK&&type!=WORKBENCH)return ItemStack.EMPTY;Slot src=inventorySlots.get(index);if(!src.getHasStack()||!src.canTakeStack(p))return ItemStack.EMPTY;ItemStack stack=src.getStack(),old=stack.copy();
             if(index<machineSlots) {
@@ -90,9 +140,10 @@ public final class Menus {
                 src.onTake(p,taken);
             } else {
                 boolean moved=false;
-                for(int i=0;i<machineSlots && !stack.isEmpty();i++) {
+                for(int i=0;i<machineSlots;i++) {
+                    ItemStack current=src.getStack();if(current.isEmpty())break;
                     Slot dest=inventorySlots.get(i);
-                    if(dest.getHasStack() || !dest.isItemValid(stack)) continue;
+                    if(dest.getHasStack() || !dest.isItemValid(current)) continue;
                     dest.putStack(src.decrStackSize(1));
                     moved=true;
                 }
