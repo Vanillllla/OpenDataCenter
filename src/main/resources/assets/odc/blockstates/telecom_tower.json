@@ -1,0 +1,100 @@
+{
+  "variants": {
+    "active=false,facing=north,part=0": {
+      "model": "odc:telecom_tower_0_off",
+      "y": 0
+    },
+    "active=false,facing=east,part=0": {
+      "model": "odc:telecom_tower_0_off",
+      "y": 90
+    },
+    "active=false,facing=south,part=0": {
+      "model": "odc:telecom_tower_0_off",
+      "y": 180
+    },
+    "active=false,facing=west,part=0": {
+      "model": "odc:telecom_tower_0_off",
+      "y": 270
+    },
+    "active=false,facing=north,part=1": {
+      "model": "odc:telecom_tower_1_off",
+      "y": 0
+    },
+    "active=false,facing=east,part=1": {
+      "model": "odc:telecom_tower_1_off",
+      "y": 90
+    },
+    "active=false,facing=south,part=1": {
+      "model": "odc:telecom_tower_1_off",
+      "y": 180
+    },
+    "active=false,facing=west,part=1": {
+      "model": "odc:telecom_tower_1_off",
+      "y": 270
+    },
+    "active=false,facing=north,part=2": {
+      "model": "odc:telecom_tower_2_off",
+      "y": 0
+    },
+    "active=false,facing=east,part=2": {
+      "model": "odc:telecom_tower_2_off",
+      "y": 90
+    },
+    "active=false,facing=south,part=2": {
+      "model": "odc:telecom_tower_2_off",
+      "y": 180
+    },
+    "active=false,facing=west,part=2": {
+      "model": "odc:telecom_tower_2_off",
+      "y": 270
+    },
+    "active=true,facing=north,part=0": {
+      "model": "odc:telecom_tower_0_on",
+      "y": 0
+    },
+    "active=true,facing=east,part=0": {
+      "model": "odc:telecom_tower_0_on",
+      "y": 90
+    },
+    "active=true,facing=south,part=0": {
+      "model": "odc:telecom_tower_0_on",
+      "y": 180
+    },
+    "active=true,facing=west,part=0": {
+      "model": "odc:telecom_tower_0_on",
+      "y": 270
+    },
+    "active=true,facing=north,part=1": {
+      "model": "odc:telecom_tower_1_on",
+      "y": 0
+    },
+    "active=true,facing=east,part=1": {
+      "model": "odc:telecom_tower_1_on",
+      "y": 90
+    },
+    "active=true,facing=south,part=1": {
+      "model": "odc:telecom_tower_1_on",
+      "y": 180
+    },
+    "active=true,facing=west,part=1": {
+      "model": "odc:telecom_tower_1_on",
+      "y": 270
+    },
+    "active=true,facing=north,part=2": {
+      "model": "odc:telecom_tower_2_on",
+      "y": 0
+    },
+    "active=true,facing=east,part=2": {
+      "model": "odc:telecom_tower_2_on",
+      "y": 90
+    },
+    "active=true,facing=south,part=2": {
+      "model": "odc:telecom_tower_2_on",
+      "y": 180
+    },
+    "active=true,facing=west,part=2": {
+      "model": "odc:telecom_tower_2_on",
+      "y": 270
+    }
+  }
+}

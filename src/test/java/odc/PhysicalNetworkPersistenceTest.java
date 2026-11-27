@@ -14,7 +14,9 @@ public final class PhysicalNetworkPersistenceTest {
         original.topology.put(p,new PhysicalTopology.Cell(PhysicalTopology.Kind.TERMINAL,Collections.singletonList(g)));
         original.topology.put(f,new PhysicalTopology.Cell(PhysicalTopology.Kind.FIBER,Collections.emptyList()));
         original.topology.put(a,new PhysicalTopology.Cell(PhysicalTopology.Kind.ANTENNA,Collections.singletonList(r)));
+        LogicalLinks.Link link=original.uplinks.add(gateway,UUID.randomUUID(),3);
         NBTTagCompound saved=original.writeToNBT(new NBTTagCompound());PhysicalNetwork loaded=new PhysicalNetwork();loaded.readFromNBT(saved);
+        if(loaded.uplinks.all().size()!=1||!loaded.uplinks.all().iterator().next().id.equals(link.id)||loaded.uplinks.all().iterator().next().tier!=3)throw new AssertionError("Uplink persistence");
         if(!loaded.topology.cells().equals(original.topology.cells()))throw new AssertionError("Persistent cells or UUIDs changed");
         PhysicalTopology.View v=loaded.topology.view(p,x->false);
         if(v.devices.size()!=2||v.links.size()!=1||v.links.get(0).verified||v.complete||v.devices.get(gateway).available)throw new AssertionError("Saved cells must be known but not verified after restart");

@@ -50,7 +50,7 @@ final class TaskConsole {
         Map<UUID,Menus.Target> live=new HashMap<>();for(Menus.Target target:DataOSView.servers(m.tile))live.put(ClusterScheduler.serverId(target.item),target);
         for(PoolResources.Binding b:draft){Menus.Target t=live.get(b.server);Integer i=null;for(int k=0;k<domain.nodes.size();k++)if(domain.nodes.get(k).id.equals(b.server)){i=k;break;}
             if(t==null||i==null||!t.rack.allows(m.player)||!t.rack.energy.fed()||(t.rack.enabledMask&(1<<t.bay))==0||!Arrays.equals(Hardware.spec(t.item),domain.nodes.get(i).parts)||!draftPool.equals(d.poolId(m.tile.owner,b.server)))return false;
-            if(b.kind==PoolResources.Kind.NETWORK&&(!t.rack.switchOnline||t.rack.portOf(t.bay)<0||Math.min(Hardware.nic(t.item),Hardware.portMbps(t.rack.switchTier()))!=domain.nodes.get(i).net||Hardware.switchMbps(t.rack.switchTier())!=domain.caps[domain.nodes.get(i).rack]))return false;
+            if(b.kind==PoolResources.Kind.NETWORK&&(!t.rack.switchOnline||t.rack.portOf(t.bay)<0||t.rack.patchLimit(t.bay)!=domain.nodes.get(i).net||Hardware.switchMbps(t.rack.switchTier())!=domain.caps[domain.nodes.get(i).rack]))return false;
         }return true;
     }
     NBTTagCompound marketRow(TaskData d,UUID owner,int sec,UUID key){

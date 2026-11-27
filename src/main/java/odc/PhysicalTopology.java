@@ -21,14 +21,17 @@ public final class PhysicalTopology {
         @Override public String toString(){return x+","+y+","+z;}
     }
     public static final class Device {
-        public final UUID id,parent; // server parent = physical switch; null otherwise
+        public final UUID id,parent,patchId; // server parent = physical switch; null otherwise
         public final Type type; public final String name,model; public final Pos pos;
-        public final int dimension,capacityMbps,usedMbps,slot,port; // -1 use = unavailable / not measured yet
+        public final int dimension,capacityMbps,usedMbps,slot,port,patchTier; // -1 use = unavailable / not measured yet
         public final boolean powered;
         public Device(UUID id,Type type,String name,String model,Pos pos,int dimension,int capacityMbps,int usedMbps,boolean powered,UUID parent,int slot,int port){
-            this.id=Objects.requireNonNull(id);this.type=Objects.requireNonNull(type);this.name=Objects.requireNonNull(name);this.model=Objects.requireNonNull(model);this.pos=Objects.requireNonNull(pos);this.dimension=dimension;this.capacityMbps=Math.max(0,capacityMbps);this.usedMbps=Math.max(-1,usedMbps);this.powered=powered;this.parent=parent;this.slot=slot;this.port=port;
+            this(id,type,name,model,pos,dimension,capacityMbps,usedMbps,powered,parent,slot,port,null,0);
         }
-        @Override public boolean equals(Object obj){if(!(obj instanceof Device))return false;Device d=(Device)obj;return id.equals(d.id)&&type==d.type&&name.equals(d.name)&&model.equals(d.model)&&pos.equals(d.pos)&&dimension==d.dimension&&capacityMbps==d.capacityMbps&&usedMbps==d.usedMbps&&powered==d.powered&&Objects.equals(parent,d.parent)&&slot==d.slot&&port==d.port;}
+        public Device(UUID id,Type type,String name,String model,Pos pos,int dimension,int capacityMbps,int usedMbps,boolean powered,UUID parent,int slot,int port,UUID patchId,int patchTier){
+            this.patchId=patchId;this.patchTier=patchTier;this.id=Objects.requireNonNull(id);this.type=Objects.requireNonNull(type);this.name=Objects.requireNonNull(name);this.model=Objects.requireNonNull(model);this.pos=Objects.requireNonNull(pos);this.dimension=dimension;this.capacityMbps=Math.max(0,capacityMbps);this.usedMbps=Math.max(-1,usedMbps);this.powered=powered;this.parent=parent;this.slot=slot;this.port=port;
+        }
+        @Override public boolean equals(Object obj){if(!(obj instanceof Device))return false;Device d=(Device)obj;return id.equals(d.id)&&type==d.type&&name.equals(d.name)&&model.equals(d.model)&&pos.equals(d.pos)&&dimension==d.dimension&&capacityMbps==d.capacityMbps&&usedMbps==d.usedMbps&&powered==d.powered&&Objects.equals(parent,d.parent)&&slot==d.slot&&port==d.port&&Objects.equals(patchId,d.patchId)&&patchTier==d.patchTier;}
         @Override public int hashCode(){return id.hashCode();}
     }
     public static final class Cell {
@@ -76,12 +79,20 @@ public final class PhysicalTopology {
     public Domain lanDomain(Pos p){return component(p,lanCache,this::lan);}
     private Domain fiberDomain(Pos p){return component(p,fiberCache,this::fiber);}
     /** Fiber endpoints are not transit nodes. Only a continuous fiber cable run links endpoints. */
-    private Set<Pos> antennas(Pos terminal){Set<Pos> out=new TreeSet<>();Set<Domain> done=new HashSet<>();for(Pos n:terminal.adjacent()){
+    private Set<Pos> antennas(Pos terminal){return opticalPeers(terminal,Kind.ANTENNA);}
+    private Set<Pos> opticalPeers(Pos terminal,Kind target){Set<Pos> out=new TreeSet<>();Set<Domain> done=new HashSet<>();for(Pos n:terminal.adjacent()){
         Domain d=fiberDomain(n);if(d==null||!done.add(d))continue;
-        for(Pos c:d.positions)for(Pos end:c.adjacent()){Cell e=cells.get(end);if(e!=null&&e.kind==Kind.ANTENNA)out.add(end);}
+        for(Pos c:d.positions)for(Pos end:c.adjacent()){Cell e=cells.get(end);if(e!=null&&e.kind==target)out.add(end);}
     }return out;}
-    private Set<Pos> verifiedAntennas(Pos terminal,Predicate<Pos> loaded){Set<Pos> out=new HashSet<>(),seen=new HashSet<>();if(!loaded.test(terminal))return out;ArrayDeque<Pos> q=new ArrayDeque<>();for(Pos n:terminal.adjacent())if(fiber(n)&&loaded.test(n)&&seen.add(n))q.add(n);
-        while(!q.isEmpty())for(Pos n:q.remove().adjacent())if(loaded.test(n)){Cell c=cells.get(n);if(c==null)continue;if(c.kind==Kind.ANTENNA)out.add(n);else if(c.kind==Kind.FIBER&&seen.add(n))q.add(n);}return out;}
+    private Set<Pos> verifiedAntennas(Pos terminal,Predicate<Pos> loaded){return verifiedOpticalPeers(terminal,Kind.ANTENNA,loaded);}
+    private Set<Pos> verifiedOpticalPeers(Pos terminal,Kind target,Predicate<Pos> loaded){Set<Pos> out=new HashSet<>(),seen=new HashSet<>();if(!loaded.test(terminal))return out;ArrayDeque<Pos> q=new ArrayDeque<>();for(Pos n:terminal.adjacent())if(fiber(n)&&loaded.test(n)&&seen.add(n))q.add(n);
+        while(!q.isEmpty())for(Pos n:q.remove().adjacent())if(loaded.test(n)){Cell c=cells.get(n);if(c==null)continue;if(c.kind==target)out.add(n);else if(c.kind==Kind.FIBER&&seen.add(n))q.add(n);}return out;}
+    public static final class Peer {
+        public final Device device; public final boolean verified,loaded;
+        Peer(Device device,boolean verified,boolean loaded){this.device=device;this.verified=verified;this.loaded=loaded;}
+    }
+    /** Direct optical endpoints only; a shared source retains one identity across all domains. */
+    public List<Peer> opticalPeers(Pos origin,Predicate<Pos> loaded){Cell c=cells.get(origin);if(c==null||c.kind!=Kind.ANTENNA&&c.kind!=Kind.TERMINAL)return Collections.emptyList();Kind target=c.kind==Kind.ANTENNA?Kind.TERMINAL:Kind.ANTENNA;Set<Pos> live=verifiedOpticalPeers(origin,target,loaded);List<Peer> result=new ArrayList<>();for(Pos p:opticalPeers(origin,target))for(Device d:cells.get(p).devices)result.add(new Peer(d,live.contains(p),loaded.test(p)));return result;}
     private void addDevice(Device d,Predicate<Pos> loaded,Map<UUID,State> out,Set<UUID> ambiguous){if(ambiguous.contains(d.id))return;State prev=out.get(d.id);if(prev!=null){if(!prev.device.equals(d)){out.remove(d.id);ambiguous.add(d.id);}return;}out.put(d.id,new State(d,loaded.test(d.pos)));}
     public View view(Pos origin,Predicate<Pos> loaded){Domain domain=lanDomain(origin);Map<UUID,State> out=new LinkedHashMap<>();List<Link> links=new ArrayList<>();Set<UUID> ambiguous=new HashSet<>();if(domain==null)return new View(null,false,out,links,ambiguous,Collections.emptySet());
         boolean complete=true;for(Pos p:new TreeSet<>(domain.positions)){complete&=loaded.test(p);for(Device d:cells.get(p).devices)addDevice(d,loaded,out,ambiguous);}

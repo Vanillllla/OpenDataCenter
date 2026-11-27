@@ -32,6 +32,17 @@ public final class PhysicalTopologyTest {
         // Fiber endpoints cannot be used as bridges between fiber runs.
         PhysicalTopology u=new PhysicalTopology();PhysicalTopology.Pos g=p(0,0,0),gNext=p(2,0,0),antenna=p(4,0,0);put(u,g,Kind.TERMINAL,d(10,Type.TERMINAL,g,1000,null));put(u,p(1,0,0),Kind.FIBER);put(u,gNext,Kind.TERMINAL,d(11,Type.TERMINAL,gNext,1000,null));put(u,p(3,0,0),Kind.FIBER);put(u,antenna,Kind.ANTENNA,d(12,Type.TOWER,antenna,10000,null));
         check(u.view(g,x->true).devices.size()==1,"gateway not fiber transit");check(u.view(gNext,x->true).devices.size()==2,"tower supported by schema");
+        // Reverse optical discovery must include both terminals, but must not merge their LANs.
+        List<PhysicalTopology.Peer> peers=t.opticalPeers(a,x->true);
+        check(peers.size()==2&&peers.stream().allMatch(q->q.verified),"reverse peers on separate LANs");
+        check(t.opticalPeers(a,x->!x.equals(p(2,0,1))).stream().filter(q->q.verified).count()==1,"reverse peer verification per branch");
+        check(t.opticalPeers(a,x->false).stream().noneMatch(q->q.verified||q.loaded),"unloaded optical peers retained only");
+        check(u.opticalPeers(antenna,x->true).size()==1,"tower only direct optical peers");
+        check(t.opticalPeers(r,x->true).isEmpty(),"rack cannot act as optical endpoint");
+        for(NetworkEquipment e:NetworkEquipment.values()){check(NetworkEquipment.byId(e.id)==e&&NetworkEquipment.byId("odc:"+e.id)==e,"catalog id lookup");check(e.fe>0&&e.mbps>0,"positive equipment ratings");}
+        check(NetworkEquipment.RADIO.mbps==500&&NetworkEquipment.SATELLITE.mbps==2000&&NetworkEquipment.TOWER.mbps==10000,"source ratings");
+        check(NetworkEquipment.TERMINAL_1.mbps==1000&&NetworkEquipment.TERMINAL_2.mbps==10000&&NetworkEquipment.TERMINAL_3.mbps==100000,"terminal ratings");
+        check(NetworkEquipment.byId("invalid")==null,"unknown model");
         // Restore persisted cells without live chunks: identity and membership retained, no live capacity claim.
         PhysicalTopology restored=new PhysicalTopology();for(Map.Entry<PhysicalTopology.Pos,PhysicalTopology.Cell> e:t.cells().entrySet())restored.put(e.getKey(),e.getValue());
         check(restored.view(ga,x->false).devices.keySet().equals(t.view(ga,x->true).devices.keySet()),"saved index membership");check(restored.view(ga,x->false).devices.values().stream().noneMatch(s->s.available),"no live availability after restore");

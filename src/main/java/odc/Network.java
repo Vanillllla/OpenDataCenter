@@ -36,7 +36,7 @@ public final class Network {
         if(!w.isBlockLoaded(p))return false;
         Block b=w.getBlockState(p).getBlock();
         if(b==Hardware.DATA_CABLE)return true;
-        if(b!=Hardware.RACK&&b!=Hardware.RACK_GLASS&&b!=Hardware.COMPUTER&&b!=Hardware.NETWORK_TERMINAL)return false;
+        if(b!=Hardware.RACK&&b!=Hardware.RACK_GLASS&&b!=Hardware.COMPUTER&&!Hardware.networkTerminal(b))return false;
         TileEntity t=deviceAt(w,p);return isLanDevice(t);
     }
     /** Null means the safety limit was exceeded. Never split a partially scanned domain and award duplicate capacity. */

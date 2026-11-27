@@ -10,8 +10,8 @@ def check(ok,msg):
     if not ok: raise AssertionError(msg)
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
-blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal'}
-items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','ethernet_patch'}
+blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower'}
+items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
@@ -56,8 +56,14 @@ for name in ('data_cable','power_cable','power_relay','fiber_cable'):
         m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
         for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
             if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
-for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal'):
+for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal','network_terminal_t2','network_terminal_t3'):
     data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
+tower=read(root/'blockstates/telecom_tower.json')['variants']
+check(set(tower)=={f'active={a},facing={f},part={p}' for a in ('true','false') for f in ('north','east','south','west') for p in range(3)},'tower state coverage')
+for part in range(3):
+    for active in ('on','off'):
+        m=read(root/'models/block'/f'telecom_tower_{part}_{active}.json')
+        check(all(0<=v<=16 for e in m['elements'] for k in ('from','to') for v in e[k]),'tower segment bounds')
 # The workbench is empty in inventory and has exactly one model for each case size and rotation.
 bench=read(root/'blockstates/workbench.json')['variants']
 check(set(bench)=={f'chassis={i},facing={f}' for i in range(4) for f in ('north','east','south','west')},'workbench state coverage')
@@ -88,7 +94,7 @@ check(max_cable<=24,'cable quad budget')
 print(f'Geometry: {mesh_count} meshes, {quad_count} authored faces, max {max_cable} quads per cable; no positive-area coplanar axis-aligned overlaps.')
 for u in (1,2,4):
     for state in ('ready','empty'):tex_ref(f'odc:blocks/server_{u}_{state}')
-for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
+for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_cable_mesh_t1','patch_cable_mesh_t3','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
 # The switch PNG socket spans two centered pixels; inspect exact colors via optional Pillow test separately.
 check(not (root/'textures/blocks/patch_up.png').exists() and not (root/'textures/blocks/patch_down.png').exists(),'legacy flat patch sprites removed')
 recipes=set()

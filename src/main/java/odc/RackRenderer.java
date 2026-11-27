@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Atlas-batched module mesh: one opaque draw, plus one glass draw if needed. */
 final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
-    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","led_on","led_off","led_activity","rack_window","module_side","patch_cable_mesh","patch_plug_mesh"};
+    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","led_on","led_off","led_activity","rack_window","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh"};
     private BufferBuilder buffer;
     private TextureMap atlas;
     private void begin(){buffer=Tessellator.getInstance().getBuffer();buffer.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX_COLOR);}
@@ -57,7 +57,7 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
                         if(connected){
                             for(PatchCordMesh.Face face:PatchCordMesh.get(rack.capacity(),i,n,p,bay>i)){
                                 double[][] q=face.vertices;
-                                quad(face.material==PatchCordMesh.CABLE?"patch_cable_mesh":"patch_plug_mesh",face.shade,q[0],q[1],q[2],q[3]);
+                                quad(face.material==PatchCordMesh.CABLE?(rack.cableTier(p)==1?"patch_cable_mesh_t1":rack.cableTier(p)==3?"patch_cable_mesh_t3":"patch_cable_mesh"):"patch_plug_mesh",face.shade,q[0],q[1],q[2],q[3]);
                             }
                         }
                     }

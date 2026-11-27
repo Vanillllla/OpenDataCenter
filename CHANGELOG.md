@@ -1,3 +1,17 @@
+## 0.6.1.3-alpha — Logical Connections & LAN Cables
+- LAN T1/T2/T3, номиналы 100/1000/100000 Мбит/с, цвет серый/синий/фиолетовый.
+- UUID uplink, серверная проверка, сохранение при разрывах, возврат/модернизация кабелей.
+- Типизированные патч-корды и NIC/номинал в GUI коммутатора. Временный списочный редактор терминала.
+- Общий API логических связей; новый WAN и действительная загрузка uplink отложены до Stage 4/7.
+- Автономные тесты пройдены; Forge/NBT/игровая интеграция не проверены.
+
+## 0.6.1.2-alpha — Antennas & Network Terminals
+- Redesigned radio and satellite models; three-block telecommunications tower with a single base controller.
+- Three network terminal tiers and centralized nominal ratings / idle FE costs.
+- Server-authoritative optical peer discovery and read-only equipment GUI.
+- Stage 2 hardware available in creative; no new crafting recipes yet. Actual WAN allocation remains deferred.
+- Core and asset tests passed; Forge compilation and in-game multiblock behavior not verified.
+
 ## 0.6.1.1-alpha — Physical Network Foundation
 - Добавлен постоянный индекс LAN и оптических сегментов, обнаружение оборудования и автоматических FIBER/PATCH-связей, UUID сетевых устройств и коммутаторов.
 - Индекс хранится в WorldSavedData отдельно по измерениям; выгрузка сохраняет записи и снимает верификацию. Обновление по изменениям блоков и чанков; структурный граф кэшируется.

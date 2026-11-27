@@ -15,12 +15,14 @@ import java.util.List;
 
 final class Hardware {
     static final CreativeTabs TAB=new CreativeTabs("odc"){@Override public ItemStack createIcon(){return new ItemStack(CHASSIS4);}};
-    static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),NETWORK_TERMINAL=new Blocks.NetworkTerminal(),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
-    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,NETWORK_TERMINAL,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
+    static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),TOWER=new Blocks.Tower(),NETWORK_TERMINAL=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_1),NETWORK_TERMINAL_T2=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_2),NETWORK_TERMINAL_T3=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_3),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
+    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
+    static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
+    static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
     static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);
-    static final Item CHIP=item("precision_chip",""), SWITCH1=item("switch_basic","4 × 100 Mb/s"), SWITCH2=item("switch_pro","8 × 1000 Mb/s"), PATCH=item("ethernet_patch","1 internal connection");
+    static final Item CHIP=item("precision_chip",""), SWITCH1=item("switch_basic","4 × 100 Mb/s"), SWITCH2=item("switch_pro","8 × 1000 Mb/s"), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
-    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,SWITCH1,SWITCH2,PATCH));
+    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,SWITCH1,SWITCH2,PATCH,PATCH2,PATCH3));
     static {
         for(Part model:Part.models) if(model.index>0) {
             Item component=item(model.id,String.join("\n",model.details()));
@@ -35,6 +37,7 @@ final class Hardware {
     static int rackUnits(ItemStack s){return switchTier(s)>0?1:units(s);}
     static int ports(int tier){return tier==1?4:tier==2?8:0;}
     static int switchMbps(int tier){return tier==1?200:tier==2?2000:0;}
+    static Item lan(int tier){return tier==2?PATCH2:tier==3?PATCH3:PATCH;}
     static int portMbps(int tier){return tier==1?100:tier==2?1000:0;}
     static int switchPower(int tier){return tier==1?8:tier==2?20:0;}
     static int model(ItemStack s) {
