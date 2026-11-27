@@ -29,7 +29,7 @@ public final class Client {
         if(mc.currentScreen!=null||mc.player==null||mc.world==null||mc.playerController==null||mc.player.isSpectator()||!e.isButtonstate()||e.getButton()<0||e.getButton()-100!=mc.gameSettings.keyBindUseItem.getKeyCode()||net.minecraft.client.gui.GuiScreen.isCtrlKeyDown())return;
         net.minecraft.util.math.Vec3d eye=mc.player.getPositionEyes(1),look=mc.player.getLook(1);
         double reach=Math.min(6,mc.playerController.getBlockReachDistance());
-        net.minecraft.util.math.Vec3d end=eye.addVector(look.x*reach,look.y*reach,look.z*reach);
+        net.minecraft.util.math.Vec3d end=new net.minecraft.util.math.Vec3d(eye.x+look.x*reach,eye.y+look.y*reach,eye.z+look.z*reach);
         net.minecraft.util.math.RayTraceResult obstruction=mc.world.rayTraceBlocks(eye,end,false,false,false);
         Tiles.Rack nearest=null;double best=Double.POSITIVE_INFINITY;
         // Only inspect racks in the small interaction volume, not the entire loaded world.

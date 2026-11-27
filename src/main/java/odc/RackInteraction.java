@@ -42,7 +42,7 @@ public final class RackInteraction {
                 World w=p.world;BlockPos pos=BlockPos.fromLong(m.pos);Tiles.Rack r=RackMultiblock.at(w,pos);
                 if(r==null||r.role==-1||!r.glassRack()||!r.allows(p)||p.isSpectator())return;
                 double reach=Math.min(6,p.getEntityAttribute(EntityPlayer.REACH_DISTANCE).getAttributeValue());
-                Vec3d eye=p.getPositionEyes(1),look=p.getLook(1),end=eye.addVector(look.x*reach,look.y*reach,look.z*reach);
+                Vec3d eye=p.getPositionEyes(1),look=p.getLook(1),end=new Vec3d(eye.x+look.x*reach,eye.y+look.y*reach,eye.z+look.z*reach);
                 if(doorHit(r,eye,end,w.rayTraceBlocks(eye,end,false,false,false))>=0)r.toggleDoor();
             });return null;
         }
