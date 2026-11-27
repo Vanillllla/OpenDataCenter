@@ -1,0 +1,28 @@
+buildscript {
+    repositories { maven { url = 'https://maven.minecraftforge.net/' }; mavenCentral() }
+    dependencies { classpath 'net.minecraftforge.gradle:ForgeGradle:3.+' }
+}
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'eclipse'
+version = '0.2.0-alpha'
+group = 'odc'
+archivesBaseName = 'OpenDataCenter-1.12.2'
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+compileJava.options.encoding = 'UTF-8'
+minecraft {
+    mappings channel: 'stable', version: '39-1.12'
+    runs {
+        client { workingDirectory project.file('run'); property 'forge.logging.console.level', 'info' }
+        server { workingDirectory project.file('run-server'); property 'forge.logging.console.level', 'info' }
+    }
+}
+repositories { maven { url = 'https://maven.minecraftforge.net/' }; mavenCentral() }
+dependencies { minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860' }
+jar.finalizedBy('reobfJar')
+
+// Plain Java regression suite; no JUnit dependency. Also executable offline via tools/test-core.*.
+task verifyEngine(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.ComputeEngineTest'
+}
+check.dependsOn verifyEngine

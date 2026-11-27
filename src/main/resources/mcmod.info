@@ -1,0 +1,13 @@
+[
+  {
+    "modid": "odc",
+    "name": "OpenDataCenter",
+    "description": "Modular server racks, independent compute tasks, shared network bandwidth and DataOS.",
+    "version": "0.2.0-alpha",
+    "mcversion": "1.12.2",
+    "url": "",
+    "authorList": ["OpenDataCenter project"],
+    "credits": "Original pixel art and block models",
+    "dependencies": []
+  }
+]

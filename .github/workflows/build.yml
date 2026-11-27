@@ -1,0 +1,25 @@
+name: Build OpenDataCenter
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Verify independent compute engine
+        run: bash tools/test-core.sh
+      - name: Validate resource files
+        run: python3 tools/validate_assets.py
+      - name: Compile and reobfuscate Forge mod
+        run: bash build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenDataCenter-1.12.2-0.2.0-alpha
+          path: build/libs/OpenDataCenter-1.12.2-0.2.0-alpha.jar
+          if-no-files-found: error

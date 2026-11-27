@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GCG",
+    "RBR",
+    "GCG"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "B": {
+      "item": "odc:cpu_basic"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_pro",
+    "count": 1
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "odc:blocks/wall_panel"
+  }
+}

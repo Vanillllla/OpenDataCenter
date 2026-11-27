@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "normal": {
+      "model": "odc:wall_panel"
+    }
+  }
+}

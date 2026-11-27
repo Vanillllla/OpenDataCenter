@@ -1,0 +1,12 @@
+$ErrorActionPreference = 'Stop'
+Set-Location (Join-Path $PSScriptRoot '..')
+$java = 'java.exe'; $javac = 'javac.exe'
+if ($env:JAVA_HOME) { $java = Join-Path $env:JAVA_HOME 'bin\java.exe'; $javac = Join-Path $env:JAVA_HOME 'bin\javac.exe' }
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('odc-test-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmp | Out-Null
+try {
+    & $javac -source 8 -target 8 -encoding UTF-8 -d $tmp 'src/main/java/odc/ComputeEngine.java' 'src/main/java/odc/RackLayout.java' 'src/main/java/odc/TopologySearch.java' 'src/test/java/odc/ComputeEngineTest.java'
+    if ($LASTEXITCODE -ne 0) { throw 'Core compilation failed.' }
+    & $java -cp $tmp odc.ComputeEngineTest
+    if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
+} finally { Remove-Item -Recurse -Force $tmp }
