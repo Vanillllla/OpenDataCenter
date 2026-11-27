@@ -15,7 +15,7 @@ public final class Menus {
     static final int W=300,H=240;
     static final int RACK=0,WORKBENCH=1,CONTROL=2,MARKET=3,STATION=5,STATION_LIST=6;
     public static final class Handler implements IGuiHandler {
-        private Menu menu(int id,EntityPlayer p,World w,int x,int y,int z){TileEntity t=w.getTileEntity(new BlockPos(x,y,z));boolean correct=id==RACK&&t instanceof Tiles.Rack||id==WORKBENCH&&t instanceof Tiles.Workbench||(id==CONTROL||id==MARKET)&&t instanceof Tiles.Computer||(id==STATION||id==STATION_LIST)&&t instanceof Tiles.NetworkDevice;
+        private Menu menu(int id,EntityPlayer p,World w,int x,int y,int z){TileEntity t=w.getTileEntity(new BlockPos(x,y,z));boolean correct=id==RACK&&t instanceof Tiles.Rack||id==WORKBENCH&&t instanceof Tiles.Workbench||(id==CONTROL||id==MARKET)&&t instanceof Tiles.Computer||(id==STATION||id==STATION_LIST)&&t instanceof Tiles.NetworkTerminal;
             if(!correct)return null;Tiles.Owned tile=(Tiles.Owned)t;if(!w.isRemote&&(!tile.allows(p)||p.getDistanceSq(x+.5,y+.5,z+.5)>64||id==WORKBENCH&&((Tiles.Workbench)t).editor!=null))return null;return new Menu(id,p,tile);}
         private PanelMenu panel(int id,EntityPlayer p,World w,int x,int y,int z){TileEntity t=w.getTileEntity(new BlockPos(x,y,z));if(id==CONTROL&&!(t instanceof Tiles.Computer)||id!=CONTROL&&!(t instanceof Tiles.Rack))return null;Tiles.Owned a=(Tiles.Owned)t;if(!w.isRemote&&(!a.allows(p)||p.getDistanceSq(x+.5,y+.5,z+.5)>64))return null;if(id!=CONTROL){Tiles.Rack r=(Tiles.Rack)t;int bay=id%20;if(!w.isRemote&&(bay>=r.capacity()||(id<40?!r.isServer(bay):Hardware.switchTier(r.slots.get(bay))==0)))return null;}return new PanelMenu(id,p,a);}
         private boolean isPanel(int id){return id==CONTROL||id>=20&&id<=28||id>=40&&id<=48;}

@@ -72,7 +72,8 @@ final class Blocks {
         @Override public BlockRenderLayer getRenderLayer(){return type>=5?BlockRenderLayer.CUTOUT:BlockRenderLayer.SOLID;}
         @Override public AxisAlignedBB getBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return type>=5?new AxisAlignedBB(0.0625,0,0.0625,0.9375,1,0.9375):super.getBoundingBox(s,w,p);}
         @Override public AxisAlignedBB getCollisionBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return type>=5?getBoundingBox(s,w,p):super.getCollisionBoundingBox(s,w,p);}
-        @Override int gui(){return type==1?1:type==2?2:type>=5?5:-1;}
+        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){return type>=5?false:super.onBlockActivated(w,p,s,player,hand,side,x,y,z);}
+        @Override int gui(){return type==1?1:type==2?2:-1;}
     }
     static final class NetworkTerminal extends Oriented {
         final NetworkEquipment equipment;
@@ -94,13 +95,13 @@ final class Blocks {
         @Override public boolean canPlaceBlockAt(World w,BlockPos p){return p.getY()<w.getHeight()-2&&super.canPlaceBlockAt(w,p)&&w.getBlockState(p.up()).getBlock().isReplaceable(w,p.up())&&w.getBlockState(p.up(2)).getBlock().isReplaceable(w,p.up(2));}
         @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack item){super.onBlockPlacedBy(w,p,s,e,item);if(!w.isRemote&&s.getValue(PART)==0){w.setBlockState(p.up(),s.withProperty(PART,1),3);w.setBlockState(p.up(2),s.withProperty(PART,2),3);}}
         @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){TileEntity t=w.getTileEntity(base(w,p));return s.withProperty(ACTIVE,t instanceof Tiles.Station&&((Tiles.Station)t).online);}
-        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){BlockPos q=base(w,p);IBlockState b=w.getBlockState(q);return b.getBlock()==this&&b.getValue(PART)==0&&super.onBlockActivated(w,q,b,player,hand,side,x,y,z);}
+        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){return false;}
         @Override public net.minecraft.item.Item getItemDropped(IBlockState s,java.util.Random r,int fortune){return s.getValue(PART)==0?super.getItemDropped(s,r,fortune):net.minecraft.init.Items.AIR;}
         @Override public void onBlockHarvested(World w,BlockPos p,IBlockState s,EntityPlayer player){if(!w.isRemote&&player.capabilities.isCreativeMode&&s.getValue(PART)!=0){BlockPos q=base(w,p);IBlockState b=w.getBlockState(q);if(b.getBlock()==this&&b.getValue(PART)==0)w.setBlockToAir(q);}super.onBlockHarvested(w,p,s,player);}
         @Override public void breakBlock(World w,BlockPos p,IBlockState s){int part=s.getValue(PART);BlockPos q=p.down(part);super.breakBlock(w,p,s);if(!w.isRemote){if(part!=0){IBlockState b=w.getBlockState(q);if(b.getBlock()==this&&b.getValue(PART)==0){w.destroyBlock(q,true);return;}}for(int i=1;i<=2;i++){BlockPos x=q.up(i);IBlockState b=w.getBlockState(x);if(!x.equals(p)&&b.getBlock()==this&&b.getValue(PART)==i)w.setBlockToAir(x);}}}
         @Override public AxisAlignedBB getBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return s.getValue(PART)==0?new AxisAlignedBB(.125,0,.125,.875,1,.875):s.getValue(PART)==1?new AxisAlignedBB(.3125,0,.3125,.6875,1,.6875):new AxisAlignedBB(.125,0,.125,.875,1,.875);}
         @Override public AxisAlignedBB getCollisionBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return getBoundingBox(s,w,p);}
-        @Override int gui(){return Menus.STATION;}
+        @Override int gui(){return -1;}
     }
     /** One two-block terminal, with the controller and energy buffer in its lower half only. */
     static final class Terminal extends Oriented {

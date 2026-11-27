@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.1.9-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.1.10-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -23,9 +23,9 @@
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
 
-### Версия 0.6.1.9-alpha
+### Версия 0.6.1.10-alpha
 
-Без питания терминалы DataOS и Network показывают чёрный экран. Сервер проверяет действия на терминалах. В подсказках сетевых терминалов указана номинальная пропускная способность, а вкладка «Серверы» в DataOS показывает только серверы, подключённые к коммутатору. [Каталог коммутаторов 0.6.1.8](docs/SWITCH_CATALOGUE_0618.md) · [Журнал изменений](CHANGELOG.md)
+У радиоантенны, спутниковой тарелки и вышки больше нет собственных окон: их характеристики доступны на карте сетевого терминала. Без питания терминалы DataOS и Network показывают чёрный экран. Сервер проверяет действия на терминалах. В подсказках сетевых терминалов указана номинальная пропускная способность, а вкладка «Серверы» в DataOS показывает только серверы, подключённые к коммутатору. [Каталог коммутаторов 0.6.1.8](docs/SWITCH_CATALOGUE_0618.md) · [Журнал изменений](CHANGELOG.md)
 
 ### Сборка и запуск
 
@@ -69,9 +69,9 @@
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
 
-### Version 0.6.1.9-alpha
+### Version 0.6.1.10-alpha
 
-DataOS and Network terminals show a black screen when unpowered. The server validates terminal actions. Network terminal tooltips show rated bandwidth, and the DataOS Servers tab lists only servers connected to a switch. [0.6.1.8 switch catalogue](docs/SWITCH_CATALOGUE_0618.md) · [Changelog](CHANGELOG.md)
+Radio antennas, satellite dishes and telecom towers no longer open their own GUIs; their status is available on the network terminal map. DataOS and Network terminals show a black screen when unpowered. The server validates terminal actions. Network terminal tooltips show rated bandwidth, and the DataOS Servers tab lists only servers connected to a switch. [0.6.1.8 switch catalogue](docs/SWITCH_CATALOGUE_0618.md) · [Changelog](CHANGELOG.md)
 
 ### Build and run
 
