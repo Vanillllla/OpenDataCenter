@@ -1,4 +1,5 @@
 package odc;
+import static odc.EventJournal.*;
 import java.util.*;
 import net.minecraft.nbt.*;
 import net.minecraftforge.common.config.Configuration;
@@ -72,7 +73,7 @@ final class ContractMarket {
             TaskData.Job j=new TaskData.Job(d.next++,o.getInteger("Type"),wallet,owner);
             j.pool=Objects.requireNonNull(pool);j.poolLabel=poolLabel;j.auto=false;j.terms.merge(o);j.terms.setLong("Accepted",now);
             if(o.getLong("Duration")>0)j.terms.setLong("Deadline",now+o.getLong("Duration"));
-            offers.removeTag(i);d.wallet(wallet)[0]-=fee;d.jobs.add(j);d.markDirty();return true;
+            offers.removeTag(i);d.wallet(wallet)[0]-=fee;d.jobs.add(j);d.jobEvent(j,Level.SUCCESS,Category.TASK,"contract_accepted","Contract accepted");if(fee>0)d.jobEvent(j,Level.INFO,Category.FINANCE,"contract_fee","Contract fee",0,-fee);d.markDirty();return true;
         }
         return false;
     }
@@ -88,7 +89,7 @@ final class ContractMarket {
     }
     void end(TaskData d,TaskData.Job j,String status,long penalty){
         if(j.terms.hasKey("End"))return;
-        j.retained.clear();j.bindings.clear();j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.terms.setBoolean("End",true);
+        d.jobEvent(j,"completed".equals(status)?Level.SUCCESS:Level.INFO,Category.TASK,"task_"+status,"Task ended: "+status);if(!j.bindings.isEmpty())d.jobEvent(j,Level.INFO,Category.RESOURCE,"resources_released","All reservations released");j.retained.clear();j.bindings.clear();j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.terms.setBoolean("End",true);
         record(d,j,status,penalty);
     }
     void tick(TaskData d,long now){

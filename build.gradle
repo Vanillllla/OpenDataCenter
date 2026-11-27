@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.5.4.1-alpha'
+version = '0.5.4.2-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -89,3 +89,14 @@ task verifyDataOSUi(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.DataOSUiStateTest'
 }
 check.dependsOn verifyDataOSUi
+
+// Structured journal core + NBT round-trip in the Forge runtime.
+task verifyEventJournal(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.EventJournalTest'
+}
+task verifyEventPersistence(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.EventPersistenceTest'
+}
+check.dependsOn verifyEventJournal, verifyEventPersistence

@@ -1,4 +1,5 @@
 package odc;
+import static odc.EventJournal.*;
 import java.util.*;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.*;
@@ -10,9 +11,9 @@ import net.minecraft.tileentity.TileEntity;
 /** Read-only device panels and DataOS. All actions are validated server-side. */
 final class PanelMenu extends Container {
     final EntityPlayer player;final Tiles.Owned tile;final int type,bay,revision;final ItemStack opened;
-    final TaskConsole console=new TaskConsole(); UUID resourcePool=TaskConsole.NONE, detailServer=TaskConsole.NONE; DataOSUiState.Query serverQuery=DataOSUiState.Query.defaults(); int scrollRow; net.minecraft.nbt.NBTTagCompound view=new net.minecraft.nbt.NBTTagCompound(),lastView;
+    final TaskConsole console=new TaskConsole(); EventJournal.Query eventQuery=new EventJournal.Query("","","",false); UUID detailEvent=TaskConsole.NONE; UUID resourcePool=TaskConsole.NONE, detailServer=TaskConsole.NONE; DataOSUiState.Query serverQuery=DataOSUiState.Query.defaults(); int scrollRow; net.minecraft.nbt.NBTTagCompound view=new net.minecraft.nbt.NBTTagCompound(),lastView;
     final int[] data=new int[420],previous=new int[840];int tab,port;long lastRefresh=Long.MIN_VALUE;
-    PanelMenu(int id,EntityPlayer p,Tiles.Owned t){player=p;tile=t;type=id==2?0:id<40?1:2;bay=type==0?-1:id%20;revision=t instanceof Tiles.Rack?((Tiles.Rack)t).revision:0;opened=type==0?ItemStack.EMPTY:((Tiles.Rack)t).slots.get(bay);Arrays.fill(previous,-1);}
+    PanelMenu(int id,EntityPlayer p,Tiles.Owned t){player=p;tile=t;type=id==2?0:id<40?1:2;bay=type==0?-1:id%20;revision=t instanceof Tiles.Rack?((Tiles.Rack)t).revision:0;opened=type==0?ItemStack.EMPTY:((Tiles.Rack)t).slots.get(bay);Arrays.fill(previous,-1);if(type==0&&!p.world.isRemote)EventSystem.terminalOpened((Tiles.Computer)t);}
     @Override public boolean canInteractWith(EntityPlayer p){BlockPos b=tile.getPos();if(tile.getWorld()!=p.world||p.world.getTileEntity(b)!=tile||!tile.allows(p)||p.getDistanceSq(b.getX()+.5,b.getY()+.5,b.getZ()+.5)>64)return false;if(type==0)return true;Tiles.Rack r=(Tiles.Rack)tile;return r.role!=-1&&r.revision==revision&&bay<r.capacity()&&(p.world.isRemote||r.slots.get(bay)==opened);}
     @Override public ItemStack transferStackInSlot(EntityPlayer p,int i){return ItemStack.EMPTY;}
     static void putText(int[] a,int offset,int len,String text){for(int i=0;i<len&&i*2<text.length();i++)a[offset+i]=text.charAt(i*2)|(i*2+1<text.length()?text.charAt(i*2+1)<<16:0);}
@@ -32,7 +33,7 @@ final class PanelMenu extends Container {
         if(action>=1&&action<=8){setTab(action-1);scrollRow=0;return true;}return false;
     }
     void setTab(int next){tab=next;}
-    static boolean buy(EntityPlayer p,TaskData d,UUID wallet,int index){if(index<0||index>=ODC.market.length)return false;Market.Entry e=ODC.market[index];ItemStack s=e.stack();if(s.isEmpty()||d.wallet(wallet)[0]<e.priceMilli)return false;int room=0;for(ItemStack old:p.inventory.mainInventory){if(old.isEmpty())room+=s.getMaxStackSize();else if(ItemStack.areItemsEqual(old,s)&&ItemStack.areItemStackTagsEqual(old,s))room+=Math.max(0,old.getMaxStackSize()-old.getCount());if(room>=s.getCount())break;}if(room<s.getCount())return false;d.wallet(wallet)[0]-=e.priceMilli;d.markDirty();p.inventory.addItemStackToInventory(s);if(!s.isEmpty())p.dropItem(s,false);p.inventory.markDirty();d.event(p.getUniqueID(),"Purchased "+e.item);return true;}
+    static boolean buy(EntityPlayer p,TaskData d,UUID wallet,int index){if(index<0||index>=ODC.market.length)return false;Market.Entry e=ODC.market[index];ItemStack s=e.stack();if(s.isEmpty()||d.wallet(wallet)[0]<e.priceMilli)return false;int room=0;for(ItemStack old:p.inventory.mainInventory){if(old.isEmpty())room+=s.getMaxStackSize();else if(ItemStack.areItemsEqual(old,s)&&ItemStack.areItemStackTagsEqual(old,s))room+=Math.max(0,old.getMaxStackSize()-old.getCount());if(room>=s.getCount())break;}if(room<s.getCount())return false;d.wallet(wallet)[0]-=e.priceMilli;d.markDirty();p.inventory.addItemStackToInventory(s);if(!s.isEmpty())p.dropItem(s,false);p.inventory.markDirty();d.record(p.getUniqueID(),wallet,null,Level.INFO,Category.FINANCE,Target.NONE,"purchase","Purchased "+e.item,0,-e.priceMilli);return true;}
     void refresh(){Arrays.fill(data,0);if(type!=0){Tiles.Rack r=(Tiles.Rack)tile;data[0]=r.capacity();data[1]=bay;data[2]=(r.enabledMask>>bay)&1;data[3]=(r.poweredMask>>bay)&1;data[4]=r.status[bay];data[5]=r.powerUsed[bay];data[6]=r.cpuUsed[bay];data[7]=r.gpuUsed[bay];data[8]=r.ramUsed[bay];data[9]=r.netUsed[bay];if(type==1){int[] p=Hardware.spec(r.slots.get(bay));System.arraycopy(p,0,data,20,p.length);data[10]=Hardware.units(r.slots.get(bay));data[11]=DataOSView.id(r,bay);data[12]=TaskData.get(player.world).maintenance(ClusterScheduler.serverId(opened),false);putText(data,100,20,r.slots.get(bay).getDisplayName());putText(data,120,20,TaskData.get(player.world).poolName(ClusterScheduler.serverId(opened)));}else{data[10]=r.switchTier();data[11]=port;data[12]=r.switchOnline?1:0;for(int i=0;i<8;i++)data[20+i]=r.ports[i];for(int i=0;i<r.capacity();i++){data[40+i]=Hardware.units(r.slots.get(i));data[50+i]=r.portOf(i)+1;}}return;}
         data[0]=tab;
     }

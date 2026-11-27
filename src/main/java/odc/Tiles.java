@@ -1,4 +1,5 @@
 package odc;
+import static odc.EventJournal.*;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.ISidedInventory;
@@ -83,18 +84,18 @@ public final class Tiles {
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return role!=-1&&i<capacity()&&slots.get(i).isEmpty()&&RackLayout.canInsert(layout(),i,Hardware.rackUnits(s))&&(Hardware.switchTier(s)==0||switchTier()==0);}
         void refund(int count,EntityPlayer player){if(count<=0||world==null||world.isRemote)return;ItemStack stack=new ItemStack(Hardware.PATCH,count);if(player!=null)player.inventory.addItemStackToInventory(stack);if(!stack.isEmpty())net.minecraft.inventory.InventoryHelper.spawnItemStack(world,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,stack);}
         int clearPorts(){return PortMap.clear(ports);}
-        void detach(int i){if(world==null||world.isRemote)return;if(isServer(i))TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(i)),false);OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
+        void detach(int i){if(world==null||world.isRemote)return;if(!slots.get(i).isEmpty())EventSystem.rack(this,i,Level.INFO,Category.HARDWARE,"equipment_removed","Removed "+slots.get(i).getDisplayName());if(isServer(i)){TaskData d=TaskData.get(world);UUID id=ClusterScheduler.serverId(slots.get(i));d.serverStopped(id,false);d.networkState.remove(id);}OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
         @Override public void setInventorySlotContents(int i,ItemStack s){
             if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
-            if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);
+            boolean changedItem=!ItemStack.areItemStacksEqual(slots.get(i),s);if(changedItem)detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);if(changedItem&&!s.isEmpty())EventSystem.rack(this,i,Level.SUCCESS,Category.HARDWARE,"equipment_installed","Installed "+s.getDisplayName());
         }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
-        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)!=0 && TaskData.get(world).maintenance(ClusterScheduler.serverId(slots.get(bay)),false)>0)return false;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(bay)),true);poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
+        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)!=0 && TaskData.get(world).maintenance(ClusterScheduler.serverId(slots.get(bay)),false)>0)return false;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(bay)),true);poweredMask&=~bit;runningMask&=~bit;}EventSystem.rack(this,bay,Level.INFO,Category.POWER,(enabledMask&bit)!=0?"server_on":"server_off",(enabledMask&bit)!=0?"Server enabled":"Server disabled");changed();return true;}
         boolean connect(int bay,int port,EntityPlayer p){if(!isServer(bay)||Hardware.nic(slots.get(bay))==0)return false;
             int found=-1;for(int i=0;i<p.inventory.mainInventory.size();i++)if(!p.inventory.mainInventory.get(i).isEmpty()&&p.inventory.mainInventory.get(i).getItem()==Hardware.PATCH){found=i;break;}
             int result=PortMap.toggle(ports,Hardware.ports(switchTier()),port,bay,found>=0);if(result==PortMap.REJECT)return false;OfflineState.invalidateAt(world,pos);
-            if(result==PortMap.CONNECTED){p.inventory.mainInventory.get(found).shrink(1);p.inventory.markDirty();}else refund(1,p);changed();return true;
+            if(result==PortMap.CONNECTED){p.inventory.mainInventory.get(found).shrink(1);p.inventory.markDirty();}else refund(1,p);EventSystem.rack(this,bay,result==PortMap.CONNECTED?Level.INFO:Level.WARNING,Category.NETWORK,result==PortMap.CONNECTED?"port_connected":"port_disconnected",result==PortMap.CONNECTED?"Patch cable connected":"Patch cable disconnected");changed();return true;
         }
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY&&master()!=null||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){Rack m=master();return c==CapabilityEnergy.ENERGY?(m==null?null:CapabilityEnergy.ENERGY.cast(m.energy)):super.getCapability(c,f);}
@@ -122,7 +123,7 @@ public final class Tiles {
     public static abstract class Powered extends Owned implements ITickable {
         final Buffer energy=new Buffer(this,480);boolean online=false;
         abstract int idlePower();
-        @Override public void update(){if(!world.isRemote){boolean now=energy.use(idlePower());if(online!=now){online=now;changed();}}}
+        @Override public void update(){if(!world.isRemote){boolean now=energy.use(idlePower());if(online!=now){online=now;if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();}}}
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY?CapabilityEnergy.ENERGY.cast(energy):super.getCapability(c,f);}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setBoolean("Online",online);return n;}

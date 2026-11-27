@@ -1,4 +1,5 @@
 package odc;
+import static odc.EventJournal.*;
 import java.util.*;
 import net.minecraft.nbt.*;
 
@@ -108,12 +109,12 @@ final class TaskConsole {
         if(cmd.op==6){
             if(!selected.equals(cmd.key)||!selectionExists(d,owner,jobs,now))return;
             if(current!=null){d.settle(current,now);if(current.terms.hasKey("End"))return;}
-            String error=validate(d,domain,jobs,current,now);if(!error.isEmpty()){commitError=error;return;}
+            String error=validate(d,domain,jobs,current,now);if(!error.isEmpty()){commitError=error;if(current!=null)d.jobEvent(current,Level.WARNING,Category.RESOURCE,"allocation_rejected","Resource allocation rejected: "+error);return;}
             if(!physicalCurrent(m,d,domain)){commitError="unavailable";return;}
             FixedResources.Evaluation accepted=FixedResources.evaluate(candidate(d,current),ledger(d,domain,current),!locked(current));
             if(current==null){current=new TaskData.Job(d.next++,type,wallet,owner);current.pool=draftPool;current.poolLabel=DataOSView.poolName(m.tile,d,draftPool);d.jobs.add(current);}
             current.bindings.clear();current.bindings.addAll(accepted.committed);current.auto=false;current.strict=false;current.manual.clear();current.retained.clear();current.unitLimit=Integer.MAX_VALUE;
-            current.enabled=true;current.notice=0;current.cachedRate=0;current.lastAccounting=now;current.promised=0;current.machines=Collections.emptySet();current.terms.setBoolean("Fault",false);
+            d.jobEvent(current,Level.SUCCESS,Category.RESOURCE,"resources_assigned","Physical reservations committed");d.jobEvent(current,Level.SUCCESS,Category.TASK,current.enabled?"task_reconfigured":"task_started",current.enabled?"Task resources updated":"Task started");if(current.notice>0)d.jobEvent(current,Level.INFO,Category.TASK,"maintenance_finished","Maintenance ended");current.enabled=true;current.notice=0;current.cachedRate=0;current.lastAccounting=now;current.promised=0;current.machines=Collections.emptySet();current.terms.setBoolean("Fault",false);
             selected=current.terms.getUniqueId("Key");assigning=false;section=0;draft.clear();d.markDirty();return;
         }
         if(cmd.op<0||cmd.op>10||cmd.op==2||cmd.op==4||cmd.op==5)return;
@@ -128,10 +129,10 @@ final class TaskConsole {
             else {NBTTagCompound r=marketRow(d,owner,section,cmd.key);if(r!=null&&r.getInteger("Type")==cmd.value){selected=cmd.key;type=cmd.value;}}
             if(!selectionExists(d,owner,jobs,now))reset(section);break;
         case 3: if(j!=null&&canEdit(j,now)&&j.pool!=null)openDraft(j.pool,j);break;
-        case 8: if(j!=null&&j.enabled&&j.periodic()&&j.notice==0)j.notice=now+300000;break;
-        case 9: if(j!=null&&now<j.notice)j.notice=0;break;
+        case 8: if(j!=null&&j.enabled&&j.periodic()&&j.notice==0){j.notice=now+300000;d.jobEvent(j,Level.INFO,Category.TASK,"maintenance_started","Maintenance notice announced");}break;
+        case 9: if(j!=null&&now<j.notice){j.notice=0;d.jobEvent(j,Level.INFO,Category.TASK,"maintenance_cancelled","Maintenance notice cancelled");}break;
         case 10: if(j!=null){d.market.end(d,j,"cancelled",0);reset(section);}break;
-        case 7: if(j!=null&&j.enabled&&(!j.periodic()||j.notice>0&&now>=j.notice)&&(!Workload.contract(j.type)||!ContractMarket.CONTINUOUS[j.terms.getInteger("Rule")])){j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.notice=0;}break;
+        case 7: if(j!=null&&j.enabled&&(!j.periodic()||j.notice>0&&now>=j.notice)&&(!Workload.contract(j.type)||!ContractMarket.CONTINUOUS[j.terms.getInteger("Rule")])){d.jobEvent(j,Level.INFO,Category.TASK,"task_paused","Task paused");d.jobEvent(j,Level.INFO,Category.RESOURCE,"compute_released","Compute reservations released; storage retained");if(j.notice>0)d.jobEvent(j,Level.INFO,Category.TASK,"maintenance_finished","Maintenance stop completed");j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.notice=0;}break;
         }
         d.markDirty();
     }

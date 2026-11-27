@@ -91,7 +91,7 @@ final class Blocks {
         }
         @Override public net.minecraft.item.Item getItemDropped(IBlockState s,java.util.Random random,int fortune){return s.getValue(UPPER)?net.minecraft.init.Items.AIR:super.getItemDropped(s,random,fortune);}
         @Override public void breakBlock(World w,BlockPos p,IBlockState s){
-            if(!w.isRemote){boolean upper=s.getValue(UPPER);BlockPos other=upper?p.down():p.up();IBlockState os=w.getBlockState(other);
+            if(!w.isRemote){boolean upper=s.getValue(UPPER);if(!upper){TileEntity t=w.getTileEntity(p);if(t instanceof Tiles.Computer){Tiles.Computer c=(Tiles.Computer)t;TaskData d=TaskData.get(w);d.record(c.owner,c.id,c.id,EventJournal.Level.INFO,EventJournal.Category.HARDWARE,EventJournal.Target.NONE,"terminal_removed","DataOS terminal removed",-1,0);d.journal.move(c.owner,c.id,EventSystem.survivor(c));d.markDirty();}}BlockPos other=upper?p.down():p.up();IBlockState os=w.getBlockState(other);
                 if(os.getBlock()==this&&os.getValue(UPPER)!=upper){if(upper)w.destroyBlock(other,true);else w.setBlockToAir(other);}}
             super.breakBlock(w,p,s);
         }

@@ -1,4 +1,5 @@
 package odc;
+import static odc.EventJournal.*;
 import java.util.*;
 import net.minecraft.nbt.*;
 import net.minecraft.world.World;
@@ -23,10 +24,11 @@ public final class TaskData extends WorldSavedData {
         UUID server=ClusterScheduler.serverId(rack.slots.get(bay));if(name.equals(poolName(server)))return true;
         // Do not move hardware with running work or retained data into another pool.
         for(Job j:jobs)if(!j.terms.hasKey("End")&&((j.retained.containsKey(server)&&Arrays.stream(j.retained.get(server)).anyMatch(v->v>0))||j.enabled&&(j.manual.containsKey(server)||j.machines.contains(server))||j.bindings.stream().anyMatch(b->b.server.equals(server)&&(j.enabled||b.storage()))))return false;
+        EventSystem.rack(rack,bay,Level.INFO,Category.POOL,"pool_changed","Pool: "+poolName(server)+" -> "+name);
         if(name.equals(PoolResources.DEFAULT))pools.remove(server);else pools.put(server,name);
         OfflineState.invalidateAt(rack.getWorld(),rack.getPos());domains.clear();cache.clear();markDirty();rack.changed();return true;
     }
-    final List<Job> jobs=new ArrayList<>();final Map<UUID,long[]> wallets=new HashMap<>();final List<String> log=new ArrayList<>();int next=0;long ticks;int[] rate={1000,1500};
+    final List<Job> jobs=new ArrayList<>();final Map<UUID,long[]> wallets=new HashMap<>();final EventJournal journal=new EventJournal(ODC.journalLimit); Map<UUID,EventSystem.Topology> eventTopology=new HashMap<>(); final Map<UUID,Boolean> resourceFaults=new HashMap<>(),networkState=new HashMap<>();int next=0;long ticks;int[] rate={1000,1500};
     public TaskData(){super(KEY);}public TaskData(String name){super(name);}
     static TaskData get(World w){net.minecraft.world.storage.MapStorage s=w.getPerWorldStorage();TaskData d=(TaskData)s.getOrLoadData(TaskData.class,KEY);if(d==null){d=new TaskData();s.setData(KEY,d);}return d;}
     long[] wallet(UUID a){return wallets.computeIfAbsent(a,k->new long[2]);}
@@ -38,7 +40,7 @@ public final class TaskData extends WorldSavedData {
             repayment=Math.min(amount,book.getLong("Debt"));
             book.setLong("Debt",book.getLong("Debt")-repayment);
         }
-        return repayment+credit(j.anchor,currency,amount-repayment);
+        long credited=credit(j.anchor,currency,amount-repayment);if(credited>0)jobEvent(j,Level.SUCCESS,Category.FINANCE,"payment","Payment credited",currency,credited);if(repayment>0)jobEvent(j,Level.INFO,Category.FINANCE,"payment","Debt repaid from earnings",currency,repayment);return repayment+credited;
     }
     boolean transfer(UUID from,UUID to,int coin,long v){boolean ok=!from.equals(to)&&EconomyEngine.transfer(wallet(from),wallet(to),coin,v);if(ok)markDirty();return ok;}
     boolean exchange(UUID a,int coin,long amount){boolean ok=coin>=1&&coin<2&&EconomyEngine.exchange(wallet(a),coin,amount,rate[coin]);if(ok)markDirty();return ok;}
@@ -66,8 +68,14 @@ public final class TaskData extends WorldSavedData {
         for(Job j:jobs) j.served=false;
         markDirty();
     }
-    void event(UUID owner,String s){log.add(owner+"|["+ticks+"s] "+s);if(log.size()>64)log.remove(0);markDirty();}
-    List<String> eventsFor(UUID owner){List<String> out=new ArrayList<>();String prefix=owner+"|";for(String l:log)if(l.startsWith(prefix))out.add(l.substring(prefix.length()));return out;}
+    void record(UUID owner,UUID scope,UUID source,Level level,Category category,Target target,String code,String message,int currency,long amount){journal.add(ticks,owner,scope,source,level,category,target,code,message,currency,amount);markDirty();}
+    void jobEvent(Job j,Level l,Category c,String code,String message){jobEvent(j,l,c,code,message,-1,0);}
+    void jobEvent(Job j,Level l,Category c,String code,String message,int coin,long amount){record(j.owner,j.anchor,j.terms.getUniqueId("Key"),l,c,Target.TASK,code,"#"+j.id+" "+message,coin,amount);}
+    void resourceState(Job j,boolean fault){UUID id=j.terms.getUniqueId("Key");Boolean before=resourceFaults.put(id,fault);if(fault&&!Boolean.TRUE.equals(before))jobEvent(j,Level.ERROR,Category.RESOURCE,"resources_unavailable","Reserved resources unavailable");else if(!fault&&Boolean.TRUE.equals(before))jobEvent(j,Level.SUCCESS,Category.RESOURCE,"resources_restored","Reserved resources available");}
+    void networkState(Tiles.Rack rack,int bay,boolean online){UUID id=ClusterScheduler.serverId(rack.slots.get(bay));Boolean before=networkState.put(id,online);if(Boolean.TRUE.equals(before)&&!online)EventSystem.rack(rack,bay,Level.WARNING,Category.NETWORK,"network_lost","Server network connection lost");else if(Boolean.FALSE.equals(before)&&online)EventSystem.rack(rack,bay,Level.SUCCESS,Category.NETWORK,"network_restored","Server network connection restored");}
+    List<Entry> recentEvents(Tiles.Owned tile,int count){return EventSystem.recent(tile,this,count);}
+    int errorCount(Tiles.Owned tile){return EventSystem.errors(tile,this);}
+    List<Entry> financialEvents(Tiles.Owned tile){return EventSystem.financial(tile,this);}
     // pending and remainder retain fractional milli-coins (or contract points) across pauses.
     void account(Job j,TaskEngine.Result allocation) {
         if(j.served || !j.enabled || allocation.rate<=0) return;
@@ -127,10 +135,12 @@ public final class TaskData extends WorldSavedData {
         }
     }
     void finishCycle() {
+        for(Job j:jobs)if(j.enabled&&!j.served&&!j.bindings.isEmpty())resourceState(j,true);
         for(Job j:jobs) if(!j.served && !j.machines.isEmpty()) {
             if(j.periodic()) interrupt(j,false);
             else {j.machines=Collections.emptySet();j.cachedRate=0;}
         }
+        Set<UUID> liveJobs=new HashSet<>();for(Job j:jobs)if(j.enabled&&!j.terms.hasKey("End")){liveJobs.add(j.terms.getUniqueId("Key"));}resourceFaults.keySet().retainAll(liveJobs);
         domains.keySet().retainAll(usedCaches);cache.keySet().retainAll(usedCaches);
         usedCaches.clear();
     }
@@ -143,8 +153,9 @@ public final class TaskData extends WorldSavedData {
             wallet(j.anchor)[0]-=paid;
             NBTTagCompound book=market.owner(j.owner);
             book.setLong("Debt",book.getLong("Debt")+penalty-paid);
-            event(j.owner,"Service #"+j.id+" interrupted: -"+penalty+" milli-NCoin");
+            jobEvent(j,Level.ERROR,Category.TASK,"service_interrupted","Service interrupted");if(paid>0)jobEvent(j,Level.WARNING,Category.FINANCE,"penalty","Penalty debited",0,-paid);if(penalty>paid)jobEvent(j,Level.WARNING,Category.FINANCE,"debt","Penalty added to debt",0,-(penalty-paid));
         }
+        jobEvent(j,Level.INFO,Category.RESOURCE,"compute_released","Compute reservations released; storage retained");if(planned&&j.notice>0)jobEvent(j,Level.INFO,Category.TASK,"maintenance_finished","Maintenance stop completed");
         j.enabled=false;
         j.served=true;
         j.pending=j.elapsed=j.remainder=j.notice=j.cachedRate=j.promised=0;
@@ -159,7 +170,7 @@ public final class TaskData extends WorldSavedData {
         int wait=-1;
         long now=now();
         for(Job j:jobs) if(j.enabled && j.periodic() && (j.machines.contains(server)||FixedResources.hosts(j.bindings).contains(server))) {
-            if(announce && j.notice==0) { j.notice=now+300_000; markDirty(); }
+            if(announce && j.notice==0) { j.notice=now+300_000; jobEvent(j,Level.INFO,Category.TASK,"maintenance_started","Maintenance notice announced");markDirty(); }
             int seconds=j.notice==0?Integer.MAX_VALUE:(int)Math.max(0,(j.notice-now+999)/1000);
             wait=Math.max(wait,seconds);
         }
@@ -176,7 +187,7 @@ public final class TaskData extends WorldSavedData {
         NBTTagList hosts=new NBTTagList();
         for(UUID id:j.machines){NBTTagCompound host=new NBTTagCompound();host.setUniqueId("Id",id);hosts.appendTag(host);}
         x.setTag("Hosts",hosts);NBTTagList ms=new NBTTagList();for(Map.Entry<UUID,TaskEngine.Limit> e:j.manual.entrySet()){NBTTagCompound m=new NBTTagCompound();m.setUniqueId("Id",e.getKey());m.setInteger("CPU",e.getValue().cpu);if(e.getValue().allowedCores!=null)m.setByteArray("Cores",e.getValue().allowedCores.toByteArray());m.setInteger("GPU",e.getValue().mask);m.setInteger("IO",e.getValue().io);m.setInteger("RAM",e.getValue().ram);m.setInteger("NET",e.getValue().net);m.setInteger("Disk",e.getValue().disk);m.setInteger("IO",e.getValue().io);ms.appendTag(m);}x.setTag("Manual",ms);js.appendTag(x);}n.setTag("Jobs",js);
-        NBTTagList ws=new NBTTagList();for(Map.Entry<UUID,long[]> e:wallets.entrySet()){NBTTagCompound x=new NBTTagCompound();x.setUniqueId("Id",e.getKey());for(int i=0;i<2;i++)x.setLong("C"+i,e.getValue()[i]);ws.appendTag(x);}n.setTag("Wallets",ws);NBTTagList ps=new NBTTagList();for(Map.Entry<UUID,String> e:pools.entrySet()){NBTTagCompound x=new NBTTagCompound();x.setUniqueId("Id",e.getKey());x.setString("Name",e.getValue());ps.appendTag(x);}n.setTag("Pools",ps);NBTTagList logs=new NBTTagList();for(String l:log)logs.appendTag(new NBTTagString(l));n.setTag("Log",logs);return n;}
+        NBTTagList ws=new NBTTagList();for(Map.Entry<UUID,long[]> e:wallets.entrySet()){NBTTagCompound x=new NBTTagCompound();x.setUniqueId("Id",e.getKey());for(int i=0;i<2;i++)x.setLong("C"+i,e.getValue()[i]);ws.appendTag(x);}n.setTag("Wallets",ws);NBTTagList ps=new NBTTagList();for(Map.Entry<UUID,String> e:pools.entrySet()){NBTTagCompound x=new NBTTagCompound();x.setUniqueId("Id",e.getKey());x.setString("Name",e.getValue());ps.appendTag(x);}n.setTag("Pools",ps);n.setTag("Events",EventSystem.write(journal));return n;}
     @Override public void readFromNBT(NBTTagCompound n){if(n.hasKey("Time"))worldMillis=n.getLong("Time");market.data=n.getCompoundTag("Market");next=Math.max(0,n.getInteger("Next"));ticks=n.getLong("Ticks");int[] rates=n.getIntArray("Rate");if(rates.length==2)rate=rates;jobs.clear();NBTTagList js=n.getTagList("Jobs",10);for(int i=0;i<js.tagCount();i++){NBTTagCompound x=js.getCompoundTagAt(i);int type=x.getInteger("Type");if(type<0||type>=Workload.ALL.length||!x.hasUniqueId("Anchor")||!x.hasUniqueId("Owner"))continue;Job j=new Job(x.getInteger("Id"),type,x.getUniqueId("Anchor"),x.getUniqueId("Owner"));NBTTagList storage=x.getTagList("Storage",10);for(int k=0;k<storage.tagCount();k++){NBTTagCompound h=storage.getCompoundTagAt(k);int[] gb=h.getIntArray("GB");if(gb.length==ServerSpec.PSU)j.retained.put(h.getUniqueId("Id"),gb);}
         j.pool=x.hasUniqueId("Pool")?x.getUniqueId("Pool"):PoolResources.id(j.owner,PoolResources.DEFAULT);if(x.hasKey("PoolLabel"))j.poolLabel=x.getString("PoolLabel");readBindings(x.getTagList("Bindings",10),j.bindings);j.lastAccounting=0;j.terms.merge(x.getCompoundTag("Terms"));j.cachedRate=0;j.paidCount=x.getInteger("PaidCount");j.promised=x.getInteger("Promised");int[] q=x.getIntArray("Req");if(q.length==7){j.cpu=q[1];j.gpus=q[2];j.ram=q[3];j.net=q[4];j.disk=q[6];}if(x.hasKey("Name"))j.name=x.getString("Name");j.strict=x.getBoolean("Strict");j.auto=x.getBoolean("Auto");j.enabled=x.getBoolean("Enabled")&&!j.bindings.isEmpty();j.progress=x.getLong("Progress");j.remainder=Math.max(0,x.getLong("Remainder"))%((Workload.contract(type)?1000L:j.periodic()?600000L:30000L)*TaskEngine.SCALE);
         j.elapsed=Math.max(0,x.getLong("Elapsed"))%(j.periodic()?600_000:30_000);
@@ -186,5 +197,5 @@ public final class TaskData extends WorldSavedData {
         for(int k=0;k<4;k++)j.payments[k]=Math.max(0,x.getLong("Paid"+k));
         NBTTagList hosts=x.getTagList("Hosts",10);j.machines=new HashSet<>();
         for(int k=0;k<hosts.tagCount();k++)j.machines.add(hosts.getCompoundTagAt(k).getUniqueId("Id"));
-        NBTTagList ms=x.getTagList("Manual",10);for(int k=0;k<ms.tagCount();k++){NBTTagCompound m=ms.getCompoundTagAt(k);if(m.hasUniqueId("Id")){TaskEngine.Limit l=new TaskEngine.Limit(m.getInteger("CPU"),m.getInteger("GPU"));if(m.hasKey("Cores"))l.allowedCores=BitSet.valueOf(m.getByteArray("Cores"));l.io=m.hasKey("IO")?m.getInteger("IO"):Integer.MAX_VALUE;l.ram=m.hasKey("RAM")?m.getInteger("RAM"):Integer.MAX_VALUE;l.net=m.hasKey("NET")?m.getInteger("NET"):Integer.MAX_VALUE;l.disk=m.hasKey("Disk")?m.getInteger("Disk"):Integer.MAX_VALUE;j.manual.put(m.getUniqueId("Id"),l);}}jobs.add(j);next=Math.max(next,j.id+1);}wallets.clear();NBTTagList ws=n.getTagList("Wallets",10);for(int i=0;i<ws.tagCount();i++){NBTTagCompound x=ws.getCompoundTagAt(i);if(x.hasUniqueId("Id")){long[] v=wallet(x.getUniqueId("Id"));for(int k=0;k<2;k++)v[k]=k==0?x.getLong("C"+k):Math.max(0,x.getLong("C"+k));}}pools.clear();NBTTagList ps=n.getTagList("Pools",10);for(int i=0;i<ps.tagCount();i++){NBTTagCompound x=ps.getCompoundTagAt(i);String name=PoolResources.name(x.getString("Name"));if(x.hasUniqueId("Id")&&name!=null)pools.put(x.getUniqueId("Id"),name);}log.clear();NBTTagList logs=n.getTagList("Log",8);for(int i=0;i<logs.tagCount();i++)log.add(logs.getStringTagAt(i));}
+        NBTTagList ms=x.getTagList("Manual",10);for(int k=0;k<ms.tagCount();k++){NBTTagCompound m=ms.getCompoundTagAt(k);if(m.hasUniqueId("Id")){TaskEngine.Limit l=new TaskEngine.Limit(m.getInteger("CPU"),m.getInteger("GPU"));if(m.hasKey("Cores"))l.allowedCores=BitSet.valueOf(m.getByteArray("Cores"));l.io=m.hasKey("IO")?m.getInteger("IO"):Integer.MAX_VALUE;l.ram=m.hasKey("RAM")?m.getInteger("RAM"):Integer.MAX_VALUE;l.net=m.hasKey("NET")?m.getInteger("NET"):Integer.MAX_VALUE;l.disk=m.hasKey("Disk")?m.getInteger("Disk"):Integer.MAX_VALUE;j.manual.put(m.getUniqueId("Id"),l);}}jobs.add(j);next=Math.max(next,j.id+1);}wallets.clear();NBTTagList ws=n.getTagList("Wallets",10);for(int i=0;i<ws.tagCount();i++){NBTTagCompound x=ws.getCompoundTagAt(i);if(x.hasUniqueId("Id")){long[] v=wallet(x.getUniqueId("Id"));for(int k=0;k<2;k++)v[k]=k==0?x.getLong("C"+k):Math.max(0,x.getLong("C"+k));}}pools.clear();NBTTagList ps=n.getTagList("Pools",10);for(int i=0;i<ps.tagCount();i++){NBTTagCompound x=ps.getCompoundTagAt(i);String name=PoolResources.name(x.getString("Name"));if(x.hasUniqueId("Id")&&name!=null)pools.put(x.getUniqueId("Id"),name);}EventSystem.load(journal,n.getTagList("Events",10));}
 }
