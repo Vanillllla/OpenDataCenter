@@ -30,6 +30,8 @@ final class Part {
         return socket == 6 ? "SP6" : socket == 20113 ? "LGA 2011-3" : "LGA " + socket;
     }
 
+    int onboardNicMbps() { return kind==Kind.BOARD && (tier==3 || sockets==2) ? 1000 : 0; }
+
     String[] details() {
         String info;
         switch (kind) {

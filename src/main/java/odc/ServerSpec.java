@@ -131,7 +131,7 @@ public final class ServerSpec {
     }
     static int nic(int[] p) {
         Part board=Part.at(p[BOARD]);
-        int fastest=board.tier==3 || board.sockets==2?1000:0;
+        int fastest=board.onboardNicMbps();
         for(int i=PCIE;i<PSU;i++) fastest=Math.max(fastest,Part.at(p[i]).mbps);
         return fastest;
     }

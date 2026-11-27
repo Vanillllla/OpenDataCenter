@@ -111,4 +111,8 @@ for lang in ('en_us','ru_ru'):
     entries=dict(line.split('=',1) for line in (root/'lang'/f'{lang}.lang').read_text(encoding='utf8').splitlines() if line)
     check(all(f'tile.odc.{b}.name' in entries for b in blocks),f'block translations {lang}');check(all(f'item.odc.{i}.name' in entries for i in items),f'item translations {lang}');langs.append(entries)
 check(set(langs[0])==set(langs[1]),'EN/RU translation parity')
+for name in sorted(i for i in items if i.startswith('switch_')):
+    model=read(root/'models/item'/f'{name}.json')
+    check(model.get('display',{}).get('gui',{}).get('scale')==[0.8,0.8,0.8],f'compact switch inventory icon {name}')
+check(all('tooltip.odc.board.onboard_nic' in lang for lang in langs),'onboard NIC tooltip translations')
 print(f'PASS: {checks} resource checks; {len(blocks)} block types; {len(items)} item types; {len(recipes)} recipes; {sum(1 for _ in root.rglob("*.png"))} PNG textures; 24 rack frame variants; 512 cable/relay states.')

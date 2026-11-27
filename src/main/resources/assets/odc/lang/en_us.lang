@@ -387,3 +387,4 @@ item.odc.switch_8p_10000.name=Rack Switch 8P / 10000 Mb/s
 item.odc.switch_8p_50000.name=Rack Switch 8P / 50000 Mb/s
 gui.odc.no_power=No power
 tooltip.odc.network_terminal.capacity=Maximum bandwidth: %s Mb/s
+tooltip.odc.board.onboard_nic=Onboard NIC: %s Mb/s

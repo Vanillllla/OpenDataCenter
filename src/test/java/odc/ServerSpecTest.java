@@ -10,6 +10,7 @@ public final class ServerSpecTest {
         p[ServerSpec.PSU]=model("AeroHot VX500");return p;
     }
     public static void main(String[] args){
+        int onboard=0;for(Part p:Part.models)if(p.kind==Part.Kind.BOARD){int[] bare=new int[ServerSpec.COUNT];bare[ServerSpec.BOARD]=p.index;int expected=p.tier==3||p.sockets==2?1000:0;check(p.onboardNicMbps()==expected&&ServerSpec.nic(bare)==expected,"onboard NIC "+p.name);if(expected>0)onboard++;}check(onboard==5,"five boards with onboard NIC");
         int[] server=minimal();
         check(ServerSpec.state(1,server)==ServerSpec.READY,"complete server");
         server[ServerSpec.PCIE]=model("NoVideo Teslo M10");

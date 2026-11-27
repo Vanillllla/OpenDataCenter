@@ -2,5 +2,14 @@
   "parent": "item/generated",
   "textures": {
     "layer0": "odc:items/switch_pro"
+  },
+  "display": {
+    "gui": {
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    }
   }
 }

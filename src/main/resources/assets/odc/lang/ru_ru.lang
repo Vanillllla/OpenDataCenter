@@ -387,3 +387,4 @@ item.odc.switch_8p_10000.name=Стоечный коммутатор 8 порто
 item.odc.switch_8p_50000.name=Стоечный коммутатор 8 портов / 50000 Мбит/с
 gui.odc.no_power=Нет питания
 tooltip.odc.network_terminal.capacity=Максимальная пропускная способность: %s Мбит/с
+tooltip.odc.board.onboard_nic=Встроенная сетевая карта: %s Мбит/с

@@ -67,7 +67,7 @@ final class Hardware {
     private static class Component extends Item {
         final String tip;
         Component(String id,String tip){this.tip=tip;setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setCreativeTab(TAB);}
-        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){if(!tip.isEmpty())java.util.Collections.addAll(tips,tip.split("\n"));}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){if(!tip.isEmpty())java.util.Collections.addAll(tips,tip.split("\n"));Part model=MODELS.get(this);if(model!=null&&model.onboardNicMbps()>0)tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.board.onboard_nic",model.onboardNicMbps()));}
     }
     private static final class Chassis extends Component {
         final int units;
