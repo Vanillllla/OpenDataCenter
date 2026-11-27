@@ -26,8 +26,9 @@ public final class Client {
         final int TEXT=0xffe2e5e5,MUTED=0xffa5adb0,GREEN=0xff8cdda4,AMBER=0xffe5bf76,RED=0xffeb9888;
         Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=Menus.H;}
         @Override public void initGui(){super.initGui();
-            if(menu.type==Menus.ASSEMBLY)button(0,104,39,85,20,tr("assemble"));
-            if(menu.type==Menus.RACK){button(9,161,26,77,18,tr("link"));for(int i=0;i<4;i++)button(i+1,53,47+i*23,72,20,task(0));}
+            if(menu.type==Menus.ASSEMBLY)button(0,139,81,65,20,tr("assemble"));
+            if(menu.type==Menus.SERVER)button(21,173,7,64,16,tr("back"));
+            if(menu.type==Menus.RACK){button(9,161,26,77,18,tr("link"));for(int i=0;i<4;i++){button(i+1,53,47+i*23,67,20,task(0));button(30+i,122,47+i*23,43,20,tr("edit"));}}
             if(menu.type==Menus.CONTROL){button(20,173,7,64,16,tr("market"));for(int i=0;i<3;i++)button(i+1,181,76+i*23,56,20,tr("start"));}
             if(menu.type==Menus.MARKET){button(21,173,7,64,16,tr("back"));for(int i=0;i<4;i++)button(10+i,10+i*60,109,48,19,tr("buy"));}
         }
@@ -35,7 +36,9 @@ public final class Client {
         @Override protected void actionPerformed(GuiButton b){if(b.enabled&&mc.playerController!=null)mc.playerController.sendEnchantPacket(menu.windowId,b.id);}
         @Override public void updateScreen(){super.updateScreen();int[] d=menu.data;
             for(GuiButton b:buttonList){
-                if(menu.type==Menus.RACK&&b.id>=1&&b.id<=4){int i=b.id-1;b.enabled=d[7+i]==i+1;b.displayString=task(d[11+i]);}
+                if(menu.type==Menus.RACK&&b.id>=1&&b.id<=4){int i=b.id-1;b.enabled=d[7+i]==i+1&&d[32+i]==0;b.displayString=task(d[11+i]);}
+                if(menu.type==Menus.RACK&&b.id>=30&&b.id<34){int i=b.id-30;b.enabled=d[7+i]==i+1&&d[32+i]==0;}
+                if(menu.type==Menus.ASSEMBLY&&b.id==0){int u=menu.chassis(),state=ServerSpec.state(u,Hardware.tiers(menu.parts()));b.enabled=u>0&&state!=ServerSpec.INVALID&&state!=ServerSpec.CAPACITY&&!menu.getSlot(menu.machineSlots-1).getHasStack();}
                 if(menu.type==Menus.CONTROL&&b.id>=1&&b.id<=3){b.enabled=d[1]==1;b.displayString=tr((d[8]&(1<<(b.id-1)))!=0?"stop":"start");}
                 if(menu.type==Menus.MARKET&&b.id>=10&&b.id<=13){int p=d[3+b.id-10];b.enabled=d[1]==1&&p>0&&d[0]>=p;b.displayString=p>0?amount(p):"--";}
             }
@@ -47,17 +50,28 @@ public final class Client {
             panel(4,4,xSize-8,21,0xff202527);panel(4,24,xSize-8,1,0xff6d787b);panel(8,27,xSize-16,122,0xff22292b);panel(8,151,xSize-16,77,0xff303638);
             for(net.minecraft.inventory.Slot s:menu.inventorySlots)slot(s.xPos,s.yPos);
             if(menu.type==Menus.RACK){for(int i=0;i<4;i++){int start=menu.data[7+i]-1;if(start>=0&&start!=i)panel(14,49+i*23,16,16,0xff51595b);}}
+            if(menu.type==Menus.SERVER||menu.type==Menus.ASSEMBLY){for(int i=0;i<ServerSpec.COUNT;i++){int index=i+(menu.type==Menus.ASSEMBLY?1:0);if(!menu.fits(i)&&!menu.getSlot(index).getHasStack()){int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);panel(x,y,16,16,0xff45494a);panel(x+3,y+7,10,2,0xff666d70);}}}
             if(menu.type==Menus.CONTROL){int[] d=menu.data;int cap=Math.min(d[5],d[6]);panel(12,65,224,5,0xff121719);if(cap>0)panel(12,65,(int)Math.min(224,(long)224*d[7]/cap),5,0xff67b68a);for(int i=0;i<3;i++)panel(10,75+i*23,228,21,i%2==0?0xff30383a:0xff283032);}
         }
         void label(String s,int x,int y,int col){fontRenderer.drawString(s,x,y,col);}
         void clipped(String s,int x,int y,int width,int col){label(fontRenderer.trimStringToWidth(s,width),x,y,col);}
         @Override protected void drawGuiContainerForegroundLayer(int mx,int my){
-            String[] names={"rack","assembly","control","market","switch","station"};label(tr(names[menu.type]),10,11,TEXT);int[] d=menu.data;
+            String[] names={"rack","assembly","control","market","switch","station","hardware"};label(tr(names[menu.type]),10,11,TEXT);int[] d=menu.data;
             if(menu.type==Menus.RACK){
                 String linked=d[3]==0?tr("unlinked"):d[3]==1?tr("link_lost"):tr("linked",d[4],d[5],d[6]);clipped(linked,12,31,145,d[3]==2?GREEN:MUTED);
-                for(int i=0;i<4;i++){int start=d[7+i]-1;label((i+1)+"U",34,54+i*23,MUTED);if(start==i){int status=d[15+i];clipped(tr("status."+status),132,49+i*23,104,status==ComputeEngine.RUNNING?GREEN:status==ComputeEngine.THROTTLED?AMBER:MUTED);label(d[19+i]+"/"+d[23+i]+" Mb/s",132,59+i*23,TEXT);}else if(start>=0)label(tr("occupied",start+1),132,54+i*23,MUTED);}
+                for(int i=0;i<4;i++){int start=d[7+i]-1;label((i+1)+"U",34,54+i*23,MUTED);if(start==i){int status=d[15+i];if(status==ComputeEngine.IDLE&&Hardware.state(menu.getSlot(i).getStack())!=ServerSpec.READY)status=ComputeEngine.INCOMPLETE;clipped(tr("status."+status),169,49+i*23,68,status==ComputeEngine.RUNNING?GREEN:status==ComputeEngine.THROTTLED?AMBER:MUTED);clipped(d[19+i]+"/"+d[23+i]+" Mb/s",169,59+i*23,68,TEXT);}else if(start>=0)label(tr("occupied",start+1),169,54+i*23,MUTED);}
                 clipped(d[0]+" FE | "+d[1]+" FE/t | "+d[2]+" Mb/s",12,139,224,TEXT);
-            }else if(menu.type==Menus.ASSEMBLY){label(tr("chassis"),12,31,MUTED);label("CPU",62,31,MUTED);label(tr("output"),204,31,MUTED);label(tr("gpu_slots"),12,73,MUTED);for(int i=0;i<4;i++)label("PCIe "+(i+1),17+i*43,106,MUTED);label(tr("assembly_hint"),12,126,TEXT);}
+            }else if(menu.type==Menus.ASSEMBLY||menu.type==Menus.SERVER){
+                boolean assembly=menu.type==Menus.ASSEMBLY;
+                if(assembly)clipped(tr("chassis"),10,31,37,MUTED);else label(menu.chassis()+"U",14,47,TEXT);
+                clipped(tr("board"),46,31,32,MUTED);label("CPU",78,31,MUTED);label("RAM",110,31,MUTED);clipped(tr("drives"),187,31,49,MUTED);
+                label(tr("gpu_slots"),12,71,MUTED);if(assembly)clipped(tr("output"),210,71,32,MUTED);
+                int[] p=Hardware.tiers(menu.parts());int state=ServerSpec.state(menu.chassis(),p);
+                clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),12,108,224,state==ServerSpec.READY?GREEN:AMBER);
+                int vram=4*ServerSpec.gpuCount(p,1)+16*ServerSpec.gpuCount(p,2);
+                clipped(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB Disk | "+vram+" GB VRAM",12,120,224,TEXT);
+                clipped(tr(assembly?"assemble_help":"maintenance_help"),12,134,224,MUTED);
+            }
             else if(menu.type==Menus.CONTROL){
                 label(d[1]==1?tr("online"):tr("offline"),12,30,d[1]==1?GREEN:RED);clipped(tr("wallet",amount(d[0])),116,30,121,GREEN);
                 clipped(tr("cluster",d[3],d[4])+" | "+d[27]+" FE/t",12,42,224,TEXT);

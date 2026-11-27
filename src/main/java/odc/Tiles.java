@@ -59,6 +59,7 @@ public final class Tiles {
     public static final class Rack extends InventoryTile {
         final Buffer energy=new Buffer(this,12000);
         final int[] assignments=new int[4], remainder=new int[4];
+        final Object[] editors=new Object[4];
         final int[] status=new int[4], usedMbps=new int[4], neededMbps=new int[4], work=new int[4];
         UUID controller;
         BlockPos controllerPosition;
@@ -67,7 +68,7 @@ public final class Tiles {
         int[] layout(){int[] size=new int[4];for(int i=0;i<4;i++)size[i]=Hardware.units(slots.get(i));return size;}
         int startAt(int bay){return RackLayout.startAt(layout(),bay);}
         int bayType(int bay){int i=startAt(bay);if(i<0)return 0;int type=Hardware.gpus(slots.get(i))>0?2:1;return type+((runningMask&(1<<i))!=0?2:0);}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){return RackLayout.canInsert(layout(),i,Hardware.units(s));}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){return editors[i]==null&&RackLayout.canInsert(layout(),i,Hardware.units(s));}
         int hash(){int n=0;for(ItemStack s:slots)n+=Hardware.hash(s);return n;}
         int watts(){int n=0;for(ItemStack s:slots)n+=Hardware.power(s);return n;}
         int serverCount(){int n=0;for(int i=0;i<4;i++)if(startAt(i)==i)n++;return n;}
@@ -81,11 +82,15 @@ public final class Tiles {
             int next=at+1;Computer c=next<choices.size()?choices.get(next):null;
             UUID id=c==null?null:c.id;if(Objects.equals(controller,id))return false;
             controller=id;controllerPosition=c==null?null:c.getPos();for(int i=0;i<4;i++)resetBay(i);changed();return true;}
-        boolean cycleTask(int bay){if(bay<0||bay>=4||startAt(bay)!=bay)return false;
+        boolean cycleTask(int bay){if(bay<0||bay>=4||startAt(bay)!=bay||editors[bay]!=null)return false;
             if(controller==null){List<Computer> choices=Network.controllers(world,this);if(choices.isEmpty())return false;controller=choices.get(0).id;controllerPosition=choices.get(0).getPos();}
             assignments[bay]=(assignments[bay]+1)%4;runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=0;changed();return true;}
+        boolean beginEdit(int bay,Object token){if(bay<0||bay>=4||startAt(bay)!=bay||editors[bay]!=null)return false;editors[bay]=token;runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=ComputeEngine.MAINTENANCE;changed();return true;}
+        void endEdit(int bay,Object token){if(editors[bay]==token){editors[bay]=null;changed();}}
+        boolean editing(int bay){return editors[bay]!=null;}
+        void partsChanged(int bay){runningMask&=~(1<<bay);nextMask&=~(1<<bay);status[bay]=ComputeEngine.MAINTENANCE;remainder[bay]=0;usedMbps[bay]=neededMbps[bay]=work[bay]=0;changed();}
         void resetCycle(){nextMask=0;lastPower=totalMbps=totalReward=0;controllerPosition=null;
-            for(int i=0;i<4;i++){status[i]=assignments[i]==0?ComputeEngine.IDLE:ComputeEngine.NO_CONTROLLER;usedMbps[i]=neededMbps[i]=work[i]=0;}}
+            for(int i=0;i<4;i++){status[i]=editing(i)?ComputeEngine.MAINTENANCE:!slots.get(i).isEmpty()&&Hardware.state(slots.get(i))!=ServerSpec.READY?ComputeEngine.INCOMPLETE:assignments[i]==0?ComputeEngine.IDLE:ComputeEngine.NO_CONTROLLER;usedMbps[i]=neededMbps[i]=work[i]=0;}}
         void finishCycle(){if(runningMask!=nextMask){runningMask=nextMask;changed();}}
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY?CapabilityEnergy.ENERGY.cast(energy):super.getCapability(c,f);}
@@ -95,9 +100,21 @@ public final class Tiles {
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){runningMask=0;nextMask=0;}}
     }
     public static final class Assembler extends InventoryTile {
-        public Assembler(){super(7);}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){return i==0?Hardware.size(s)>0:i==1?Hardware.cpu(s)>0:i>=2&&i<=5&&Hardware.gpu(s)>0;}
-        boolean assemble(){int u=Hardware.size(slots.get(0)),cpu=Hardware.cpu(slots.get(1));if(u==0||cpu==0||!slots.get(6).isEmpty())return false;int a=0,b=0;for(int i=2;i<6;i++){int gpu=Hardware.gpu(slots.get(i));if(!slots.get(i).isEmpty()&&gpu==0)return false;if(gpu==1)a++;if(gpu==2)b++;}if(a+b>u)return false;slots.set(6,Hardware.build(u,cpu,a,b));for(int i=0;i<6;i++)slots.set(i,ItemStack.EMPTY);changed();return true;}
+        // Keep legacy slots 0..6 unchanged: chassis, CPU, GPUs, output.
+        static final int[] PART_SLOTS={7,1,8,9,10,11,12,13,2,3,4,5};
+        public Assembler(){super(14);}
+        int chassis(){return Hardware.size(slots.get(0));}
+        NonNullList<ItemStack> parts(){NonNullList<ItemStack> p=Hardware.emptyParts();for(int i=0;i<p.size();i++)p.set(i,slots.get(PART_SLOTS[i]));return p;}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){
+            if(i==0)return Hardware.size(s)>0;
+            for(int j=0;j<PART_SLOTS.length;j++)if(PART_SLOTS[j]==i){int u=chassis(),board=Hardware.partTier(0,slots.get(7));return Hardware.accepts(j,s)&&(u==0||ServerSpec.fits(u,board,j));}return false;
+        }
+        boolean assemble(){int u=chassis();if(u==0||!slots.get(6).isEmpty())return false;
+            NonNullList<ItemStack> p=parts();int state=ServerSpec.state(u,Hardware.tiers(p));
+            // Allow incomplete chassis for fitting inside rack, but never illegal contents.
+            if(state==ServerSpec.INVALID||state==ServerSpec.CAPACITY)return false;
+            slots.set(6,Hardware.build(u,p));slots.set(0,ItemStack.EMPTY);for(int i:PART_SLOTS)slots.set(i,ItemStack.EMPTY);changed();return true;
+        }
     }
     /** Powered devices consume their own idle load each game tick. */
     public static abstract class Powered extends Owned implements ITickable {

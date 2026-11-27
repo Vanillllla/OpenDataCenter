@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CRC",
+    "GBG"
+  ],
+  "key": {
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "B": {
+      "item": "odc:ram_basic"
+    }
+  },
+  "result": {
+    "item": "odc:ram_pro",
+    "count": 1
+  }
+}

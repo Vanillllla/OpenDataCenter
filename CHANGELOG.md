@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1-alpha — Server Hardware
+
+- Real per-server ItemStack inventory persisted inside the server item.
+- Basic/pro motherboards, 4/16 GB RAM, 128 GB HDD, 512 GB SSD; six new recipes and sprites.
+- Mandatory board, CPU, RAM and disk; GPU optional. Chassis/board slot limits and boot diagnostics.
+- Assembly station supports empty, partially assembled and complete servers. Individual hardware GUI in rack, removal and upgrades, shift-click transfer, exclusive maintenance lock and task pause.
+- Legacy CPU/GPU conversion without free components; old assembler slot indices retained.
+- 30,000 randomized hardware configurations and new regression tests. Forge compilation/gameplay still unverified.
+
 ## 0.2.0-alpha
 
 ### Added

@@ -11,7 +11,7 @@ def check(ok,msg):
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
 blocks={'rack','rack_glass','assembler','computer','creative_battery','data_cable','power_cable','raised_floor','wall_panel','network_switch','network_station'}
-items={'cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_2u','chassis_4u','precision_chip','server'}
+items={'cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_2u','chassis_4u','precision_chip','server','board_basic','board_pro','ram_basic','ram_pro','hdd_basic','ssd_pro'}
 check({p.stem for p in (root/'blockstates').glob('*.json')}==blocks,'block state registry')
 check({p.stem for p in (root/'models/item').glob('*.json')}==blocks|items,'item model registry')
 for f in root.rglob('*.png'):

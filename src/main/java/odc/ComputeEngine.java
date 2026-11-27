@@ -7,7 +7,7 @@ public final class ComputeEngine {
     public static final int TICKS = 20;
     public static final int NONE=0, MINING=1, BANK=2, AI=3;
     public static final int IDLE=0, NO_CONTROLLER=1, CONTROLLER_OFFLINE=2,
-            TASK_DISABLED=3, INCOMPATIBLE=4, NO_NETWORK=5, NO_POWER=6, RUNNING=7, THROTTLED=8;
+            TASK_DISABLED=3, INCOMPATIBLE=4, NO_NETWORK=5, NO_POWER=6, RUNNING=7, THROTTLED=8, MAINTENANCE=9, INCOMPLETE=10;
     private ComputeEngine() {}
 
     /** One physical server's demands for a single independent task. */

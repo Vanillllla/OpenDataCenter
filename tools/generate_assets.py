@@ -136,6 +136,20 @@ def item(name,kind,pro=False):
         rect(d,(1,4,14,11),dark);rect(d,(2,5,13,10),board);rect(d,(1,3,2,12),metal);rect(d,(5,11,11,12),gold)
         for x in ((5,10) if pro else (8,)):
             rect(d,(x-2,5,x+2,9),'#343b3e');d.point((x,7),fill=metal);d.point((x-1,6),fill='#7a8589');d.point((x+1,8),fill='#7a8589')
+    elif kind=='board':
+        rect(d,(2,1,13,14),dark);rect(d,(3,2,12,13),board);rect(d,(5,3,9,7),metal);rect(d,(6,4,8,6),'#5e6a71')
+        for x in (4,11):rect(d,(x,9,x,12),gold)
+        for y in (9,11):rect(d,(6,y,9,y),'#20282b')
+        d.point((3,3),fill=gold);d.point((12,12),fill=gold)
+    elif kind=='ram':
+        rect(d,(1,5,14,10),dark);rect(d,(2,6,13,9),board)
+        for x in (3,6,9,12):rect(d,(x,6,x+1,8),'#20282b')
+        for x in range(2,14,2):d.point((x,10),fill=gold)
+    elif kind=='disk':
+        rect(d,(3,2,12,13),dark);rect(d,(4,3,11,12),metal if not pro else '#566166')
+        if pro:rect(d,(5,4,10,10),'#30383b');rect(d,(6,5,9,6),board)
+        else:d.ellipse((5,4,10,9),fill='#707b80',outline='#b7bfc0');d.point((7,6),fill='#323a3c');d.line((9,9,7,7),fill='#dde0df')
+        rect(d,(5,12,10,12),gold)
     elif kind.startswith('chassis') or kind=='server':
         h={'chassis1':4,'chassis2':6,'chassis4':8,'server':6}[kind];y=8-h//2;rect(d,(1,y,14,y+h),dark);rect(d,(2,y+1,13,y+h-1),'#656e71');rect(d,(4,y+1,11,y+h-1),'#363e41');rect(d,(2,y+1,2,y+h-1),metal);rect(d,(13,y+1,13,y+h-1),metal)
         if kind=='server':rect(d,(5,y+2,9,y+2),'#858e91');d.point((11,y+2),fill='#70d58d')
@@ -143,18 +157,26 @@ def item(name,kind,pro=False):
         rect(d,(4,4,11,11),dark);rect(d,(5,5,10,10),board);rect(d,(6,6,9,9),metal)
         for x in (4,7,10):rect(d,(x,3,x+1,4),gold);rect(d,(x,11,x+1,12),gold)
     im.save(root/f'textures/items/{name}.png');js('models/item/'+name+'.json',{'parent':'item/generated','textures':{'layer0':'odc:items/'+name}})
-for n,k,p in [('cpu_basic','cpu',False),('cpu_pro','cpu',True),('gpu_basic','gpu',False),('gpu_pro','gpu',True),('chassis_1u','chassis1',False),('chassis_2u','chassis2',False),('chassis_4u','chassis4',False),('precision_chip','chip',True),('server','server',True)]:item(n,k,p)
+for n,k,p in [('cpu_basic','cpu',False),('cpu_pro','cpu',True),('gpu_basic','gpu',False),('gpu_pro','gpu',True),('chassis_1u','chassis1',False),('chassis_2u','chassis2',False),('chassis_4u','chassis4',False),('precision_chip','chip',True),('server','server',True),('board_basic','board',False),('board_pro','board',True),('ram_basic','ram',False),('ram_pro','ram',True),('hdd_basic','disk',False),('ssd_pro','disk',True)]:item(n,k,p)
 def recipe(name,pattern,keys,count=1):js('recipes/'+name+'.json',{'type':'minecraft:crafting_shaped','pattern':pattern,'key':{k:{'item':v} for k,v in keys.items()},'result':{'item':'odc:'+name,'count':count}})
 i='minecraft:iron_ingot';g='minecraft:gold_ingot';r='minecraft:redstone';s='minecraft:glass';c='odc:precision_chip'
 recipe('rack',['IRI','I I','IRI'],{'I':i,'R':'minecraft:iron_bars'});recipe('rack_glass',['IGI','IRI','IGI'],{'I':i,'G':s,'R':'odc:rack'});recipe('assembler',['IRI','IDI','III'],{'I':i,'R':r,'D':'minecraft:crafting_table'});recipe('computer',['IGI','CRC','III'],{'I':i,'G':s,'C':'odc:cpu_basic','R':r});recipe('data_cable',['III','RRR','III'],{'I':i,'R':r},12);recipe('power_cable',['III','GGG','III'],{'I':i,'G':g},12);recipe('cpu_basic',['GRG','RIR','GRG'],{'G':g,'R':r,'I':i});recipe('cpu_pro',['GCG','RBR','GCG'],{'G':g,'R':r,'C':c,'B':'odc:cpu_basic'});recipe('gpu_basic',['III','GCG','IRI'],{'I':i,'G':g,'C':'odc:cpu_basic','R':r});recipe('gpu_pro',['ICI','GBG','IRI'],{'I':i,'C':c,'G':g,'B':'odc:gpu_basic','R':r});recipe('chassis_1u',['III','I I'],{'I':i});recipe('chassis_2u',['III','I I','III'],{'I':i});recipe('chassis_4u',['IRI','I I','IRI'],{'I':i,'R':r});recipe('raised_floor',['BBB','III'],{'B':'minecraft:iron_bars','I':i},8);recipe('wall_panel',['III','ISI','III'],{'I':i,'S':'minecraft:stone'},8)
 recipe('network_switch',['III','RCR','IGI'],{'I':i,'R':r,'C':'odc:cpu_basic','G':g});recipe('network_station',[' B ','BRB','ICI'],{'B':'minecraft:iron_bars','R':r,'I':i,'C':'odc:cpu_basic'})
+recipe('board_basic',['GRG','RIR','GGG'],{'G':g,'R':r,'I':i})
+recipe('board_pro',['GCG','RBR','GRG'],{'G':g,'C':c,'R':r,'B':'odc:board_basic'})
+recipe('ram_basic',['RRR','GIG'],{'R':r,'G':g,'I':i})
+recipe('ram_pro',['CRC','GBG'],{'C':c,'R':r,'G':g,'B':'odc:ram_basic'})
+recipe('hdd_basic',['III','IRI','IGI'],{'I':i,'R':r,'G':g})
+recipe('ssd_pro',['ICI','GRG','III'],{'I':i,'C':c,'G':g,'R':r})
 blocks={'rack':('Open Server Rack','Открытая серверная стойка'),'rack_glass':('Glass Server Rack','Стеклянная серверная стойка'),'assembler':('Server Assembly Station','Станок сборки серверов'),'computer':('DataOS Control Computer','Управляющий компьютер DataOS'),'creative_battery':('Creative Energy Source','Творческий источник энергии'),'data_cable':('Data Cable','Сетевой кабель'),'power_cable':('Power Cable','Силовой кабель'),'raised_floor':('Raised Floor Grate','Решётка фальшпола'),'wall_panel':('Industrial Wall Panel','Промышленная стеновая панель'),'network_switch':('Network Switch','Сетевой коммутатор'),'network_station':('Network Station','Сетевая станция')}
 items={'cpu_basic':('CPU T1','Процессор T1'),'cpu_pro':('CPU T2','Процессор T2'),'gpu_basic':('GPU T1','Видеокарта T1'),'gpu_pro':('GPU T2','Видеокарта T2'),'chassis_1u':('Server Chassis 1U','Корпус сервера 1U'),'chassis_2u':('Server Chassis 2U','Корпус сервера 2U'),'chassis_4u':('Server Chassis 4U','Корпус сервера 4U'),'precision_chip':('Precision Chip','Прецизионный чип'),'server':('Assembled Server','Собранный сервер')}
+items.update({'board_basic':('Basic Motherboard','Базовая материнская плата'),'board_pro':('Pro Motherboard','Продвинутая материнская плата'),'ram_basic':('RAM 4 GB','ОЗУ 4 ГБ'),'ram_pro':('RAM 16 GB','ОЗУ 16 ГБ'),'hdd_basic':('HDD 128 GB','HDD 128 ГБ'),'ssd_pro':('SSD 512 GB','SSD 512 ГБ')})
 gui={
 'rack':('ODC / SERVER RACK','ODC / СЕРВЕРНАЯ СТОЙКА'),'assembly':('ODC / SERVER ASSEMBLY','ODC / СБОРКА СЕРВЕРА'),'control':('DataOS / TASK MANAGER','DataOS / ДИСПЕТЧЕР ЗАДАЧ'),'market':('Market','Магазин'),'switch':('ODC / NETWORK SWITCH','ODC / КОММУТАТОР'),'station':('ODC / NETWORK STATION','ODC / СЕТЕВАЯ СТАНЦИЯ'),
 'assemble':('Assemble','Собрать'),'link':('Select PC','Выбрать ПК'),'start':('Start','Пуск'),'stop':('Stop','Стоп'),'back':('Back','Назад'),'buy':('Buy','Купить'),'unlinked':('No controller','Нет контроллера'),'link_lost':('Controller unreachable','Нет связи с ПК'),'linked':('PC: %s, %s, %s','ПК: %s, %s, %s'),'occupied':('Bay %s','Слот %s'),'chassis':('CHASSIS','КОРПУС'),'output':('OUTPUT','ВЫХОД'),'gpu_slots':('GPU EXPANSION','СЛОТЫ GPU'),'assembly_hint':('1U = 1 GPU / 2U = 2 / 4U = 4','1U = 1 GPU / 2U = 2 / 4U = 4'),
 'online':('SYSTEM ONLINE','СИСТЕМА В СЕТИ'),'offline':('NO POWER','НЕТ ПИТАНИЯ'),'wallet':('Wallet: %s NTC','Баланс: %s NTC'),'cluster':('Racks: %s / servers: %s','Стойки: %s / серверы: %s'),'network':('WAN %s | LAN %s | used %s Mb/s','WAN %s | LAN %s | занято %s Mb/s'),'assign_hint':('Assign servers in the rack GUI.','Назначай серверы в интерфейсе стоек.'),'market_hint':('Select an offer below.','Выбери товар ниже.'),'market_price':('PRICE IN NTC','ЦЕНА В NTC'),'capacity':('Bandwidth: %s / %s Mb/s','Пропускная способность: %s / %s Mb/s'),'switch_hint':('Adds shared local switching capacity.','Добавляет пропускную способность LAN.'),'station_hint':('Adds global uplink bandwidth.','Добавляет пропускную способность WAN.'),'network_hint':('Connect with data and power cables.','Подключи сетевой и силовой кабели.'),
  'task.0':('Idle','Простой'),'task.1':('Mining','Майнинг'),'task.2':('Bank','Банк'),'task.3':('AI','ИИ'),
  'status.0':('Idle','Простой'),'status.1':('No controller','Нет ПК'),'status.2':('PC offline','ПК выключен'),'status.3':('Task stopped','Задача стоп'),'status.4':('Incompatible','Нет ресурса'),'status.5':('No bandwidth','Нет сети'),'status.6':('No power','Нет энергии'),'status.7':('Running','Работает'),'status.8':('Throttled','Ограничен')}
+gui.update({'hardware':('SERVER HARDWARE','КОМПЛЕКТУЮЩИЕ'),'edit':('Parts','Детали'),'board':('BOARD','ПЛАТА'),'drives':('DRIVES','ДИСКИ'),'choose_chassis':('Insert a chassis first.','Установите корпус.'),'assemble_help':('Incomplete servers can be fitted in a rack.','Неполный сервер можно поставить в стойку.'),'maintenance_help':('Maintenance: tasks resume after closing.','Обслуживание: задачи возобновятся при выходе.'),'boot.0':('Hardware ready','Комплектующие готовы'),'boot.1':('Missing motherboard','Нет материнской платы'),'boot.2':('Missing CPU','Нет процессора'),'boot.3':('Missing RAM','Нет оперативной памяти'),'boot.4':('Missing drive','Нет накопителя'),'boot.5':('Invalid component','Неверный компонент'),'boot.6':('Slot capacity exceeded','Превышена вместимость слотов'),'status.9':('Service','Сервис'),'status.10':('Incomplete','Не собран')})
 for lang,idx in [('en_us',0),('ru_ru',1)]:
     lines=[f'tile.odc.{k}.name={v[idx]}' for k,v in blocks.items()]+[f'item.odc.{k}.name={v[idx]}' for k,v in items.items()]+[f'gui.odc.{k}={v[idx]}' for k,v in gui.items()];(root/f'lang/{lang}.lang').write_text('\n'.join(lines)+'\n',encoding='utf8')

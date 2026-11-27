@@ -54,8 +54,12 @@ public final class ClusterScheduler {
             if(c==null)continue;
             r.controllerPosition=c.getPos();
             for(int bay=0;bay<4;bay++){
-                int task=r.assignments[bay];if(task==0||r.startAt(bay)!=bay)continue;
-                int[] stats=c.jobStats[task-1];stats[0]++;
+                int task=r.assignments[bay];if(r.startAt(bay)!=bay)continue;
+                if(task!=0)c.jobStats[task-1][0]++;
+                if(r.editing(bay)){r.status[bay]=ComputeEngine.MAINTENANCE;continue;}
+                if(Hardware.state(r.slots.get(bay))!=ServerSpec.READY){r.status[bay]=ComputeEngine.INCOMPLETE;continue;}
+                if(task==0)continue;
+                int[] stats=c.jobStats[task-1];
                 ComputeEngine.Profile p=Hardware.profile(r.slots.get(bay),task);r.neededMbps[bay]=p.mbps;stats[5]=add(stats[5],p.mbps);
                 if(!c.online){r.status[bay]=ComputeEngine.CONTROLLER_OFFLINE;continue;}
                 if(!c.enabled(task)){r.status[bay]=ComputeEngine.TASK_DISABLED;continue;}

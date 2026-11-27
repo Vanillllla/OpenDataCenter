@@ -21,9 +21,9 @@ final class Blocks {
     static final PropertyBool ACTIVE=PropertyBool.create("active");
     static final PropertyBool[] LINK={PropertyBool.create("down"),PropertyBool.create("up"),PropertyBool.create("north"),PropertyBool.create("south"),PropertyBool.create("west"),PropertyBool.create("east")};
     static abstract class Oriented extends BlockContainer {
-        Oriented(String id){super(Material.IRON);setRegistryName(ODC.ID,id);setUnlocalizedName(ODC.ID+"."+id);setHardness(2.5f);setResistance(8);setSoundType(SoundType.METAL);setCreativeTab(CreativeTabs.REDSTONE);}
+        Oriented(String id){super(Material.IRON);setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setHardness(2.5f);setResistance(8);setSoundType(SoundType.METAL);setCreativeTab(CreativeTabs.REDSTONE);}
         @Override public EnumBlockRenderType getRenderType(IBlockState s){return EnumBlockRenderType.MODEL;}
-        @Override public IBlockState getStateFromMeta(int m){return getDefaultState().withProperty(FACING,EnumFacing.getHorizontal(m&3));}
+        @Override public IBlockState getStateFromMeta(int m){return getDefaultState().withProperty(FACING,EnumFacing.byHorizontalIndex(m&3));}
         @Override public int getMetaFromState(IBlockState s){return s.getValue(FACING).getHorizontalIndex();}
         @Override public IBlockState getStateForPlacement(World w,BlockPos p,EnumFacing face,float x,float y,float z,int meta,EntityLivingBase e){return getDefaultState().withProperty(FACING,e.getHorizontalFacing().getOpposite());}
         @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack item){super.onBlockPlacedBy(w,p,s,e,item);if(!w.isRemote&&e instanceof EntityPlayer){TileEntity t=w.getTileEntity(p);if(t instanceof Tiles.Owned)((Tiles.Owned)t).setOwner(((EntityPlayer)e).getUniqueID());}}
@@ -41,7 +41,7 @@ final class Blocks {
         Rack(String id,boolean glass){super(id);this.glass=glass;IBlockState s=blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH);for(PropertyInteger p:BAY)s=s.withProperty(p,0);setDefaultState(s);}
         @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,BAY[0],BAY[1],BAY[2],BAY[3]);}
         @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){TileEntity t=w.getTileEntity(p);if(t instanceof Tiles.Rack){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<4;i++)s=s.withProperty(BAY[i],r.bayType(i));}return s;}
-        @Override public BlockRenderLayer getBlockLayer(){return glass?BlockRenderLayer.CUTOUT:BlockRenderLayer.SOLID;}
+        @Override public BlockRenderLayer getRenderLayer(){return glass?BlockRenderLayer.CUTOUT:BlockRenderLayer.SOLID;}
         @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Rack();}
         @Override int gui(){return 0;}
     }
@@ -54,11 +54,11 @@ final class Blocks {
         @Override int gui(){return type==1?1:type==2?2:type==4?4:type==5?5:-1;}
     }
     static final class Decor extends Block {
-        Decor(String id){super(Material.IRON);setRegistryName(ODC.ID,id);setUnlocalizedName(ODC.ID+"."+id);setHardness(2.0f);setResistance(8);setSoundType(SoundType.METAL);setCreativeTab(CreativeTabs.REDSTONE);}
+        Decor(String id){super(Material.IRON);setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setHardness(2.0f);setResistance(8);setSoundType(SoundType.METAL);setCreativeTab(CreativeTabs.REDSTONE);}
     }
     static final class Cable extends Block {
         final boolean power;
-        Cable(String id,boolean power){super(Material.IRON);this.power=power;setRegistryName(ODC.ID,id);setUnlocalizedName(ODC.ID+"."+id);setCreativeTab(CreativeTabs.REDSTONE);setHardness(0.5f);setSoundType(SoundType.METAL);IBlockState s=blockState.getBaseState();for(PropertyBool p:LINK)s=s.withProperty(p,false);setDefaultState(s);}
+        Cable(String id,boolean power){super(Material.IRON);this.power=power;setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setCreativeTab(CreativeTabs.REDSTONE);setHardness(0.5f);setSoundType(SoundType.METAL);IBlockState s=blockState.getBaseState();for(PropertyBool p:LINK)s=s.withProperty(p,false);setDefaultState(s);}
         @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,LINK);}
         @Override public IBlockState getStateFromMeta(int m){return getDefaultState();}
         @Override public int getMetaFromState(IBlockState s){return 0;}

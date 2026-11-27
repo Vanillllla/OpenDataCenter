@@ -38,7 +38,7 @@ def rack_state(glass,values,offset=(0,0,0)):
     return [('rack_glass' if glass else 'rack',offset)]+[(f'bay{i}_{v}',offset) for i,v in enumerate(values) if v]
 
 canvas=Image.new('RGB',(1440,930),'#202527');d=ImageDraw.Draw(canvas)
-d.rectangle((0,0,1439,5),fill='#7ab58d');d.text((35,24),'OPEN DATA CENTER',font=font(39,True),fill='#e4e7e8');d.text((38,78),'0.2.0-alpha  /  original 16x16 textures  /  model preview, not in-game',font=font(19),fill='#b4babb')
+d.rectangle((0,0,1439,5),fill='#7ab58d');d.text((35,24),'OPEN DATA CENTER',font=font(39,True),fill='#e4e7e8');d.text((38,78),'0.2.1-alpha  /  original 16x16 textures  /  model preview, not in-game',font=font(19),fill='#b4babb')
 # One large example: same blocks stacked to produce a two-block cabinet wall.
 d.rectangle((32,121,695,880),fill='#303638',outline='#495053',width=2)
 stack=[]
