@@ -28,6 +28,10 @@ public final class NetworkMonitorTest {
         for(int i=0;i<1000;i++){double x=i%310,y=i%250,wx=(x-layout.panX)/layout.zoom,wy=(y-layout.panY)/layout.zoom;layout.zoomAt(i%2==0?1.25:.8,x,y);near((x-layout.panX)/layout.zoom,wx);near((y-layout.panY)/layout.zoom,wy);}
         // No overlapping cards within a row after additions.
         List<NetworkMapLayout.Point> points=new ArrayList<>(layout.points.values());for(int i=0;i<points.size();i++)for(int j=i+1;j<points.size();j++)if(points.get(i).y==points.get(j).y)check(Math.abs(points.get(i).x-points.get(j).x)>=NetworkMapLayout.CARD_W);
+        NetworkMapLayout small=new NetworkMapLayout();Map<UUID,Integer> few=new LinkedHashMap<>();for(int i=1;i<=17;i++)few.put(id(i),i<=2?0:i==3?1:i<=6?2:3);small.update(few);
+        for(double zoom:new double[]{.16,.32,.50,.74}){small.zoom=zoom;small.panX=200;small.panY=100;check(small.compact());for(Map.Entry<UUID,NetworkMapLayout.Point> entry:small.points.entrySet()){NetworkMapLayout.Bounds box=small.mini(entry.getValue());check(box.w>=3&&box.h>=3&&box.w<=64&&box.h<=24);check(entry.getKey().equals(small.hit(box.cx(),box.cy())));}
+            NetworkMapLayout.Bounds aa=small.mini(small.points.get(id(1))),bb=small.mini(small.points.get(id(3)));int[] path=small.miniPath(small.points.get(id(1)),small.points.get(id(3)),id(999));check(path[0]==aa.cx()&&path[1]==aa.y+aa.h&&path[2]==bb.cx()&&path[3]==bb.y);}
+        small.zoom=.001;check(small.mini(small.points.get(id(1))).w>=3&&small.mini(small.points.get(id(1))).h>=3);small.zoom=.75;check(!small.compact());
         System.out.println("NetworkMonitorTest: "+checks+" checks passed");
     }
 }
