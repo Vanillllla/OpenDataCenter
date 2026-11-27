@@ -20,10 +20,15 @@ final class Hardware {
     static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
     static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
     static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);
-    static final Item CHIP=item("precision_chip",""), SWITCH1=item("switch_basic","4 × 100 Mb/s"), SWITCH2=item("switch_pro","8 × 1000 Mb/s"), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
+    static final Item CHIP=item("precision_chip",""), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
-    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,SWITCH1,SWITCH2,PATCH,PATCH2,PATCH3));
+    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3));
+    static final Item[] SWITCHES=new Item[SwitchLimits.count()+1];
     static {
+        for(int t=1;t<SWITCHES.length;t++){
+            SWITCHES[t]=new Component(SwitchLimits.id(t),SwitchLimits.ports(t)+" ports | "+SwitchLimits.portMbps(t)+" Mb/s per port\n"+SwitchLimits.totalMbps(t)+" Mb/s total | "+SwitchLimits.power(t)+" FE/t").setMaxStackSize(1);
+            ITEMS.add(SWITCHES[t]);
+        }
         for(Part model:Part.models) if(model.index>0) {
             Item component=item(model.id,String.join("\n",model.details()));
             MODELS.put(component,model);
@@ -33,13 +38,13 @@ final class Hardware {
     private static Item item(String id,String tip){return new Component(id,tip);}
     static int size(ItemStack s){return s.getItem() instanceof Chassis?((Chassis)s.getItem()).units:0;}
     static int units(ItemStack s){return s.isEmpty()?0:size(s);}
-    static int switchTier(ItemStack s){return s.isEmpty()?0:s.getItem()==SWITCH1?1:s.getItem()==SWITCH2?2:0;}
+    static int switchTier(ItemStack s){if(!s.isEmpty())for(int t=1;t<SWITCHES.length;t++)if(s.getItem()==SWITCHES[t])return t;return 0;}
     static int rackUnits(ItemStack s){return switchTier(s)>0?1:units(s);}
     static int ports(int tier){return SwitchLimits.ports(tier);}
     static int switchMbps(int tier){return SwitchLimits.totalMbps(tier);}
     static Item lan(int tier){return tier==2?PATCH2:tier==3?PATCH3:PATCH;}
     static int portMbps(int tier){return SwitchLimits.portMbps(tier);}
-    static int switchPower(int tier){return tier==1?8:tier==2?20:0;}
+    static int switchPower(int tier){return SwitchLimits.power(tier);}
     static int model(ItemStack s) {
         if(s.isEmpty()) return 0;
         Part part=MODELS.get(s.getItem());

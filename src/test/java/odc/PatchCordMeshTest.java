@@ -7,7 +7,7 @@ public final class PatchCordMeshTest {
     private static boolean near(double a,double b){return Math.abs(a-b)<1e-9;}
     public static void main(String[] args){
         int variants=0;
-        for(int capacity:new int[]{4,9})for(int bay=0;bay<capacity;bay++)for(int count:new int[]{4,8})for(int port=0;port<count;port++)for(boolean up:new boolean[]{false,true}){
+        for(int capacity:new int[]{4,9})for(int bay=0;bay<capacity;bay++)for(int count:new int[]{2,4,8})for(int port=0;port<count;port++)for(boolean up:new boolean[]{false,true}){
             variants++;double pitch=capacity==9?1.875/9:.875/4,b=.0625+bay*pitch+.012,t=.0625+(bay+1)*pitch-.012;
             double cx=PatchCordMesh.portX(port,count),cy=PatchCordMesh.portY(b,t),gap=up?t+.012:b-.012;
             PatchCordMesh.Face[] mesh=PatchCordMesh.get(capacity,bay,count,port,up);

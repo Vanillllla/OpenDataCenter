@@ -97,7 +97,7 @@ final class PanelScreen extends GuiContainer {
         }else if(menu.type==2){
             inset(8,42,304,137,0xfff9f8f2);
             int[] d=menu.data;
-            for(int i=0;i<8;i++){
+            for(int i=0;i<Hardware.ports(d[10]);i++){
                 int b=d[20+i]-1;if(b<0||b>=9)continue;
                 int x=31+i*37,xx=25+b*33,y=80+i*7;
                 int color=d[30+i]==1?0xff7d8790:d[30+i]==3?0xff9854b6:0xff347ab8;
@@ -106,7 +106,7 @@ final class PanelScreen extends GuiContainer {
         }
     }
     @Override protected void drawGuiContainerForegroundLayer(int mx,int my){int[] d=menu.data;if(menu.type==1){title(tr("Server details","Сведения о сервере"));text("ID "+d[11]+" | "+d[10]+"U / U"+(d[1]+1)+" | "+status(d[4])+" | "+d[5]+" FE/t",10,51,BLUE);int[] p=java.util.Arrays.copyOfRange(d,20,20+ServerSpec.COUNT);text(Part.at(p[0]).name+" / "+Part.at(p[1]).name,10,64,FG);text("RAM "+ServerSpec.ramGB(p)+" GB / disk "+ServerSpec.diskGB(p)+" GB",10,80,FG);text("PSU "+ServerSpec.psu(p)+" W / NIC "+ServerSpec.nic(p)+" Mb/s",10,96,FG);text("GPU: "+ServerSpec.gpuTotal(p)+" / VRAM "+ServerSpec.vram(p)+" GB",10,112,FG);text("CPU cores "+d[6]+" / GPU mask "+Integer.toBinaryString(d[7]),10,135,MUTED);text("RAM used "+d[8]+" GB / network "+d[9]+" Mb/s",10,151,MUTED);text(tr("Pool:","Пул:"),10,182,FG);text(tr("Components are read-only. Use workbench.","Компоненты меняются только на рабочем столе."),10,198,MUTED);return;}
-        if(menu.type==2){title("Switch T"+d[10]+" / "+(d[12]==1?"ONLINE":"OFFLINE"));clip(tr("Port, then server","Порт, затем сервер"),10,31,118,MUTED);int port=d[11], bay=d[20+port]-1; text(tr("Rack units / NIC below","Юниты / NIC снизу"),10,140,MUTED);for(int i=0;i<9;i++)if(d[40+i]>0)clip(d[60+i]>=1000?(d[60+i]/1000)+"G":d[60+i]+"M",10+i*33,177,30,FG);if(bay>=0)clip("P"+(port+1)+": LAN "+LogicalLinks.speed(d[30+port])+" / NIC "+d[60+bay]+" Mb/s",130,31,180,FG);return;}
+        if(menu.type==2){title(tr("Switch ","Коммутатор ")+SwitchLimits.shortName(d[10])+" / "+(d[12]==1?"ONLINE":"OFFLINE"));clip(tr("Port, then server","Порт, затем сервер"),10,31,118,MUTED);int port=d[11], bay=d[20+port]-1; text(tr("Rack units / NIC below","Юниты / NIC снизу"),10,140,MUTED);clip(tr("Port limit: ","Лимит порта: ")+Hardware.portMbps(d[10])+" Mb/s",156,140,150,MUTED);for(int i=0;i<9;i++)if(d[40+i]>0)clip(d[60+i]>=1000?(d[60+i]/1000)+"G":d[60+i]+"M",10+i*33,177,30,FG);if(bay>=0)clip("P"+(port+1)+": LAN "+LogicalLinks.speed(d[30+port])+" / NIC "+d[60+bay]+" Mb/s",130,31,180,FG);return;}
     }
     static String status(int n){return n==11?"PSU OVERLOAD":n==6?"NO POWER":n==7?"RUNNING":n==8?"PARTIAL":n==5?"NO NET":n==10?"INCOMPLETE":n==1?"NO CTRL":"IDLE";}
     @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);if(fieldVisible())nameField.drawTextBox();if(poolField!=null)poolField.drawTextBox();}

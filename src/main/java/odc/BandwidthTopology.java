@@ -27,8 +27,7 @@ final class BandwidthTopology {
             if(d.type==PhysicalTopology.Type.TERMINAL){for(PhysicalTopology.Peer p:topology.opticalPeers(d.pos,live::contains)){PhysicalTopology.Device a=devices.get(p.device.id);if(a==null)continue;UUID id=LogicalLinks.automaticId(LogicalLinks.Kind.FIBER,a.id,d.id);int c=Math.min(a.capacityMbps,d.capacityMbps);if(linkIds.add(id))edges.add(new BandwidthEngine.Edge(id,a.id,d.id,LogicalLinks.Kind.FIBER,c,c,p.verified));}}
             if(d.type==PhysicalTopology.Type.SERVER&&d.parent!=null){PhysicalTopology.Device sw=devices.get(d.parent);if(sw==null||sw.type!=PhysicalTopology.Type.SWITCH||!sw.pos.equals(d.pos))continue;
                 int tier=Math.max(1,d.patchTier),c=LogicalLinks.speed(tier);UUID id=d.patchId==null?LogicalLinks.automaticId(LogicalLinks.Kind.PATCH,sw.id,d.id):d.patchId;
-                // The model is the registered switch item. The existing two tiers have
-                // 100 / 1000 Mbps ports; a cable upgrade does not upgrade the port.
+                // A cable upgrade does not upgrade the catalogued switch port.
                 int switchTier=SwitchLimits.tier(sw.model);int port=SwitchLimits.portMbps(switchTier);if(d.port<0||d.port>=SwitchLimits.ports(switchTier)||portOwners.getOrDefault(d.parent+":"+d.port,0)!=1)port=0;if(linkIds.add(id))edges.add(new BandwidthEngine.Edge(id,sw.id,d.id,LogicalLinks.Kind.PATCH,c,port,live.contains(d.pos)));}
         }
         for(LogicalLinks.Link l:uplinks){PhysicalTopology.Device a=devices.get(l.from),b=devices.get(l.to);if(a==null||b==null||a.type!=PhysicalTopology.Type.TERMINAL||b.type!=PhysicalTopology.Type.SWITCH)continue;

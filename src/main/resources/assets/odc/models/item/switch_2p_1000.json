@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "odc:items/switch_2p_1000"
+  }
+}
