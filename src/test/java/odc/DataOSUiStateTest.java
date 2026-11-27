@@ -7,6 +7,15 @@ public final class DataOSUiStateTest {
     private static int checks;
     private static void check(boolean v){checks++;if(!v)throw new AssertionError("DataOS UI check "+checks);}
     public static void main(String[] args){
+        int[] tabs={0,1,2,3,5,6,7};
+        for(int i=0;i<tabs.length;i++){
+            int x=DataOSUiState.TAB_LEFT+i*DataOSUiState.TAB_STEP;
+            check(DataOSUiState.tabId(i)==tabs[i]&&DataOSUiState.validTab(tabs[i]));
+            check(DataOSUiState.tabAt(x,27)==tabs[i]&&DataOSUiState.tabAt(x+64,43)==tabs[i]);
+            check(DataOSUiState.tabAt(x+65,43)==-1&&DataOSUiState.tabAt(x,44)==-1);
+        }
+        check(!DataOSUiState.validTab(4)&&!DataOSUiState.validTab(-1)&&!DataOSUiState.validTab(8));
+        check(DataOSUiState.tabAt(4,30)==-1&&DataOSUiState.tabAt(467,30)==-1);
         DataOSUiState.Query q=new DataOSUiState.Query("gpu","Pool GPU",1,0,true);
         check(q.encode().equals(DataOSUiState.Query.decode(q.encode()).encode()));
         check(q.accepts("GPU-01",11,"Pool GPU",true,true));

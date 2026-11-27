@@ -4,6 +4,15 @@ import java.util.*;
 
 /** Shared, renderer-independent DataOS table/filter and scrolling primitives. */
 final class DataOSUiState {
+    // Preserve wire IDs so task, event and pool navigation need no renumbering.
+    private static final int[] TABS={0,1,2,3,5,6,7};
+    static final int TAB_LEFT=5,TAB_STEP=66;
+    static int tabId(int index){return index>=0&&index<TABS.length?TABS[index]:-1;}
+    static boolean validTab(int tab){return tab>=0&&tab<8&&tab!=4;}
+    static int tabAt(int x,int y){
+        int dx=x-TAB_LEFT;
+        return y>=27&&y<44&&dx>=0&&dx%TAB_STEP<TAB_STEP-1?tabId(dx/TAB_STEP):-1;
+    }
     static int clamp(int value,int min,int max){return Math.max(min,Math.min(max,value));}
     static boolean hit(int x,int y,int left,int top,int width,int height){return x>=left&&x<left+width&&y>=top&&y<top+height;}
     static boolean matches(String query,String... fields){String q=query.trim().toLowerCase(Locale.ROOT);if(q.isEmpty())return true;for(String s:fields)if(s!=null&&s.toLowerCase(Locale.ROOT).contains(q))return true;return false;}

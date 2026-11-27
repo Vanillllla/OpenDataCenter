@@ -3,7 +3,7 @@
     "modid": "odc",
     "name": "OpenDataCenter",
     "description": "Modular 4U/9U racks, physical hardware, network stations, power control and simulated mining.",
-    "version": "0.6.1.15-alpha",
+    "version": "0.6.1.16-alpha",
     "mcversion": "1.12.2",
     "url": "",
     "authorList": ["OpenDataCenter project"],
