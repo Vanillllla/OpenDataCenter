@@ -1,64 +1,142 @@
 package odc;
 
-/** Physical slots and component characteristics, independent of Forge. */
+import java.util.Arrays;
+
+/** Slots store catalog indices. Multiple accelerators on one card share its electrical load. */
 public final class ServerSpec {
-    public static final int BOARD=0,CPU=1,RAM=2,SATA=10,NVME=18,PCIE=20,GPU=PCIE,PSU=24,CPU2=28,COUNT=29;
-    public static final int NIC1=5,NIC2=6,PCIE_SSD=7;
-    public static final int READY=0,NO_BOARD=1,NO_CPU=2,NO_RAM=3,NO_DISK=4,INVALID=5,CAPACITY=6,NO_PSU=7;
-    private ServerSpec(){}
-    public static boolean chassis(int u){return u==1||u==2||u==4;}
-    public static int capacity(int u,int board,int slot){
-        if(!chassis(u)||slot<0||slot>=COUNT)return 0;
-        if(slot==BOARD)return 1;
-        if(slot>=PSU&&slot<CPU2)return u;
-        if(board<1||board>4)return 0;
-        if(slot==CPU)return 1;
-        if(slot==CPU2)return board==4?1:0;
-        if(slot<SATA)return Math.min(8,1<<board);
-        if(slot<NVME)return Math.min(8,1<<board);
-        if(slot<PCIE)return Math.min(2,board-1);
-        return Math.min(u,1<<Math.min(2,board-1));
+    static final int BOARD=0, CPU=1, RAM=2, SATA=10, NVME=22, PCIE=24, PSU=31, CPU2=35, COUNT=36;
+    static final int READY=0, NO_BOARD=1, NO_CPU=2, NO_RAM=3, NO_DISK=4, INVALID=5, CAPACITY=6, NO_PSU=7;
+    static boolean chassis(int u) { return u==1 || u==2 || u==4; }
+    static int chassisPcie(int u) { return u==1?2:u==2?4:u==4?7:0; }
+    static int first(int slot) {
+        if(slot<=CPU || slot==CPU2) return slot;
+        if(slot<SATA) return RAM;
+        if(slot<NVME) return SATA;
+        if(slot<PCIE) return NVME;
+        return slot<PSU?PCIE:PSU;
     }
-    public static boolean fits(int u,int board,int slot){
-        if(slot<0||slot>=COUNT)return false;
-        int first=slot<=CPU||slot==CPU2?slot:slot<SATA?RAM:slot<NVME?SATA:slot<PCIE?NVME:slot<PSU?PCIE:PSU;
-        return slot-first<capacity(u,board,slot);
+    static int capacity(int u,int board,int slot) {
+        if(!chassis(u)) return 0;
+        Part b=Part.at(board);
+        switch(first(slot)) {
+            case BOARD: return 1;
+            case PSU: return u;
+            case CPU: return Math.min(1,b.sockets);
+            case CPU2: return Math.max(0,b.sockets-1);
+            case RAM: return b.ramSlots;
+            case SATA: return b.sataSlots;
+            case NVME: return b.m2Slots;
+            default: return Math.min(chassisPcie(u),b.pciSlots);
+        }
     }
-    public static int maxTier(int i){return i==BOARD?4:i==CPU||i==CPU2?3:i<SATA?4:i<NVME?7:i<PCIE?3:i<PSU?7:3;}
-    public static int state(int u,int[] p){
-        if(!chassis(u)||p.length!=COUNT)return INVALID;
-        for(int i=0;i<COUNT;i++)if(p[i]<0||p[i]>maxTier(i))return INVALID;
-        if(p[BOARD]==0)return NO_BOARD;
-        for(int i=0;i<COUNT;i++)if(p[i]!=0&&!fits(u,p[BOARD],i))return CAPACITY;
-        if(p[CPU]==0)return NO_CPU;
-        if(sum(p,RAM,SATA)==0)return NO_RAM;if(diskGB(p)==0)return NO_DISK;
-        if(sum(p,PSU,CPU2)==0)return NO_PSU;return READY;
+    static boolean fits(int u,int board,int slot) { return slot>=0 && slot<COUNT && slot-first(slot)<capacity(u,board,slot); }
+    static boolean compatible(int slot,Part p,Part b) {
+        switch(first(slot)) {
+            case BOARD: return p.kind==Part.Kind.BOARD;
+            case CPU: case CPU2: return p.kind==Part.Kind.CPU && p.socket==b.socket && p.ddr==b.ddr;
+            case RAM: return p.kind==Part.Kind.RAM && p.ddr==b.ddr;
+            case SATA: return p.kind==Part.Kind.SSD || p.kind==Part.Kind.HDD;
+            case NVME: return p.kind==Part.Kind.NVME;
+            case PSU: return p.kind==Part.Kind.PSU;
+            default: return p.kind==Part.Kind.NIC || p.kind==Part.Kind.GPU || p.kind==Part.Kind.PCIE;
+        }
     }
-    private static int sum(int[] p,int a,int b){int n=0;for(int i=a;i<b;i++)n+=p[i];return n;}
-    public static int ramGB(int[] p){int n=0;int[] v={0,4,16,32,64};for(int i=RAM;i<SATA;i++)if(p[i]>=0&&p[i]<v.length)n+=v[p[i]];return n;}
-    public static int diskGB(int[] p){int n=0;int[] sata={0,512,2048,256,1024,4096,8192,2048},nvme={0,512,2048,4096};for(int i=SATA;i<NVME;i++)if(p[i]>=0&&p[i]<sata.length)n+=sata[p[i]];for(int i=NVME;i<PCIE;i++)if(p[i]>=0&&p[i]<nvme.length)n+=nvme[p[i]];for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)n+=4096;return n;}
-    public static int diskCount(int[] p){int n=0;for(int i=SATA;i<PCIE;i++)if(p[i]>0)n++;for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)n++;return n;}
-    public static int cpuCores(int tier){return tier==1?4:tier==2?8:tier==3?16:0;}
-    public static int cpuCores(int[] p){return cpuCores(p[CPU])+cpuCores(p[CPU2]);}
-    // Storage order: M.2 / PCIe NVMe, SATA SSD, HDD. Generic disk requests reserve SSD first.
-    public static int[] storageGB(int[] p){int[] v=new int[3];int[] sata={0,512,2048,256,1024,4096,8192,2048},nvme={0,512,2048,4096};for(int i=SATA;i<NVME;i++){int t=p[i];if(t>0&&t<sata.length)v[t==1||t==2||t==5||t==6?2:1]+=sata[t];}for(int i=NVME;i<PCIE;i++)if(p[i]>0&&p[i]<nvme.length)v[0]+=nvme[p[i]];for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)v[0]+=4096;return v;}
-    public static int[] allocatedStorage(int[] p,int used){int[] v=storageGB(p);for(int i=0;i<3;i++){v[i]=Math.min(v[i],Math.max(0,used));used-=v[i];}return v;}
-    public static int cpuCU(int tier){return tier==1?40:tier==2?160:tier==3?480:0;}
-    public static int cpuWatts(int tier){return tier==1?8:tier==2?20:tier==3?55:0;}
-    public static int cpuCU(int[] p){return cpuCU(p[CPU])+cpuCU(p[CPU2]);}
-    public static int cpuWatts(int[] p){return cpuWatts(p[CPU])+cpuWatts(p[CPU2]);}
-    public static int gpuCount(int[] p,int tier){if(tier<1||tier>4)return 0;int n=0;for(int i=PCIE;i<PSU;i++)if(p[i]==tier)n++;return n;}
-    public static int[] gpuSlots(int[] p){int[] g=new int[PSU-PCIE];for(int i=0;i<g.length;i++)g[i]=p[PCIE+i]>=1&&p[PCIE+i]<=4?p[PCIE+i]:0;return g;}
-    public static int gpuVram(int t){return t==1?4:t==2?16:t==3?24:t==4?48:0;}
-    public static int gpuHash(int t){return t==1?40:t==2?160:t==3?480:t==4?1280:0;}
-    public static int gpuIdle(int t){return t==1?2:t==2?5:t==3?8:t==4?12:0;}
-    public static int gpuPeak(int t){return t==1?25:t==2?85:t==3?180:t==4?350:0;}
-    public static int gpuTotal(int[] p){int n=0;for(int t:gpuSlots(p))if(t>0)n++;return n;}
-    public static int vram(int[] p){int n=0;for(int t:gpuSlots(p))n+=gpuVram(t);return n;}
-    public static int gpuIdle(int[] p){int n=0;for(int t:gpuSlots(p))n+=gpuIdle(t);return n;}
-    public static int psu(int[] p){int n=0;for(int i=PSU;i<CPU2;i++)if(p[i]>0&&p[i]<=3)n+=250<<(p[i]-1);return n;}
-    public static int onboardNic(int board){return board==3?1000:board==4?1000:0;}
-    /** One physical patch lead per server: use fastest installed interface, not sum of NICs. */
-    public static int nic(int[] p){int n=onboardNic(p[BOARD]);for(int i=PCIE;i<PSU;i++)n=Math.max(n,p[i]==NIC1?100:p[i]==NIC2?1000:0);return n;}
-    public static boolean canRemoveBoard(int[] p){for(int i=CPU;i<COUNT;i++)if((i<PSU||i==CPU2)&&p[i]!=0)return false;return true;}
+    static int width(Part p) { return p.kind==Part.Kind.EMPTY?0:Math.max(1,p.width); }
+    static int occupiedPcie(int[] parts) {
+        int total=0;
+        for(int i=PCIE;i<PSU;i++) total+=width(Part.at(parts[i]));
+        return total;
+    }
+    static boolean accepts(int u,int[] parts,int slot,Part candidate) {
+        if(!fits(u,parts[BOARD],slot) || !compatible(slot,candidate,Part.at(parts[BOARD]))) return false;
+        return first(slot)!=PCIE || occupiedPcie(parts)-width(Part.at(parts[slot]))+width(candidate)<=capacity(u,parts[BOARD],PCIE);
+    }
+    static int state(int u,int[] p) {
+        if(!chassis(u)||p.length!=COUNT) return INVALID;
+        if(p[BOARD]==0) return NO_BOARD;
+        for(int i=0;i<COUNT;i++) if(p[i]!=0) {
+            if(!compatible(i,Part.at(p[i]),Part.at(p[BOARD]))) return INVALID;
+            if(!fits(u,p[BOARD],i)) return CAPACITY;
+        }
+        if(occupiedPcie(p)>capacity(u,p[BOARD],PCIE)) return CAPACITY;
+        if(p[CPU]==0) return NO_CPU;
+        if(ramGB(p)==0) return NO_RAM;
+        if(diskGB(p)==0) return NO_DISK;
+        return psu(p)==0?NO_PSU:READY;
+    }
+    static int ramGB(int[] p) {
+        int total=0;
+        for(int i=RAM;i<SATA;i++) total+=Part.at(p[i]).gb;
+        return total;
+    }
+    static int ramClock(int[] p) {
+        int mhz=Integer.MAX_VALUE;
+        for(int i=RAM;i<SATA;i++) if(p[i]>0) mhz=Math.min(mhz,Part.at(p[i]).mhz);
+        return mhz==Integer.MAX_VALUE?0:mhz;
+    }
+    static int[] storageGB(int[] p) {
+        int[] totals=new int[3];
+        for(int i=SATA;i<PSU;i++) {
+            Part disk=Part.at(p[i]);
+            switch(disk.kind) {
+                case NVME: case PCIE: totals[0]+=disk.gb; break;
+                case SSD: totals[1]+=disk.gb; break;
+                case HDD: totals[2]+=disk.gb; break;
+                default: break;
+            }
+        }
+        return totals;
+    }
+    static int[] allocatedStorage(int[] p,int used) {
+        int[] reserved=storageGB(p);
+        for(int i=0;i<reserved.length;i++) { reserved[i]=Math.min(reserved[i],Math.max(0,used)); used-=reserved[i]; }
+        return reserved;
+    }
+    static int diskGB(int[] p) { return Arrays.stream(storageGB(p)).sum(); }
+    static int cpuCores(int[] p) { return Part.at(p[CPU]).cores+Part.at(p[CPU2]).cores; }
+    static int gpuTotal(int[] p) {
+        int total=0;
+        for(int i=PCIE;i<PSU;i++) total+=Part.at(p[i]).chips;
+        return total;
+    }
+    static int[] gpuSlots(int[] p) {
+        int[] devices=new int[gpuTotal(p)];
+        int next=0;
+        for(int i=PCIE;i<PSU;i++) {
+            int end=next+Part.at(p[i]).chips;
+            Arrays.fill(devices,next,end,p[i]);
+            next=end;
+        }
+        return devices;
+    }
+    static int vram(int[] p) {
+        int total=0;
+        for(int i=PCIE;i<PSU;i++) { Part card=Part.at(p[i]); total+=card.chips*card.gb; }
+        return total;
+    }
+    static int psu(int[] p) {
+        int watts=0;
+        for(int i=PSU;i<CPU2;i++) watts+=Part.at(p[i]).watts;
+        return watts;
+    }
+    static int drawWatts(int[] p) {
+        int watts=Part.at(p[CPU2]).watts;
+        for(int i=0;i<PSU;i++) watts+=Part.at(p[i]).watts;
+        return watts;
+    }
+    static int drawFE(int[] p) {
+        int ratedFE=0, capacity=psu(p);
+        for(int i=PSU;i<CPU2;i++) ratedFE+=Part.at(p[i]).fe;
+        return capacity==0?0:(drawWatts(p)*ratedFE+capacity-1)/capacity;
+    }
+    static int nic(int[] p) {
+        Part board=Part.at(p[BOARD]);
+        int fastest=board.tier==3 || board.sockets==2?1000:0;
+        for(int i=PCIE;i<PSU;i++) fastest=Math.max(fastest,Part.at(p[i]).mbps);
+        return fastest;
+    }
+    static boolean canRemoveBoard(int[] p) {
+        for(int i=CPU;i<PSU;i++) if(p[i]!=0) return false;
+        return p[CPU2]==0;
+    }
 }

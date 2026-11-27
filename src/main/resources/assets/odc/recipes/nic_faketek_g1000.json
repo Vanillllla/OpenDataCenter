@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GRG",
+    "ICI",
+    " E "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "odc:cpu_introll_celoron_g1820"
+    },
+    "E": {
+      "item": "odc:ethernet_patch"
+    }
+  },
+  "result": {
+    "item": "odc:nic_faketek_g1000"
+  }
+}

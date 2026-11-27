@@ -63,7 +63,7 @@ public final class Tiles {
         boolean use(int n){if(n<0)return false;if(!ODC.requireEnergy)return true;if(!fed()||energy<n)return false;energy-=n;tile.markDirty();return true;}
     }
     public static final class Rack extends InventoryTile {
-        final Buffer energy=new Buffer(this,100000);
+        final Buffer energy=new Buffer(this,1000000);
         final int[] ports=new int[8]; // 0 empty, otherwise bay+1
         final java.util.Map<Integer,java.util.List<Integer>> activeJobs=new java.util.HashMap<>();
         final int[] status=new int[9], work=new int[9], remainder=new int[9], fault=new int[9], cpuUsed=new int[9], diskUsed=new int[9], gpuUsed=new int[9], ramUsed=new int[9], netUsed=new int[9], powerUsed=new int[9];
@@ -83,14 +83,14 @@ public final class Tiles {
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return role!=-1&&i<capacity()&&slots.get(i).isEmpty()&&RackLayout.canInsert(layout(),i,Hardware.rackUnits(s))&&(Hardware.switchTier(s)==0||switchTier()==0);}
         void refund(int count,EntityPlayer player){if(count<=0||world==null||world.isRemote)return;ItemStack stack=new ItemStack(Hardware.PATCH,count);if(player!=null)player.inventory.addItemStackToInventory(stack);if(!stack.isEmpty())net.minecraft.inventory.InventoryHelper.spawnItemStack(world,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,stack);}
         int clearPorts(){return PortMap.clear(ports);}
-        void detach(int i){if(world==null||world.isRemote)return;OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
+        void detach(int i){if(world==null||world.isRemote)return;if(isServer(i))TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(i)),false);OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
         @Override public void setInventorySlotContents(int i,ItemStack s){
             if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
             if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);
         }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
-        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
+        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)!=0 && TaskData.get(world).maintenance(ClusterScheduler.serverId(slots.get(bay)),false)>0)return false;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(bay)),true);poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
         boolean connect(int bay,int port,EntityPlayer p){if(!isServer(bay)||Hardware.nic(slots.get(bay))==0)return false;
             int found=-1;for(int i=0;i<p.inventory.mainInventory.size();i++)if(!p.inventory.mainInventory.get(i).isEmpty()&&p.inventory.mainInventory.get(i).getItem()==Hardware.PATCH){found=i;break;}
             int result=PortMap.toggle(ports,Hardware.ports(switchTier()),port,bay,found>=0);if(result==PortMap.REJECT)return false;OfflineState.invalidateAt(world,pos);

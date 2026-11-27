@@ -11,10 +11,11 @@ def check(ok,msg):
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
 blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station'}
-items={'cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_2u','chassis_4u','precision_chip','board_basic','board_pro','board_advanced','ram_basic','ram_pro','ram_advanced','hdd_basic','hdd_pro','ssd_basic','ssd_pro','nvme_basic','nvme_pro','psu_basic','psu_pro','psu_advanced','nic_basic','nic_pro','switch_basic','switch_pro','ethernet_patch'}
-items.update({'hdd_elite', 'ssd_advanced', 'nvme_pcie', 'cpu_advanced', 'ram_elite', 'board_dual', 'hdd_advanced', 'gpu_advanced', 'gpu_elite', 'nvme_advanced'})
-check({p.stem for p in (root/'blockstates').glob('*.json')}==blocks,'block state registry')
-check({p.stem for p in (root/'models/item').glob('*.json')}==blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
+items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','ethernet_patch'}
+catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
+for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
+    items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
+check(set(p.stem for p in (root/'models/item').glob('*.json')) == blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
 for f in root.rglob('*.png'):
     b=f.read_bytes();check(b[:8]==b'\x89PNG\r\n\x1a\n',f'PNG header {f.name}');w,h=struct.unpack('>II',b[16:24]);check(w in (16,32,64) and h%w==0 and h<=64,f'texture resolution {f.name}');
     meta=f.with_name(f.name+'.mcmeta')

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "CBC",
+    " I "
+  ],
+  "key": {
+    "B": {
+      "item": "odc:cpu_introll_zeon_2670_v2"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_introll_zeon_2630_v4"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "CBC",
+    " I "
+  ],
+  "key": {
+    "B": {
+      "item": "odc:hdd_seabait_exos_12"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "odc:hdd_seabait_exos_titan_16"
+  }
+}

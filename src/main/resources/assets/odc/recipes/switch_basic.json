@@ -13,7 +13,7 @@
       "item": "odc:ethernet_patch"
     },
     "C": {
-      "item": "odc:cpu_basic"
+      "item": "odc:cpu_introll_celoron_g1820"
     },
     "R": {
       "item": "minecraft:redstone"

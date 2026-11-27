@@ -7,6 +7,12 @@
 
 # Changelog
 
+## 0.4.4-alpha
+
+- 74 component models, inventory sprites and recipes. Socket, DIMM and shared PCIe constraints on the assembly bench.
+- Independent GPU chips, per-unit allocations, cached rates, timed payments and maintenance notices.
+- Server-authoritative quick transfers including fully assembled chassis.
+
 ## 0.4.1-alpha — Light DataOS
 
 - Light Minecraft/Windows XP-inspired DataOS, server and switch panels.

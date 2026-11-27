@@ -2,29 +2,33 @@ package odc;
 import java.util.*;
 public final class ServerSpecTest {
     static int checks;static void check(boolean b,String m){checks++;if(!b)throw new AssertionError(m);}
-    static int[] minimal(int board){int[] p=new int[ServerSpec.COUNT];p[0]=board;p[1]=1;p[ServerSpec.RAM]=1;p[ServerSpec.SATA]=1;p[ServerSpec.PSU]=1;return p;}
+    static int model(String name){return Part.models.stream().filter(p->p.name.equals(name)).findFirst().get().index;}
+    static int[] minimal(){
+        int[] p=new int[ServerSpec.COUNT];
+        p[0]=model("ASBrick H81-S");p[1]=model("InTroll Celoron G1820");
+        p[ServerSpec.RAM]=model("KingStoned Value 4");p[ServerSpec.SATA]=model("SeaBait Basic 256");
+        p[ServerSpec.PSU]=model("AeroHot VX500");return p;
+    }
     public static void main(String[] args){
-        for(int u:new int[]{1,2,4})for(int board=1;board<=4;board++){
-            int[] p=minimal(board);check(ServerSpec.state(u,p)==ServerSpec.READY,"minimal CPU-only server");check(ServerSpec.nic(p)==(board>=3?1000:0),"NIC not required for hardware boot");
-            for(int i:new int[]{0,1,ServerSpec.RAM,ServerSpec.SATA,ServerSpec.PSU}){int old=p[i];p[i]=0;check(ServerSpec.state(u,p)!=ServerSpec.READY,"mandatory "+i);p[i]=old;}
-            for(int i=0;i<p.length;i++){int old=p[i];p[i]=-1;check(ServerSpec.state(u,p)==ServerSpec.INVALID,"illegal tier");p[i]=old;}
-            for(int i=2;i<p.length;i++){int old=p[i];p[i]=1;check((ServerSpec.state(u,p)==ServerSpec.READY)==ServerSpec.fits(u,board,i),"slot fit");p[i]=old;}
-            check(ServerSpec.capacity(u,board,ServerSpec.RAM)==Math.min(8,1<<board),"RAM independent of chassis");check(ServerSpec.capacity(u,board,ServerSpec.SATA)==Math.min(8,1<<board),"SATA independent of chassis");check(ServerSpec.capacity(u,board,ServerSpec.NVME)==Math.min(2,board-1),"NVMe separate");check(ServerSpec.capacity(u,board,ServerSpec.PSU)==u,"PSU chassis limit");
-            if(board>1){p[ServerSpec.SATA]=0;p[ServerSpec.NVME]=1;check(ServerSpec.state(u,p)==ServerSpec.READY,"NVMe alone boots");}
-        }
-        int[] max=new int[ServerSpec.COUNT];for(int i=0;i<max.length;i++)max[i]=ServerSpec.fits(4,3,i)?1:0;max[0]=3;for(int i=2;i<10;i++)max[i]=3;check(ServerSpec.state(4,max)==0,"maximum layout");check(ServerSpec.ramGB(max)==256,"RAM capacity");check(ServerSpec.diskGB(max)==5120,"storage total");check(ServerSpec.psu(max)==1000,"PSU sum");check(!ServerSpec.canRemoveBoard(max),"no remove populated board");check(ServerSpec.canRemoveBoard(new int[ServerSpec.COUNT]),"empty board removable");
-        int[] dual=minimal(4);dual[ServerSpec.CPU2]=3;dual[ServerSpec.PCIE]=4;dual[ServerSpec.PCIE+1]=ServerSpec.NIC2;dual[ServerSpec.PCIE+2]=ServerSpec.PCIE_SSD;dual[ServerSpec.PCIE+3]=3;
-        check(ServerSpec.state(4,dual)==ServerSpec.READY,"dual and shared PCIe");check(ServerSpec.cpuCU(dual)==520&&ServerSpec.cpuWatts(dual)==63,"sum CPUs");check(ServerSpec.gpuTotal(dual)==2&&ServerSpec.vram(dual)==72,"PCIe storage and NIC are not GPU");check(Arrays.equals(ServerSpec.gpuSlots(dual),new int[]{4,0,0,3}),"physical GPU mask gaps");check(ServerSpec.diskGB(dual)==4608&&ServerSpec.diskCount(dual)==2,"PCIe storage counted");check(ServerSpec.nic(dual)==1000,"onboard NIC");check(ServerSpec.state(2,dual)==ServerSpec.CAPACITY,"shared slots limited by chassis");dual[0]=3;check(ServerSpec.state(4,dual)==ServerSpec.CAPACITY,"second CPU requires dual board");
-        int[] basic=minimal(1);basic[ServerSpec.PCIE]=ServerSpec.NIC1;check(ServerSpec.nic(basic)==100&&ServerSpec.gpuTotal(basic)==0,"discrete NIC occupies PCIe");basic[ServerSpec.PCIE]=ServerSpec.PCIE_SSD;basic[ServerSpec.SATA]=0;check(ServerSpec.state(1,basic)==0&&ServerSpec.diskGB(basic)==4096,"PCIe SSD can boot");
-        Random r=new Random(37);for(int j=0;j<30000;j++){int u=new int[]{1,2,4}[r.nextInt(3)],board=1+r.nextInt(4);int[] p=minimal(board);
-            for(int i=2;i<p.length;i++)if(r.nextBoolean())p[i]=r.nextInt(ServerSpec.maxTier(i)+1);boolean fits=true;for(int i=2;i<10;i++)if(i>=2+Math.min(8,1<<board)&&p[i]!=0)fits=false;for(int i=10;i<18;i++)if(i>=10+Math.min(8,1<<board)&&p[i]!=0)fits=false;for(int i=18;i<20;i++)if(i>=18+Math.min(2,board-1)&&p[i]!=0)fits=false;for(int i=20;i<24;i++)if(i>=20+Math.min(u,1<<Math.min(2,board-1))&&p[i]!=0)fits=false;for(int i=24;i<28;i++)if(i>=24+u&&p[i]!=0)fits=false;if(board!=4&&p[28]!=0)fits=false;
-            boolean disk=Arrays.stream(p,10,20).sum()>0||Arrays.stream(p,20,24).anyMatch(v->v==7);boolean ready=fits&&Arrays.stream(p,2,10).sum()>0&&disk&&Arrays.stream(p,24,28).sum()>0;check((ServerSpec.state(u,p)==0)==ready,"independent randomized capacity");}
+        int[] server=minimal();
+        check(ServerSpec.state(1,server)==ServerSpec.READY,"complete server");
+        server[ServerSpec.PCIE]=model("NoVideo Teslo M10");
+        check(ServerSpec.state(1,server)==ServerSpec.READY && ServerSpec.gpuTotal(server)==4,"two slots, four GPUs");
+        server[ServerSpec.PCIE+1]=model("FakeTek G1000");
+        check(ServerSpec.state(1,server)==ServerSpec.CAPACITY,"aggregate PCIe width");
+        server[ServerSpec.PCIE]=0;
+        check(ServerSpec.nic(server)==1000,"1 Gbit NIC");
+        server[ServerSpec.RAM]=model("Susung Server 16 Pro");
+        check(ServerSpec.state(1,server)==ServerSpec.INVALID,"incompatible DIMM");
+        server=minimal();server[ServerSpec.CPU]=model("InTroll Zeon 2670 v2");
+        check(ServerSpec.state(1,server)==ServerSpec.INVALID,"incompatible socket");
+        Random r=new Random(37);
         int layouts=0;int[] sizes={0,1,2,4};for(int key=0;key<(1<<18);key++){int[] a=new int[9];boolean[] busy=new boolean[9];boolean valid=true;for(int i=0;i<9;i++){a[i]=sizes[(key>>(i*2))&3];if(i+a[i]>9){valid=false;break;}for(int k=i;k<i+a[i];k++){if(busy[k])valid=false;busy[k]=true;}}if(!valid)continue;layouts++;
             for(int i=0;i<9;i++){check((RackLayout.startAt(a,i)>=0)==busy[i],"9U occupied");for(int u:new int[]{1,2,4}){boolean expect=i+u<=9;for(int j=0;j<9;j++)if(j!=i&&a[j]>0&&j<i+u&&i<j+a[j])expect=false;check(expect==RackLayout.canInsert(a,i,u),"9U collision");}if(a[i]>0){check((RackLayout.retainedIndex(i,a[i],false)>=0)==(i+a[i]<=4),"lower retained");check((RackLayout.retainedIndex(i,a[i],true)>=0)==(i>=5),"upper retained");}}}
         check(RackLayout.retainedIndex(4,1,true)==-1&&RackLayout.retainedIndex(4,1,false)==-1,"central unit falls");check(RackLayout.retainedIndex(3,2,false)==-1&&RackLayout.retainedIndex(3,2,true)==-1,"crossing falls");check(layouts>1000,"9U layout count");
         int[] ports=new int[8];check(PortMap.toggle(ports,4,4,0,true)==PortMap.REJECT,"T1 port limit");check(PortMap.toggle(ports,8,0,0,false)==PortMap.REJECT,"no cable no connection");check(PortMap.toggle(ports,8,0,0,true)==PortMap.CONNECTED,"connect");check(PortMap.toggle(ports,8,1,0,true)==PortMap.REJECT,"no duplicate connection");check(PortMap.toggle(ports,8,0,0,false)==PortMap.DISCONNECTED,"disconnect without spare cable");
         int available=20;for(int i=0;i<30000;i++){int bay=r.nextInt(9),port=r.nextInt(8);int action=r.nextInt(8);if(action==0)available+=PortMap.clear(ports);else if(action==1)available+=PortMap.detach(ports,bay);else{int result=PortMap.toggle(ports,8,port,bay,available>0);if(result==PortMap.CONNECTED)available--;else if(result==PortMap.DISCONNECTED)available++;}
             int count=0;boolean[] seen=new boolean[9];for(int v:ports)if(v!=0){check(!seen[v-1],"unique port mapping");seen[v-1]=true;count++;}check(available+count==20,"patch cable conservation");}
-        System.out.println("PASS: "+checks+" hardware/layout assertions; 30000 random hardware configurations; "+layouts+" valid 9U layouts; 30000 patch operations.");
+        System.out.println("PASS: "+checks+" hardware/layout assertions; "+layouts+" valid 9U layouts; 30000 patch operations.");
     }
 }

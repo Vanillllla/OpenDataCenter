@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "CBC",
+    " I "
+  ],
+  "key": {
+    "B": {
+      "item": "odc:gpu_novideo_teslo_m10"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "odc:gpu_novideo_rtx_3080"
+  }
+}

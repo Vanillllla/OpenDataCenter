@@ -30,7 +30,7 @@ public final class Menus {
         @Override public ItemStack removeStackFromSlot(int i){return decrStackSize(i,1);}
         @Override public void setInventorySlotContents(int i,ItemStack s){if(bench.chassis()==0)return;NonNullList<ItemStack> p=bench.parts();ItemStack one=s.copy();if(!one.isEmpty())one.setCount(1);p.set(i,one);bench.write(p);}
         @Override public int getInventoryStackLimit(){return 1;}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){return bench.chassis()>0&&Hardware.accepts(i,s)&&ServerSpec.fits(bench.chassis(),Hardware.spec(bench.slots.get(0))[0],i);}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassis(),Hardware.spec(bench.slots.get(0)),i,part);}
     }
     static final class Target {final Tiles.Rack rack;final int bay;final ItemStack item;Target(Tiles.Rack r,int b){rack=r;bay=b;item=r.slots.get(b);}}
     public static final class Menu extends Container {
@@ -38,7 +38,7 @@ public final class Menus {
         final InventoryBasic offers=new InventoryBasic("Offers",false,4);
         final int[] data=new int[100],previous=new int[200];int page,selectedPort;boolean pageDirty=true;long lastTopology=Long.MIN_VALUE;final List<Target> visible=new ArrayList<>();List<Target> snapshot=new ArrayList<>(),reachable=new ArrayList<>();
         Menu(int id,EntityPlayer p,Tiles.Owned t){type=id;player=p;tile=t;revision=t instanceof Tiles.Rack?((Tiles.Rack)t).revision:0;Arrays.fill(previous,-1);
-            if(id==WORKBENCH){Tiles.Workbench a=(Tiles.Workbench)t;if(!p.world.isRemote)a.editor=this;parts=new Parts(a);addSlotToContainer(new Slot(a,0,12,37));for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
+            if(id==WORKBENCH){Tiles.Workbench a=(Tiles.Workbench)t;if(!p.world.isRemote)a.editor=this;parts=new Parts(a);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return parts.isItemValidForSlot(j,s);}
                     @Override public boolean canTakeStack(EntityPlayer p){return j!=0||ServerSpec.canRemoveBoard(Hardware.spec(a.slots.get(0)));}
@@ -53,8 +53,23 @@ public final class Menus {
             for(int r=0;r<3;r++)for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c+r*9+9,70+c*18,162+r*18));for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c,70+c*18,220));
         }
         static int rackX(int i){return i<5?12:156;}static int rackY(int i){return 37+(i<5?i:i-5)*20;}
-        static int partX(int i){if(i==0)return 46;if(i==1)return 82;if(i==ServerSpec.CPU2)return 118;if(i<ServerSpec.SATA)return 12+(i-2)*18;if(i<ServerSpec.NVME)return 12+(i-10)*18;if(i<ServerSpec.GPU)return 183+(i-18)*18;if(i<ServerSpec.PSU)return 183+(i-20)*18;if(i<ServerSpec.CPU2)return 183+(i-24)*18;return 118;}
-        static int partY(int i){return i<2||i==ServerSpec.CPU2?37:i<ServerSpec.SATA?70:i<ServerSpec.NVME?105:i<ServerSpec.GPU?37:i<ServerSpec.PSU?70:105;}
+        static int partX(int i) {
+            if(i==ServerSpec.BOARD) return 54;
+            if(i==ServerSpec.CPU) return 104;
+            if(i==ServerSpec.CPU2) return 130;
+            if(i<ServerSpec.SATA) return 12+(i-ServerSpec.RAM)*18;
+            if(i<ServerSpec.NVME) return 180+(i-ServerSpec.SATA)%6*18;
+            if(i<ServerSpec.PCIE) return 180+(i-ServerSpec.NVME)*18;
+            if(i<ServerSpec.PSU) return 12+(i-ServerSpec.PCIE)*18;
+            return 180+(i-ServerSpec.PSU)*18;
+        }
+        static int partY(int i) {
+            if(i<=ServerSpec.CPU || i==ServerSpec.CPU2) return 41;
+            if(i<ServerSpec.SATA) return 76;
+            if(i<ServerSpec.NVME) return 65+(i-ServerSpec.SATA)/6*18;
+            if(i<ServerSpec.PCIE) return 31;
+            return 112;
+        }
         int chassis(){return type==WORKBENCH?((Tiles.Workbench)tile).chassis():0;}
         boolean fits(int i){return type==WORKBENCH&&ServerSpec.fits(chassis(),Hardware.spec(((Tiles.Workbench)tile).slots.get(0))[0],i);}
         @Override public void onContainerClosed(EntityPlayer p){super.onContainerClosed(p);if(type==WORKBENCH&&!p.world.isRemote&&((Tiles.Workbench)tile).editor==this)((Tiles.Workbench)tile).editor=null;}
@@ -66,8 +81,26 @@ public final class Menus {
             return super.slotClick(slot,drag,click,p);
         }
         @Override public ItemStack transferStackInSlot(EntityPlayer p,int index){if(!canInteractWith(p)||index<0||index>=inventorySlots.size()||type!=RACK&&type!=WORKBENCH)return ItemStack.EMPTY;Slot src=inventorySlots.get(index);if(!src.getHasStack()||!src.canTakeStack(p))return ItemStack.EMPTY;ItemStack stack=src.getStack(),old=stack.copy();
-            if(index<machineSlots){if(!mergeItemStack(stack,machineSlots,inventorySlots.size(),true))return ItemStack.EMPTY;src.putStack(stack.isEmpty()?ItemStack.EMPTY:stack);}
-            else{boolean moved=false;for(int i=0;i<machineSlots&&!stack.isEmpty();i++){Slot dest=inventorySlots.get(i);if(!dest.getHasStack()&&dest.isItemValid(stack)){dest.putStack(stack.splitStack(1));moved=true;}}if(!moved)return ItemStack.EMPTY;if(stack.isEmpty())src.putStack(ItemStack.EMPTY);else src.onSlotChanged();}return old;}
+            if(index<machineSlots) {
+                // A parts slot reads from chassis NBT and returns a detached stack.
+                // Merge a copy, then debit precisely the count accepted by the player.
+                ItemStack remaining=old.copy();
+                if(!mergeItemStack(remaining,machineSlots,inventorySlots.size(),true)) return ItemStack.EMPTY;
+                ItemStack taken=src.decrStackSize(old.getCount()-remaining.getCount());
+                src.onTake(p,taken);
+            } else {
+                boolean moved=false;
+                for(int i=0;i<machineSlots && !stack.isEmpty();i++) {
+                    Slot dest=inventorySlots.get(i);
+                    if(dest.getHasStack() || !dest.isItemValid(stack)) continue;
+                    dest.putStack(src.decrStackSize(1));
+                    moved=true;
+                }
+                if(!moved) return ItemStack.EMPTY;
+                src.onSlotChanged();
+            }
+            return old;
+        }
         void open(EntityPlayer p,int id){BlockPos b=tile.getPos();p.openGui(ODC.instance,id,p.world,b.getX(),b.getY(),b.getZ());}
         List<Target> targets(){List<Target> out=new ArrayList<>();Network.Domain d=Network.scan(player.world,tile.getPos());if(d!=null)for(Tiles.Owned t:d.devices)if(t instanceof Tiles.Rack&&Objects.equals(tile.owner,t.owner)){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<r.capacity();i++)if(r.isServer(i))out.add(new Target(r,i));}return out;}
         @Override public boolean enchantItem(EntityPlayer p,int id){if(p.world.isRemote||!canInteractWith(p))return false;

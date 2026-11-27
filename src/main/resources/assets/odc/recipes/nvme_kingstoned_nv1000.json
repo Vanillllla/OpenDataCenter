@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GCG",
+    "RSR",
+    " G "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "S": {
+      "item": "odc:ssd_kingstoned_a400"
+    }
+  },
+  "result": {
+    "item": "odc:nvme_kingstoned_nv1000"
+  }
+}

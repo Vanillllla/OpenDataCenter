@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "RPR",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "odc:nic_introll_ethernet_x2500"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "P": {
+      "item": "odc:nvme_susung_980_evo"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    }
+  },
+  "result": {
+    "item": "odc:pcie_introll_optan_p100"
+  }
+}
