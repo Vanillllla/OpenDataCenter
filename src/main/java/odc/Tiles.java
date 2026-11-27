@@ -126,6 +126,16 @@ public final class Tiles {
     }
     public static final class Computer extends Powered {
         UUID id=UUID.randomUUID();
+        @Override void setOwner(UUID player){
+            super.setOwner(player);
+            if(player!=null && world!=null && !world.isRemote){
+                TaskData d=TaskData.get(world);
+                NBTTagCompound book=d.market.owner(player);
+                String location="Terminal"+pos.toLong();
+                if(book.hasUniqueId(location))id=book.getUniqueId(location);else book.setUniqueId(location,id);
+                d.markDirty();markDirty();
+            }
+        }
         int[] miningStats=new int[6]; // assigned, active, effective work, allocated Mbps, milli-NTC/s, requested Mbps
         int racks, servers, uplink, switching, networkUsed, clusterPower;
         @Override int idlePower(){return 5;}

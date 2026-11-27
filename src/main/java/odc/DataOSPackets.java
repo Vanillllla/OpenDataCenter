@@ -9,7 +9,7 @@ import net.minecraftforge.fml.relauncher.Side;
 
 /** Window-scoped messages. Scroll offsets never grant control of arbitrary remote devices. */
 public final class DataOSPackets {
-    static void register(SimpleNetworkWrapper c){c.registerMessage(RequestHandler.class,Request.class,2,Side.SERVER);c.registerMessage(ViewHandler.class,View.class,3,Side.CLIENT);}
+    static void register(SimpleNetworkWrapper c){c.registerMessage(TaskCommand.Handler.class,TaskCommand.class,4,Side.SERVER);c.registerMessage(RequestHandler.class,Request.class,2,Side.SERVER);c.registerMessage(ViewHandler.class,View.class,3,Side.CLIENT);}
     public static final class Request implements IMessage {
         int window,tab,offset,action,value;UUID id;
         public Request(){} Request(int w,int t,int o,int a,int v,UUID i){window=w;tab=t;offset=o;action=a;value=v;id=i==null?new UUID(0,0):i;}

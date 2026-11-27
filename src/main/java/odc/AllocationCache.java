@@ -16,12 +16,12 @@ final class AllocationCache {
         key.add(new HashSet<>(excluded));
         for(TaskEngine.Node n:nodes) key.add(groups.getOrDefault(n.id,0));
         for(TaskData.Job job:jobs) {
-            if(!job.enabled) continue;
+            if(!job.enabled){for(Map.Entry<UUID,int[]> held:job.retained.entrySet()){key.add(held.getKey());key.add(Arrays.toString(held.getValue()));}continue;}
             key.add(Arrays.asList(job.id,job.type,job.base,job.unitLimit,job.priority,job.cpu,job.gpus,
                     job.ram,job.net,job.disk,job.group,job.auto,job.strict));
             if(!job.auto) for(TaskEngine.Node n:nodes) {
                 TaskEngine.Limit l=job.manual.get(n.id);
-                key.add(l==null?null:Arrays.asList(l.cpu,l.mask,l.ram,l.disk,l.net));
+                key.add(l==null?null:Arrays.asList(l.allowedCores,l.cpu,l.mask,l.io,l.ram,l.disk,l.net));
             }
         }
         if(!key.equals(inputs)) {
