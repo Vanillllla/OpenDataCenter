@@ -16,8 +16,8 @@ public final class TaskCommand implements IMessage {
             player.getServerWorld().addScheduledTask(()->{
                 if(!(player.openContainer instanceof PanelMenu))return;
                 PanelMenu m=(PanelMenu)player.openContainer;
-                if(m.type==0 && m.tab==2 && m.windowId==msg.window && m.canInteractWith(player) && ((Tiles.Computer)m.tile).online && m.console.revision==msg.revision){
-                    m.console.command(m,TaskData.get(player.world),msg);m.console.revision++;m.lastRefresh=Long.MIN_VALUE;
+                if(m.type==0 && m.tab==2 && m.windowId==msg.window && m.canInteractWith(player) && m.console.revision==msg.revision){
+                    if(((Tiles.Computer)m.tile).online)m.console.command(m,TaskData.get(player.world),msg);m.console.revision++;m.lastRefresh=Long.MIN_VALUE;
                 }
             });return null;
         }

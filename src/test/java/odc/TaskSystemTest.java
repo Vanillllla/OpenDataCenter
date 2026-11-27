@@ -35,9 +35,9 @@ public class TaskSystemTest {
         NBTTagCompound offer=d.market.offer(9,rule,1,now);
         ContractMarket.list(d.market.owner(owner),"Offers").appendTag(offer);
         UUID key=offer.getUniqueId("Key");long before=d.wallet(wallet)[0];
-        check(d.market.accept(d,owner,wallet,key,now),"accept");
-        check(!d.market.accept(d,owner,wallet,key,now) && d.wallet(wallet)[0]==before-offer.getLong("Fee"),"atomic fee");
-        return d.jobs.get(d.jobs.size()-1);
+        check(d.market.accept(d,owner,wallet,key,now,PoolResources.id(owner,"GPU Pool"),"GPU Pool"),"accept");
+        check(!d.market.accept(d,owner,wallet,key,now,PoolResources.id(owner,"GPU Pool"),"GPU Pool") && d.wallet(wallet)[0]==before-offer.getLong("Fee"),"atomic fee");
+        TaskData.Job job=d.jobs.get(d.jobs.size()-1);check(job.pool.equals(PoolResources.id(owner,"GPU Pool"))&&job.poolLabel.equals("GPU Pool")&&!job.auto,"pool assignment");return job;
     }
     static void contracts(){
         long now=System.currentTimeMillis();
@@ -54,7 +54,7 @@ public class TaskSystemTest {
         TaskData d=new TaskData();d.market.supply(owner,now);NBTTagCompound stored=d.writeToNBT(new NBTTagCompound());TaskData loaded=new TaskData();loaded.readFromNBT(stored);
         loaded.market.supply(owner,now+1);check(loaded.market.data.equals(d.market.data),"stable offers");
         NBTTagCompound paid=d.market.offer(10,7,1,now);ContractMarket.list(d.market.owner(owner),"Offers").appendTag(paid);
-        check(!d.market.accept(d,owner,wallet,paid.getUniqueId("Key"),now),"insufficient funds");
+        check(!d.market.accept(d,owner,wallet,paid.getUniqueId("Key"),now,PoolResources.id(owner,"GPU Pool"),"GPU Pool"),"insufficient funds");
     }
     static void services(){
         TaskData d=new TaskData();TaskData.Job j=new TaskData.Job(0,21,wallet,owner);d.jobs.add(j);
@@ -83,15 +83,16 @@ public class TaskSystemTest {
     static void persistence(){
         long now=System.currentTimeMillis();
         TaskData d=new TaskData();TaskData.Job j=new TaskData.Job(1,1,wallet,owner);j.enabled=true;j.cachedRate=2*TaskEngine.SCALE;j.lastAccounting=now;
-        d.jobs.add(j);d.settle(j,now+15000);check(d.wallet(wallet)[1]==0,"partial interval");
+        j.bindings.add(new PoolResources.Binding(UUID.randomUUID(),PoolResources.Kind.CPU,ServerSpec.CPU,0,part("InTroll CoreX 4770"),1));d.jobs.add(j);d.settle(j,now+15000);check(d.wallet(wallet)[1]==0,"partial interval");
         TaskData restored=new TaskData();restored.readFromNBT(d.writeToNBT(new NBTTagCompound()));TaskData.Job saved=restored.jobs.get(0);
-        restored.settle(saved,now+30000);restored.settle(saved,now+30000);
-        check(restored.wallet(wallet)[1]==2000,"checkpoint pays once");
+        restored.settle(saved,now+30000);check(restored.wallet(wallet)[1]==0,"no offline reward");saved.cachedRate=2*TaskEngine.SCALE;restored.settle(saved,now+45000);restored.settle(saved,now+45000);
+        check(restored.wallet(wallet)[1]==2000,"checkpoint pays once after live resumption");
         d=new TaskData();d.market.supply(owner,now);Set<String> combos=new HashSet<>();
         for(int t=9;t<21;t++)for(int rule=0;rule<8;rule++)for(int size=0;size<5;size++){
             NBTTagCompound o=d.market.offer(t,rule,size,now);combos.add(o.getInteger("Type")+"/"+o.getInteger("Rule")+"/"+o.getInteger("Size"));
         }
         check(combos.size()==480,"contract variants");
     }
-    public static void main(String[] args){hardware();contracts();services();reservations();persistence();System.out.println("PASS task system");}
+    static void poolPersistence(){TaskData d=new TaskData();UUID server=UUID.randomUUID();d.pools.put(server,"GPU Pool");TaskData.Job j=new TaskData.Job(0,0,wallet,owner);j.pool=d.poolId(owner,server);j.poolLabel="GPU Pool";j.bindings.add(new PoolResources.Binding(server,PoolResources.Kind.CPU,ServerSpec.CPU,0,1,1));d.jobs.add(j);TaskData copy=new TaskData();copy.readFromNBT(d.writeToNBT(new NBTTagCompound()));check(copy.poolName(server).equals("GPU Pool")&&copy.jobs.get(0).pool.equals(j.pool)&&copy.jobs.get(0).bindings.get(0).server.equals(server),"pool binding persistence");}
+    public static void main(String[] args){poolPersistence();hardware();contracts();services();reservations();persistence();System.out.println("PASS task system");}
 }

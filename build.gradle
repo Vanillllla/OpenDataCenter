@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.5.0-alpha'
+version = '0.5.3-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -62,3 +62,23 @@ task verifyTaskSystem(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.TaskSystemTest'
 }
 check.dependsOn verifyTaskSystem
+
+task verifyTaskActions(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.TaskActionsTest'
+}
+check.dependsOn verifyTaskActions
+
+// Stage 1 catalog and pool regression.
+task verifyPoolResources(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.PoolResourcesTest'
+}
+check.dependsOn verifyPoolResources
+
+
+task verifyFixedResources(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.FixedResourcesTest'
+}
+check.dependsOn verifyFixedResources

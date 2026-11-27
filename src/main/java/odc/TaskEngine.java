@@ -6,12 +6,15 @@ import java.util.*;
 public final class TaskEngine {
     static final int BANK=3, AI=4, INFERENCE=5, SCALE=100000;
     static final class Node {
-        final UUID id;
+        final UUID id,pool;
         final int rack,net,cores,ram,disk,ramMHz;
         final int[] parts,gpu;
 
         Node(UUID id,int rack,int net,int[] parts) {
-            this.id=id; this.rack=rack; this.net=net; this.parts=parts.clone();
+            this(id,rack,net,parts,null);
+        }
+        Node(UUID id,int rack,int net,int[] parts,UUID pool) {
+            this.id=id;this.pool=pool; this.rack=rack; this.net=net; this.parts=parts.clone();
             cores=ServerSpec.cpuCores(parts); ram=ServerSpec.ramGB(parts); disk=ServerSpec.diskGB(parts);
             ramMHz=ServerSpec.ramClock(parts); gpu=ServerSpec.gpuSlots(parts);
         }
@@ -51,9 +54,9 @@ public final class TaskEngine {
         @Override public boolean equals(Object obj) {
             if(!(obj instanceof Node)) return false;
             Node other=(Node)obj;
-            return rack==other.rack && net==other.net && id.equals(other.id) && Arrays.equals(parts,other.parts);
+            return rack==other.rack && net==other.net && Objects.equals(id,other.id) && Objects.equals(pool,other.pool) && Arrays.equals(parts,other.parts);
         }
-        @Override public int hashCode(){return id.hashCode();}
+        @Override public int hashCode(){return Objects.hashCode(id);}
     }
 
     static final class Limit {
@@ -64,8 +67,10 @@ public final class TaskEngine {
     }
     static class Task {
         final int id,type;
-        int priority=5,cpu=1,gpus,ram=1,disk,net=8,group,unitLimit=Integer.MAX_VALUE,base=1;
+        int cpu=1,gpus,ram=1,disk,net=8,unitLimit=Integer.MAX_VALUE,base=1;
         boolean strict,auto=true,enabled;
+        UUID pool;
+        final List<PoolResources.Binding> bindings=new ArrayList<>();
         long progress;
         final Map<UUID,int[]> retained=new HashMap<>();
         final Map<UUID,Limit> manual=new HashMap<>();
@@ -101,7 +106,8 @@ public final class TaskEngine {
     static int display(long rate) {return (int)Math.min(Integer.MAX_VALUE,rate/SCALE);}
     static int bound(int units,int available,int perUnit) {return perUnit==0?units:Math.min(units,Math.max(0,available)/perUnit);}
 
-    static Plan plan(List<Node> nodes,List<? extends Task> jobs,int[] switchCap,int wan,Map<UUID,Integer> groups,Set<Integer> excluded) {
+    static Plan plan(List<Node> nodes,List<? extends Task> jobs,int[] switchCap,int wan,Map<UUID,Integer> ignored,Set<Integer> excluded) {return plan(nodes,jobs,switchCap,wan,excluded);}
+    static Plan plan(List<Node> nodes,List<? extends Task> jobs,int[] switchCap,int wan,Set<Integer> excluded) {
         Plan plan=new Plan(nodes.size());
         plan.usedCores=new BitSet[nodes.size()];for(int i=0;i<nodes.size();i++)plan.usedCores[i]=new BitSet();
         int[] local=switchCap.clone();
@@ -113,7 +119,8 @@ public final class TaskEngine {
             if(drive.speed>0){space[i][slot]=drive.gb;io[i][slot]=drive.speed;}
         }
         List<Task> sorted=new ArrayList<>(jobs);
-        sorted.sort(Comparator.<Task>comparingInt(t->t.priority).reversed().thenComparingInt(t->t.id));
+        // Legacy autonomous reference planner used by regression tests; live execution uses FixedResources.
+        sorted.sort(Comparator.comparingInt(t->t.id));
         Limit unlimited=new Limit();
         for(Task task:sorted) if(!task.enabled) for(int i=0;i<nodes.size();i++){
             int[] held=task.retained.get(nodes.get(i).id);
@@ -131,7 +138,7 @@ public final class TaskEngine {
             for(int i=0;i<nodes.size() && result.units<job.unitLimit;i++) {
                 Node node=nodes.get(i);
                 Limit limit=job.auto?unlimited:job.manual.get(node.id);
-                if(limit==null || excluded.contains(i) || node.net<=0 || (job.group!=0 && groups.getOrDefault(node.id,0)!=job.group)) continue;
+                if(limit==null || excluded.contains(i) || node.net<=0 || (job.pool!=null && !job.pool.equals(node.pool))) continue;
                 int units=job.unitLimit-result.units;
                 BitSet availableCores=new BitSet();availableCores.set(0,node.cores);availableCores.andNot(plan.usedCores[i]);
                 if(limit.allowedCores!=null)availableCores.and(limit.allowedCores);

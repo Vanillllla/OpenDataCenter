@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /** Tabbed DataOS and individual hardware screens. No editable hardware slots here. */
 final class PanelScreen extends GuiContainer {
-    final PanelMenu menu;final int FG=0xff20242b,MUTED=0xff505965,BLUE=0xff174b91,GREEN=0xff216329,RED=0xffa02624;int renderedTab=-1,nameId=Integer.MIN_VALUE;net.minecraft.client.gui.GuiTextField nameField;
+    final PanelMenu menu;final int FG=0xff20242b,MUTED=0xff505965,BLUE=0xff174b91,GREEN=0xff216329,RED=0xffa02624;int renderedTab=-1,nameId=Integer.MIN_VALUE;net.minecraft.client.gui.GuiTextField nameField,poolField;String lastPool="";
     static final String[] TABS={"Overview","Servers","Tasks","Resources","Network","Power","Wallet / shop","Log","Mining"};
     PanelScreen(PanelMenu m){super(m);menu=m;xSize=320;ySize=236;}
     String tr(String en,String ru){return mc.getLanguageManager().getCurrentLanguage().getLanguageCode().equals("ru_ru")?ru:en;}
@@ -71,13 +71,14 @@ final class PanelScreen extends GuiContainer {
     boolean fieldVisible(){return nameField!=null&&(menu.type==1||menu.data[50]>0);}
 
     @Override public void initGui(){super.initGui();build();}
-    void build(){buttonList.clear();nameField=null;nameId=Integer.MIN_VALUE;int[] d=menu.data;renderedTab=d[0];if(menu.type==1){nameField=new net.minecraft.client.gui.GuiTextField(0,fontRenderer,guiLeft+12,guiTop+29,117,10);nameField.setMaxStringLength(32);configureField();button(92,136,24,71,19,tr("Rename","Имя"));button(1,210,24,97,19,tr("Power toggle","Питание"));button(4,10,208,185,18,tr("Announce maintenance","Объявить технические работы"));return;}if(menu.type==2){for(int i=0;i<8;i++)button(10+i,15+i*37,46,32,22,"P"+(i+1));for(int i=0;i<9;i++)button(20+i,10+i*33,155,30,20,"U"+(i+1));button(30,104,193,112,20,tr("Disconnect","Отключить"));return;}
+    void build(){buttonList.clear();nameField=null;poolField=null;lastPool="";nameId=Integer.MIN_VALUE;int[] d=menu.data;renderedTab=d[0];if(menu.type==1){nameField=new net.minecraft.client.gui.GuiTextField(0,fontRenderer,guiLeft+12,guiTop+29,117,10);nameField.setMaxStringLength(32);configureField();button(92,136,24,71,19,tr("Rename","Имя"));button(1,210,24,97,19,tr("Power toggle","Питание"));poolField=new net.minecraft.client.gui.GuiTextField(1,fontRenderer,guiLeft+62,guiTop+181,135,10);poolField.setMaxStringLength(32);poolField.setEnableBackgroundDrawing(false);poolField.setTextColor(FG);button(93,207,176,100,19,tr("Set pool","Задать пул"));button(4,10,208,185,18,tr("Announce maintenance","Объявить технические работы"));return;}if(menu.type==2){for(int i=0;i<8;i++)button(10+i,15+i*37,46,32,22,"P"+(i+1));for(int i=0;i<9;i++)button(20+i,10+i*33,155,30,20,"U"+(i+1));button(30,104,193,112,20,tr("Disconnect","Отключить"));return;}
     }
-    @Override protected void actionPerformed(GuiButton b){if(b.enabled&&b.id==92&&nameField!=null){RackInteraction.channel.sendToServer(new RackInteraction.Rename(menu.windowId,menu.type==1?menu.data[1]:menu.data[50],nameField.getText()));nameField.setFocused(false);return;}if(b.enabled&&mc.playerController!=null)mc.playerController.sendEnchantPacket(menu.windowId,b.id);}
-    @Override public void updateScreen(){super.updateScreen();int[] d=menu.data;if(menu.type==0&&renderedTab!=d[0])build();if(nameField!=null){int id=menu.type==1?d[10]>0?d[1]:-1:d[50];if(id!=nameId&&!nameField.isFocused()){nameId=id;nameField.setText(PanelMenu.getText(d,menu.type==1?100:300,20));}nameField.updateCursorCounter();}for(GuiButton b:buttonList){int id=b.id;b.enabled=true;b.visible=true;if(menu.type==1){if(id==1)b.displayString=d[2]==1?tr("Turn OFF","Выключить"):tr("Turn ON","Включить");if(id==1 && d[2]==1)b.enabled=d[12]<=0;
+    @Override protected void actionPerformed(GuiButton b){if(b.enabled&&b.id==93&&poolField!=null){RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,0,0,2,0,null,poolField.getText()));poolField.setFocused(false);lastPool="";return;}if(b.enabled&&b.id==92&&nameField!=null){RackInteraction.channel.sendToServer(new RackInteraction.Rename(menu.windowId,menu.type==1?menu.data[1]:menu.data[50],nameField.getText()));nameField.setFocused(false);return;}if(b.enabled&&mc.playerController!=null)mc.playerController.sendEnchantPacket(menu.windowId,b.id);}
+    @Override public void updateScreen(){super.updateScreen();int[] d=menu.data;if(menu.type==0&&renderedTab!=d[0])build();if(nameField!=null){int id=menu.type==1?d[10]>0?d[1]:-1:d[50];if(id!=nameId&&!nameField.isFocused()){nameId=id;nameField.setText(PanelMenu.getText(d,menu.type==1?100:300,20));}nameField.updateCursorCounter();}if(poolField!=null){String pool=PanelMenu.getText(d,120,20);if(!poolField.isFocused()&&!pool.equals(lastPool)){poolField.setText(pool);lastPool=pool;}poolField.updateCursorCounter();}for(GuiButton b:buttonList){int id=b.id;b.enabled=true;b.visible=true;if(menu.type==1){if(id==1)b.displayString=d[2]==1?tr("Turn OFF","Выключить"):tr("Turn ON","Включить");if(id==1 && d[2]==1)b.enabled=d[12]<=0;
             if(id==4){b.visible=d[12]>=0;b.enabled=d[12]==Integer.MAX_VALUE;
-                if(!b.enabled)b.displayString=d[12]==0?tr("Ready to stop","Можно выключать"):tr("Maintenance in ","До техработ ")+d[12]+" s";}
-            if(id==92)b.enabled=d[10]>0;continue;}if(menu.type==2){if(id>=10&&id<18){int i=id-10;b.visible=i<Hardware.ports(d[10]);b.enabled=b.visible;b.displayString=(i==d[11]?">":"")+"P"+(i+1);}else if(id>=20&&id<29){int i=id-20;b.visible=d[40+i]>0;b.enabled=b.visible&&d[50+i]==0&&d[20+d[11]]==0;b.displayString="U"+(i+1);}else if(id==30)b.enabled=d[20+d[11]]>0;continue;}
+                if(b.enabled)b.displayString=tr("Announce maintenance","Объявить технические работы");
+                else b.displayString=d[12]==0?tr("Ready to stop","Можно выключать"):tr("Maintenance in ","До техработ ")+d[12]+" s";}
+            if(id==92||id==93)b.enabled=d[10]>0;continue;}if(menu.type==2){if(id>=10&&id<18){int i=id-10;b.visible=i<Hardware.ports(d[10]);b.enabled=b.visible;b.displayString=(i==d[11]?">":"")+"P"+(i+1);}else if(id>=20&&id<29){int i=id-20;b.visible=d[40+i]>0;b.enabled=b.visible&&d[50+i]==0&&d[20+d[11]]==0;b.displayString="U"+(i+1);}else if(id==30)b.enabled=d[20+d[11]]>0;continue;}
         }}
     static String amount(long v){return String.format(Locale.ROOT,"%.3f",v/1000.0);}
     @Override protected void drawGuiContainerBackgroundLayer(float f,int mx,int my){
@@ -92,7 +93,7 @@ final class PanelScreen extends GuiContainer {
             // Rename controls sit below their own title bar.
             inset(8,24,125,19,0xfffefefd);
             inset(7,47,306,129,0xfff9f8f2);
-            rect(10,126,300,1,0xffc6ccd3);
+            rect(10,126,300,1,0xffc6ccd3);inset(58,176,143,19,0xfffefefd);
         }else if(menu.type==2){
             inset(8,42,304,137,0xfff9f8f2);
             int[] d=menu.data;
@@ -104,11 +105,11 @@ final class PanelScreen extends GuiContainer {
             }
         }
     }
-    @Override protected void drawGuiContainerForegroundLayer(int mx,int my){int[] d=menu.data;if(menu.type==1){title(tr("Server details","Сведения о сервере"));text("ID "+d[11]+" | "+d[10]+"U / U"+(d[1]+1)+" | "+status(d[4])+" | "+d[5]+" FE/t",10,51,BLUE);int[] p=java.util.Arrays.copyOfRange(d,20,20+ServerSpec.COUNT);text(Part.at(p[0]).name+" / "+Part.at(p[1]).name,10,64,FG);text("RAM "+ServerSpec.ramGB(p)+" GB / disk "+ServerSpec.diskGB(p)+" GB",10,80,FG);text("PSU "+ServerSpec.psu(p)+" W / NIC "+ServerSpec.nic(p)+" Mb/s",10,96,FG);text("GPU: "+ServerSpec.gpuTotal(p)+" / VRAM "+ServerSpec.vram(p)+" GB",10,112,FG);text("CPU cores "+d[6]+" / GPU mask "+Integer.toBinaryString(d[7]),10,135,MUTED);text("RAM used "+d[8]+" GB / network "+d[9]+" Mb/s",10,151,MUTED);text(tr("Components are read-only. Use workbench.","Компоненты меняются только на рабочем столе."),10,189,MUTED);return;}
+    @Override protected void drawGuiContainerForegroundLayer(int mx,int my){int[] d=menu.data;if(menu.type==1){title(tr("Server details","Сведения о сервере"));text("ID "+d[11]+" | "+d[10]+"U / U"+(d[1]+1)+" | "+status(d[4])+" | "+d[5]+" FE/t",10,51,BLUE);int[] p=java.util.Arrays.copyOfRange(d,20,20+ServerSpec.COUNT);text(Part.at(p[0]).name+" / "+Part.at(p[1]).name,10,64,FG);text("RAM "+ServerSpec.ramGB(p)+" GB / disk "+ServerSpec.diskGB(p)+" GB",10,80,FG);text("PSU "+ServerSpec.psu(p)+" W / NIC "+ServerSpec.nic(p)+" Mb/s",10,96,FG);text("GPU: "+ServerSpec.gpuTotal(p)+" / VRAM "+ServerSpec.vram(p)+" GB",10,112,FG);text("CPU cores "+d[6]+" / GPU mask "+Integer.toBinaryString(d[7]),10,135,MUTED);text("RAM used "+d[8]+" GB / network "+d[9]+" Mb/s",10,151,MUTED);text(tr("Pool:","Пул:"),10,182,FG);text(tr("Components are read-only. Use workbench.","Компоненты меняются только на рабочем столе."),10,198,MUTED);return;}
         if(menu.type==2){title("Switch T"+d[10]+" / "+(d[12]==1?"ONLINE":"OFFLINE"));text(tr("Select port, then server","Выберите порт, затем сервер"),10,31,MUTED);text(tr("Rack units","Юниты стойки"),10,143,MUTED);return;}
     }
     static String status(int n){return n==11?"PSU OVERLOAD":n==6?"NO POWER":n==7?"RUNNING":n==8?"PARTIAL":n==5?"NO NET":n==10?"INCOMPLETE":n==1?"NO CTRL":"IDLE";}
-    @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);if(fieldVisible())nameField.drawTextBox();}
-    @Override protected void mouseClicked(int x,int y,int b)throws java.io.IOException{if(fieldVisible())nameField.mouseClicked(x,y,b);super.mouseClicked(x,y,b);}
-    @Override protected void keyTyped(char c,int k)throws java.io.IOException{if(fieldVisible()&&nameField.isFocused()&&nameField.textboxKeyTyped(c,k))return;super.keyTyped(c,k);}
+    @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);if(fieldVisible())nameField.drawTextBox();if(poolField!=null)poolField.drawTextBox();}
+    @Override protected void mouseClicked(int x,int y,int b)throws java.io.IOException{if(fieldVisible())nameField.mouseClicked(x,y,b);if(poolField!=null)poolField.mouseClicked(x,y,b);super.mouseClicked(x,y,b);}
+    @Override protected void keyTyped(char c,int k)throws java.io.IOException{if(poolField!=null&&poolField.isFocused()&&poolField.textboxKeyTyped(c,k))return;if(fieldVisible()&&nameField.isFocused()&&nameField.textboxKeyTyped(c,k))return;super.keyTyped(c,k);}
 }

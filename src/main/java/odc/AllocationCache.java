@@ -2,32 +2,18 @@ package odc;
 
 import java.util.*;
 
-/** Holds one reusable allocation per network. Power availability is checked on every cycle. */
+/** Cache only immutable committed reservations; no implicit allocation or reassignment. */
 final class AllocationCache {
     private List<?> inputs;
     private TaskEngine.Plan result;
-
-    TaskEngine.Plan get(List<TaskEngine.Node> nodes,List<TaskData.Job> jobs,int[] caps,int wan,
-                        Map<UUID,Integer> groups,Set<Integer> excluded) {
-        List<Object> key=new ArrayList<>();
-        key.add(new ArrayList<>(nodes));
-        for(int cap:caps) key.add(cap);
-        key.add(wan);
-        key.add(new HashSet<>(excluded));
-        for(TaskEngine.Node n:nodes) key.add(groups.getOrDefault(n.id,0));
-        for(TaskData.Job job:jobs) {
-            if(!job.enabled){for(Map.Entry<UUID,int[]> held:job.retained.entrySet()){key.add(held.getKey());key.add(Arrays.toString(held.getValue()));}continue;}
-            key.add(Arrays.asList(job.id,job.type,job.base,job.unitLimit,job.priority,job.cpu,job.gpus,
-                    job.ram,job.net,job.disk,job.group,job.auto,job.strict));
-            if(!job.auto) for(TaskEngine.Node n:nodes) {
-                TaskEngine.Limit l=job.manual.get(n.id);
-                key.add(l==null?null:Arrays.asList(l.allowedCores,l.cpu,l.mask,l.io,l.ram,l.disk,l.net));
-            }
+    TaskEngine.Plan get(List<TaskEngine.Node> nodes,List<TaskData.Job> jobs,Set<Integer> local,int[] caps,int wan,Set<Integer> excluded){
+        List<Object> key=new ArrayList<>();key.add(new ArrayList<>(nodes));key.add(Arrays.toString(caps));key.add(wan);key.add(new HashSet<>(excluded));key.add(new HashSet<>(local));
+        Set<UUID> present=new HashSet<>();for(TaskEngine.Node n:nodes)present.add(n.id);
+        for(TaskData.Job j:jobs){boolean relevant=local.contains(j.id)||j.bindings.stream().anyMatch(b->present.contains(b.server));if(!relevant)continue;
+            key.add(Arrays.asList(j.id,j.type,j.enabled,j.pool,j.cpu,j.gpus,j.ram,j.disk,j.net,j.base));
+            for(PoolResources.Binding b:j.bindings)key.add(Arrays.asList(FixedResources.key(b),b.amount,b.io));
         }
-        if(!key.equals(inputs)) {
-            result=TaskEngine.plan(nodes,jobs,caps,wan,groups,excluded);
-            inputs=key;
-        }
+        if(!key.equals(inputs)){result=FixedResources.plan(nodes,jobs,local,caps,wan,excluded);inputs=key;}
         return result;
     }
 }

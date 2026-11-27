@@ -62,7 +62,7 @@ final class ContractMarket {
             offers.appendTag(offer(type,pick(RULE),pick(SIZE),now));
         }
     }
-    boolean accept(TaskData d,UUID owner,UUID wallet,UUID key,long now){
+    boolean accept(TaskData d,UUID owner,UUID wallet,UUID key,long now,UUID pool,String poolLabel){
         NBTTagList offers=list(owner(owner),"Offers");
         for(int i=0;i<offers.tagCount();i++){
             NBTTagCompound o=offers.getCompoundTagAt(i);
@@ -70,7 +70,7 @@ final class ContractMarket {
             long fee=o.getLong("Fee");
             if(now>=o.getLong("Expires") || fee>0 && d.wallet(wallet)[0]<fee)return false;
             TaskData.Job j=new TaskData.Job(d.next++,o.getInteger("Type"),wallet,owner);
-            j.terms.merge(o);j.terms.setLong("Accepted",now);
+            j.pool=Objects.requireNonNull(pool);j.poolLabel=poolLabel;j.auto=false;j.terms.merge(o);j.terms.setLong("Accepted",now);
             if(o.getLong("Duration")>0)j.terms.setLong("Deadline",now+o.getLong("Duration"));
             offers.removeTag(i);d.wallet(wallet)[0]-=fee;d.jobs.add(j);d.markDirty();return true;
         }
@@ -88,7 +88,7 @@ final class ContractMarket {
     }
     void end(TaskData d,TaskData.Job j,String status,long penalty){
         if(j.terms.hasKey("End"))return;
-        j.retained.clear();j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.terms.setBoolean("End",true);
+        j.retained.clear();j.bindings.clear();j.enabled=false;j.cachedRate=0;j.machines=Collections.emptySet();j.terms.setBoolean("End",true);
         record(d,j,status,penalty);
     }
     void tick(TaskData d,long now){
