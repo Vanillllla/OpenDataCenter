@@ -22,13 +22,13 @@ import java.util.*;
 public final class Tiles {
     public static abstract class Owned extends TileEntity {
         UUID owner;
-        @Override public void onLoad(){super.onLoad();Network.invalidate(world);}
+        @Override public void onLoad(){super.onLoad();Network.invalidate(world);PhysicalNetwork.changed(world,pos);}
         @Override public void invalidate(){super.invalidate();Network.invalidate(world);}
         void setOwner(UUID id){owner=id;markDirty();}
         boolean allows(EntityPlayer p){return owner==null||owner.equals(p.getUniqueID())||p.capabilities.isCreativeMode;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);owner=n.hasUniqueId("Owner")?n.getUniqueId("Owner"):null;}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);if(owner!=null)n.setUniqueId("Owner",owner);return n;}
-        void changed(){markDirty();if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,3);}}
+        void changed(){markDirty();if(world!=null&&!world.isRemote){PhysicalNetwork.changed(world,pos);net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,3);}}
         @Override public NBTTagCompound getUpdateTag(){return writeToNBT(new NBTTagCompound());}
         @Override public SPacketUpdateTileEntity getUpdatePacket(){return new SPacketUpdateTileEntity(pos,0,getUpdateTag());}
         @Override public void onDataPacket(NetworkManager net,SPacketUpdateTileEntity pkt){readFromNBT(pkt.getNbtCompound());if(world!=null)world.markBlockRangeForRenderUpdate(pos,this instanceof Computer?pos.up():pos);}
@@ -87,7 +87,7 @@ public final class Tiles {
         void detach(int i){if(world==null||world.isRemote)return;if(!slots.get(i).isEmpty())EventSystem.rack(this,i,Level.INFO,Category.HARDWARE,"equipment_removed","Removed "+slots.get(i).getDisplayName());if(isServer(i)){TaskData d=TaskData.get(world);UUID id=ClusterScheduler.serverId(slots.get(i));d.serverStopped(id,false);d.networkState.remove(id);}OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
         @Override public void setInventorySlotContents(int i,ItemStack s){
             if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
-            boolean changedItem=!ItemStack.areItemStacksEqual(slots.get(i),s);if(changedItem)detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);if(changedItem&&!s.isEmpty())EventSystem.rack(this,i,Level.SUCCESS,Category.HARDWARE,"equipment_installed","Installed "+s.getDisplayName());
+            boolean changedItem=!ItemStack.areItemStacksEqual(slots.get(i),s);if(changedItem)detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);if(world!=null&&!world.isRemote&&Hardware.switchTier(s)>0)Hardware.switchId(s);super.setInventorySlotContents(i,s);if(changedItem&&!s.isEmpty())EventSystem.rack(this,i,Level.SUCCESS,Category.HARDWARE,"equipment_installed","Installed "+s.getDisplayName());
         }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
@@ -150,7 +150,14 @@ public final class Tiles {
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("ControllerId"))id=n.getUniqueId("ControllerId");}
     }
     
-    public static final class Station extends Powered {boolean satellite(){return world!=null&&world.getBlockState(pos).getBlock()==Hardware.SATELLITE;} int bandwidth(){return satellite()?512:128;} @Override int idlePower(){return satellite()?40:12;}}
+    public static abstract class NetworkDevice extends Powered {
+        UUID networkId=UUID.randomUUID();
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setUniqueId("NetworkId",networkId);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("NetworkId"))networkId=n.getUniqueId("NetworkId");}
+        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote)markDirty();}
+    }
+    public static final class NetworkTerminal extends NetworkDevice {int bandwidth(){return 1000;} @Override int idlePower(){return 5;}}
+    public static final class Station extends NetworkDevice {boolean satellite(){return world!=null&&world.getBlockState(pos).getBlock()==Hardware.SATELLITE;} int bandwidth(){return satellite()?512:128;} @Override int idlePower(){return satellite()?40:12;}}
     public static final class Battery extends Owned implements ITickable {
         int round=0;
         @Override public void update(){if(world.isRemote||world.getTotalWorldTime()%5!=0)return;List<Network.Endpoint> ends=Network.power(world,pos);if(ends.isEmpty())return;int budget=ODC.batteryOutput*5;int start=Math.floorMod(round++,ends.size());for(int i=0;i<ends.size()&&budget>0;i++){Network.Endpoint end=ends.get((start+i)%ends.size());budget-=end.energy.receiveEnergy(budget,false);}}

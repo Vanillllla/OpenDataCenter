@@ -288,3 +288,9 @@ tasks.odc.elapsed=Elapsed
 tasks.odc.back=Back
 tasks.odc.details=Details
 tasks.odc.noCash=Insufficient NCoin
+
+tile.odc.fiber_cable.name=Optical Fiber Cable
+tile.odc.network_terminal.name=Network Terminal (Foundation)
+gui.odc.network_foundation.summary=Network: %s antennas, %s terminals, %s switches, %s servers | %s | Traffic not implemented
+gui.odc.network_foundation.loaded=LAN loaded
+gui.odc.network_foundation.partial=LAN partially unloaded

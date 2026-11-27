@@ -15,8 +15,8 @@ import java.util.List;
 
 final class Hardware {
     static final CreativeTabs TAB=new CreativeTabs("odc"){@Override public ItemStack createIcon(){return new ItemStack(CHASSIS4);}};
-    static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
-    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
+    static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),NETWORK_TERMINAL=new Blocks.NetworkTerminal(),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
+    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,NETWORK_TERMINAL,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
     static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);
     static final Item CHIP=item("precision_chip",""), SWITCH1=item("switch_basic","4 × 100 Mb/s"), SWITCH2=item("switch_pro","8 × 1000 Mb/s"), PATCH=item("ethernet_patch","1 internal connection");
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
@@ -48,6 +48,7 @@ final class Hardware {
     static int[] spec(ItemStack s){return tiers(parts(s));}
     static void writeParts(ItemStack s,NonNullList<ItemStack> p){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();NBTTagCompound h=new NBTTagCompound();ItemStackHelper.saveAllItems(h,p);n.setTag("Hardware",h);s.setTagCompound(n);}
     static void ensureId(ItemStack s){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("ServerId")){n.setUniqueId("ServerId",java.util.UUID.randomUUID());s.setTagCompound(n);}}
+    static java.util.UUID switchId(ItemStack s){if(switchTier(s)==0)throw new IllegalArgumentException("Not a switch");NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("SwitchId")){n.setUniqueId("SwitchId",java.util.UUID.randomUUID());s.setTagCompound(n);}return n.getUniqueId("SwitchId");}
     static int state(ItemStack s){return ServerSpec.state(units(s),spec(s));}
     static int gpus(ItemStack s){return ServerSpec.gpuTotal(spec(s));}
     static int vram(ItemStack s){return ServerSpec.vram(spec(s));}

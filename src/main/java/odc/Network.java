@@ -9,7 +9,7 @@ import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
 import java.util.*;
 
-/** Loaded-block topology. Internal switches limit their own rack only; neighboring racks share the outer data fabric. */
+/** Legacy loaded-block traffic topology (until Stage 4/7). PhysicalNetwork is the new independent discovery index. Internal switches limit their own rack only; neighboring racks share the outer data fabric. */
 @net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid=ODC.ID)
 public final class Network {
     static final Map<World,Cache> caches=new HashMap<>();
@@ -27,7 +27,8 @@ public final class Network {
         final List<Tiles.Owned> devices=new ArrayList<>();
         final Set<BlockPos> positions=new HashSet<>();
     }
-    static boolean isDataDevice(TileEntity t){return t instanceof Tiles.Rack||t instanceof Tiles.Computer||t instanceof Tiles.Station;}
+    static boolean isDataDevice(TileEntity t){return t instanceof Tiles.Rack||t instanceof Tiles.Computer||t instanceof Tiles.Station||t instanceof Tiles.NetworkTerminal;}
+    static boolean isLanDevice(TileEntity t){return isDataDevice(t)&&!(t instanceof Tiles.Station);}
     static boolean isPowerDevice(TileEntity t){return isDataDevice(t);}
     static boolean live(World w,TileEntity t){return t!=null&&!t.isInvalid()&&w.isBlockLoaded(t.getPos())&&w.getTileEntity(t.getPos())==t;}
     static TileEntity deviceAt(World w,BlockPos p){return w.getTileEntity(Blocks.Terminal.base(w,p));}
@@ -35,8 +36,8 @@ public final class Network {
         if(!w.isBlockLoaded(p))return false;
         Block b=w.getBlockState(p).getBlock();
         if(b==Hardware.DATA_CABLE)return true;
-        if(b!=Hardware.RACK&&b!=Hardware.RACK_GLASS&&b!=Hardware.COMPUTER&&b!=Hardware.STATION&&b!=Hardware.SATELLITE)return false;
-        TileEntity t=deviceAt(w,p);return isDataDevice(t);
+        if(b!=Hardware.RACK&&b!=Hardware.RACK_GLASS&&b!=Hardware.COMPUTER&&b!=Hardware.NETWORK_TERMINAL)return false;
+        TileEntity t=deviceAt(w,p);return isLanDevice(t);
     }
     /** Null means the safety limit was exceeded. Never split a partially scanned domain and award duplicate capacity. */
     static Domain scan(World w,BlockPos origin){Cache c=cache(w);if(c.data.containsKey(origin))return c.data.get(origin);Domain d=scanFresh(w,origin);if(d==null)c.data.put(origin,null);else for(BlockPos p:d.positions)c.data.put(p,d);return d;}
@@ -44,12 +45,19 @@ public final class Network {
         Domain out=new Domain();Set<BlockPos> component=TopologySearch.component(origin,p->{List<BlockPos> adjacent=new ArrayList<>(6);for(EnumFacing f:EnumFacing.VALUES)adjacent.add(p.offset(f));return adjacent;},p->dataNode(w,p),LIMIT);
         if(component==null)return null;
         out.positions.addAll(component);
-        for(BlockPos p:component){TileEntity t=w.getTileEntity(p);if(isDataDevice(t)&&live(w,t)&&(!(t instanceof Tiles.Rack)||((Tiles.Rack)t).role!=-1))out.devices.add((Tiles.Owned)t);}
+        for(BlockPos p:component){TileEntity t=w.getTileEntity(p);if(isLanDevice(t)&&live(w,t)&&(!(t instanceof Tiles.Rack)||((Tiles.Rack)t).role!=-1))out.devices.add((Tiles.Owned)t);}
+        // Transitional old WAN: a directly attached old station can feed one loaded LAN only.
+        // It is a leaf, never a bridge between LANs. Fiber WAN is not credited until Stage 4/7.
+        Set<BlockPos> stationEnds=new HashSet<>();for(BlockPos p:component)for(EnumFacing f:EnumFacing.VALUES){BlockPos n=p.offset(f);if(!w.isBlockLoaded(n)||!stationEnds.add(n))continue;
+            TileEntity t=w.getTileEntity(n);if(!(t instanceof Tiles.Station)||!live(w,t))continue;
+            boolean shared=false;for(EnumFacing g:EnumFacing.VALUES){BlockPos q=n.offset(g);if(dataNode(w,q)&&!component.contains(q)){shared=true;break;}}
+            if(!shared){out.devices.add((Tiles.Station)t);out.positions.add(n);}
+        }
         out.devices.sort(ORDER);return out;
     }
     static List<Domain> domains(World w,List<TileEntity> loaded){
         List<Domain> out=new ArrayList<>();Set<BlockPos> seen=new HashSet<>();
-        for(TileEntity t:loaded){if(!isDataDevice(t)||!live(w,t)||seen.contains(t.getPos()))continue;
+        for(TileEntity t:loaded){if(!isLanDevice(t)||!live(w,t)||seen.contains(t.getPos()))continue;
             Domain d=scan(w,t.getPos());if(d==null)continue;seen.addAll(d.positions);out.add(d);
         }
         return out;

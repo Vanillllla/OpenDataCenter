@@ -288,3 +288,9 @@ tasks.odc.elapsed=Длительность
 tasks.odc.back=Назад
 tasks.odc.details=Подробнее
 tasks.odc.noCash=Недостаточно NCoin
+
+tile.odc.fiber_cable.name=Оптоволоконный кабель
+tile.odc.network_terminal.name=Сетевой терминал (основа)
+gui.odc.network_foundation.summary=Сеть: антенн %s, терминалов %s, коммутаторов %s, серверов %s | %s | Трафик ещё не реализован
+gui.odc.network_foundation.loaded=LAN загружена
+gui.odc.network_foundation.partial=LAN частично выгружена

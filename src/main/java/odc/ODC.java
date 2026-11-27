@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.5.4.3-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.1.1-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -34,6 +34,7 @@ public final class ODC {
         GameRegistry.registerTileEntity(Tiles.Workbench.class,new ResourceLocation(ID,"workbench"));
         GameRegistry.registerTileEntity(Tiles.Computer.class,new ResourceLocation(ID,"computer"));
         GameRegistry.registerTileEntity(Tiles.Battery.class,new ResourceLocation(ID,"battery"));
+        GameRegistry.registerTileEntity(Tiles.NetworkTerminal.class,new ResourceLocation(ID,"network_terminal"));
         GameRegistry.registerTileEntity(Tiles.Station.class,new ResourceLocation(ID,"network_station"));
         NetworkRegistry.INSTANCE.registerGuiHandler(this,new Menus.Handler());
         RackInteraction.init();

@@ -10,7 +10,7 @@ def check(ok,msg):
     if not ok: raise AssertionError(msg)
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
-blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station'}
+blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal'}
 items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','ethernet_patch'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
@@ -48,7 +48,7 @@ for name in ('rack','rack_glass'):
         model=read(root/'models/block'/f'{name}_{role}.json');els=model['elements']
         if role==1:check(not any('up' in e['faces'] and e['to'][1]==16 for e in els),'no top seam faces')
         if role==2:check(not any('down' in e['faces'] and e['from'][1]==0 for e in els),'no bottom seam faces')
-for name in ('data_cable','power_cable','power_relay'):
+for name in ('data_cable','power_cable','power_relay','fiber_cable'):
     data=read(root/'blockstates'/f'{name}.json')['variants']
     props=sorted(('down','up','north','south','west','east','active'))
     for bits in itertools.product(('true','false'),repeat=7):
@@ -56,7 +56,7 @@ for name in ('data_cable','power_cable','power_relay'):
         m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
         for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
             if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
-for name in ('computer','creative_battery','radio_station','satellite_station'):
+for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal'):
     data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
 # The workbench is empty in inventory and has exactly one model for each case size and rotation.
 bench=read(root/'blockstates/workbench.json')['variants']
@@ -75,9 +75,9 @@ check(heights==sorted(set(heights)),'distinct case heights')
 # Rotated elements are checked separately by their bounding data, not by this plane test.
 mesh_count=0;quad_count=0;max_cable=0
 for p in (root/'models/block').glob('*.json'):
-    if not p.stem.startswith(('rack_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_','workbench_')):continue
+    if not p.stem.startswith(('rack_','fiber_cable_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_','workbench_')):continue
     mesh_count+=1;m=read(p);planes={};quad_count+=sum(len(e['faces']) for e in m['elements'])
-    if p.stem.startswith(('data_cable_','power_cable_')):max_cable=max(max_cable,sum(len(e['faces']) for e in m['elements']))
+    if p.stem.startswith(('fiber_cable_','data_cable_','power_cable_')):max_cable=max(max_cable,sum(len(e['faces']) for e in m['elements']))
     for e in m['elements']:
         if 'rotation' in e:continue
         for f in e['faces']:
@@ -105,4 +105,4 @@ for lang in ('en_us','ru_ru'):
     entries=dict(line.split('=',1) for line in (root/'lang'/f'{lang}.lang').read_text(encoding='utf8').splitlines() if line)
     check(all(f'tile.odc.{b}.name' in entries for b in blocks),f'block translations {lang}');check(all(f'item.odc.{i}.name' in entries for i in items),f'item translations {lang}');langs.append(entries)
 check(set(langs[0])==set(langs[1]),'EN/RU translation parity')
-print(f'PASS: {checks} resource checks; {len(blocks)} block types; {len(items)} item types; {len(recipes)} recipes; {sum(1 for _ in root.rglob("*.png"))} PNG textures; 24 rack frame variants; 384 cable/relay states.')
+print(f'PASS: {checks} resource checks; {len(blocks)} block types; {len(items)} item types; {len(recipes)} recipes; {sum(1 for _ in root.rglob("*.png"))} PNG textures; 24 rack frame variants; 512 cable/relay states.')
