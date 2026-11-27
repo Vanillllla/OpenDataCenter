@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.5.4.2-alpha'
+version = '0.5.4.3-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -100,3 +100,10 @@ task verifyEventPersistence(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.EventPersistenceTest'
 }
 check.dependsOn verifyEventJournal, verifyEventPersistence
+
+// Shared dashboard / wallet read model regression.
+task verifyDashboardStats(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.DashboardStatsTest'
+}
+check.dependsOn verifyDashboardStats
