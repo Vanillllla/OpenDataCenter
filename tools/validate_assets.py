@@ -73,7 +73,9 @@ check(max_cable<=24,'cable quad budget')
 print(f'Geometry: {mesh_count} meshes, {quad_count} authored faces, max {max_cable} quads per cable; no positive-area coplanar axis-aligned overlaps.')
 for u in (1,2,4):
     for state in ('ready','empty'):tex_ref(f'odc:blocks/server_{u}_{state}')
-for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window','led_activity','module_side','patch_up','patch_down'):tex_ref('odc:blocks/'+name)
+for name in ('switch_panel_1','switch_panel_2','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
+# The switch PNG socket spans two centered pixels; inspect exact colors via optional Pillow test separately.
+check(not (root/'textures/blocks/patch_up.png').exists() and not (root/'textures/blocks/patch_down.png').exists(),'legacy flat patch sprites removed')
 recipes=set()
 for f in (root/'recipes').glob('*.json'):
     data=read(f);pattern=data['pattern'];key=data['key'];check(len(pattern)<=3 and len(set(map(len,pattern)))==1 and len(pattern[0])<=3,f'recipe dimensions {f.name}')

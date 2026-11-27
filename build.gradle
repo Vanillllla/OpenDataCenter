@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.3.1-alpha'
+version = '0.3.2-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -32,3 +32,10 @@ task verifyServerHardware(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.ServerSpecTest'
 }
 check.dependsOn verifyServerHardware
+
+// Validate the exact mesh used by RackRenderer.
+task verifyPatchMesh(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.PatchCordMeshTest'
+}
+check.dependsOn verifyPatchMesh

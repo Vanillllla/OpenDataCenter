@@ -30,7 +30,7 @@ for u in (1,2,4):
 def switch(d,n,t):
  framed(d,n,(64,66,73),(30,32,37),(91,95,103));count=4 if t==1 else 8
  for p in range(count):
-  x=round((p+.5)*n/count-.5);d.rectangle((x-1,12,x+1,20),fill=(18,23,28));d.point((x,14),fill=(111,101,71))
+  x=(2*p+1)*16//count;d.rectangle((x-1,12,x,19),fill=(18,23,28));d.rectangle((x-1,14,x,14),fill=(111,101,71))
 for t in (1,2):tex('switch_panel_'+str(t),lambda d,n,t=t:switch(d,n,t),32)
 tex('led_on',lambda d,n:d.rectangle((0,0,n-1,n-1),fill=(117,224,72)));tex('led_off',lambda d,n:d.rectangle((0,0,n-1,n-1),fill=(44,52,45)))
 def anim(name,frames,time):
@@ -38,13 +38,8 @@ def anim(name,frames,time):
 anim('led_activity',[Image.new('RGBA',(16,16),c) for c in ((62,104,49,255),(117,224,72,255))],5)
 tex('rack_window',lambda d,n:(d.line((1,1,4,4),fill=(190,205,215,105)),d.line((1,2,3,4),fill=(190,205,215,65)),d.line((n-5,n-3,n-3,n-5),fill=(180,198,210,60))),base=(93,122,145,35))
 tex('glass',lambda d,n:(d.line((1,1,4,4),fill=(160,183,201,255)),d.line((n-5,n-3,n-3,n-5),fill=(160,183,201,255))))
-def patch(d,n,up):
- # 32 px sprite with asymmetric bend and visible connector, outside is transparent.
- pts=[(15,29),(15,23),(20,19),(20,10),(16,6),(16,0)]
- if not up:pts=[(x,31-y) for x,y in pts]
- d.line(pts,fill=(19,31,42),width=8);d.line(pts,fill=(43,104,151),width=5);d.line(pts,fill=(71,152,206),width=2)
- y=25 if up else 0;d.rectangle((9,y,21,y+6),fill=(100,105,114),outline=(43,47,54));d.line((11,y+1,19,y+1),fill=(150,154,161))
-for up in (True,False):tex('patch_'+('up' if up else 'down'),lambda d,n,up=up:patch(d,n,up),32)
+tex('patch_cable_mesh',lambda d,n:None,base=(44,116,177,255))
+tex('patch_plug_mesh',lambda d,n:(d.line((0,0,n-1,0),fill=(153,159,169,255)),d.line((0,n-1,n-1,n-1),fill=(68,75,86,255))),base=(111,118,129,255))
 # Strip texture is aligned along the arm, collars are painted not protruding geometry.
 for kind,c in [('data',(36,139,218)),('power',(222,151,39))]:
  def strip(d,n,c=c):

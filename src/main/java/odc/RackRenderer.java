@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Atlas-batched module mesh: one opaque draw, plus one glass draw if needed. */
 final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
-    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","led_on","led_off","led_activity","rack_window","module_side","patch_up","patch_down"};
+    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","led_on","led_off","led_activity","rack_window","module_side","patch_cable_mesh","patch_plug_mesh"};
     private BufferBuilder buffer;
     private TextureMap atlas;
     private void begin(){buffer=Tessellator.getInstance().getBuffer();buffer.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX_COLOR);}
@@ -50,15 +50,15 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
                     front("switch_panel_"+st,.125,bottom,.875,top,.15);
                     int n=Hardware.ports(st);
                     for(int p=0;p<n;p++){
-                        double cx=.125+(p+.5)*.75/n;int bay=rack.ports[p]-1;
+                        double cx=PatchCordMesh.portX(p,n);int bay=rack.ports[p]-1;
                         boolean connected=bay>=0&&bay<rack.capacity()&&rack.isServer(bay);
                         boolean lit=connected&&rack.switchOnline&&(rack.poweredMask&(1<<bay))!=0;
                         front(lit?"led_on":"led_off",cx-.012,top-h*.20,cx+.012,top-h*.10,.148);
                         if(connected){
-                            // A cutout patch lead in front of its port. The far end vanishes into the adjacent gap.
-                            boolean up=bay>i;double portY=bottom+h*.47;
-                            double low=up?portY-h*.12:bottom-.036,high=up?top+.036:portY+h*.12;
-                            front(up?"patch_up":"patch_down",cx-.031,low,cx+.031,high,.085);
+                            for(PatchCordMesh.Face face:PatchCordMesh.get(rack.capacity(),i,n,p,bay>i)){
+                                double[][] q=face.vertices;
+                                quad(face.material==PatchCordMesh.CABLE?"patch_cable_mesh":"patch_plug_mesh",face.shade,q[0],q[1],q[2],q[3]);
+                            }
                         }
                     }
                 }else{
