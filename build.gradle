@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.3.2-alpha'
+version = '0.4.0-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -39,3 +39,14 @@ task verifyPatchMesh(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.PatchCordMeshTest'
 }
 check.dependsOn verifyPatchMesh
+
+// 0.4 resource planning and currency accounting regression suites.
+task verifyTaskEngine(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.TaskEngineTest'
+}
+task verifyEconomy(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.EconomyEngineTest'
+}
+check.dependsOn verifyTaskEngine, verifyEconomy

@@ -10,7 +10,16 @@ import net.minecraftforge.energy.IEnergyStorage;
 import java.util.*;
 
 /** Loaded-block topology. Internal switches limit their own rack only; neighboring racks share the outer data fabric. */
-final class Network {
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid=ODC.ID)
+public final class Network {
+    static final Map<World,Cache> caches=new HashMap<>();
+    static final class Cache {final Map<BlockPos,Domain> data=new HashMap<>();final Map<BlockPos,PowerPath> power=new HashMap<>();}
+    static final class PowerPath {final Set<BlockPos> trace=new HashSet<>();List<Endpoint> endpoints;}
+    static Cache cache(World w){return caches.computeIfAbsent(w,k->new Cache());}
+    static void invalidate(World w){if(w!=null&&!w.isRemote)caches.remove(w);}
+    @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void load(net.minecraftforge.event.world.ChunkEvent.Load e){invalidate(e.getWorld());}
+    @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void unload(net.minecraftforge.event.world.ChunkEvent.Unload e){invalidate(e.getWorld());}
+    @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void worldUnload(net.minecraftforge.event.world.WorldEvent.Unload e){caches.remove(e.getWorld());}
     static final int LIMIT=16384;
     static final Comparator<TileEntity> ORDER=Comparator.comparingLong(t->t.getPos().toLong());
     static final class Endpoint {final IEnergyStorage energy;Endpoint(IEnergyStorage e){energy=e;}}
@@ -30,7 +39,8 @@ final class Network {
         TileEntity t=deviceAt(w,p);return isDataDevice(t);
     }
     /** Null means the safety limit was exceeded. Never split a partially scanned domain and award duplicate capacity. */
-    static Domain scan(World w,BlockPos origin){
+    static Domain scan(World w,BlockPos origin){Cache c=cache(w);if(c.data.containsKey(origin))return c.data.get(origin);Domain d=scanFresh(w,origin);if(d==null)c.data.put(origin,null);else for(BlockPos p:d.positions)c.data.put(p,d);return d;}
+    private static Domain scanFresh(World w,BlockPos origin){
         Domain out=new Domain();Set<BlockPos> component=TopologySearch.component(origin,p->{List<BlockPos> adjacent=new ArrayList<>(6);for(EnumFacing f:EnumFacing.VALUES)adjacent.add(p.offset(f));return adjacent;},p->dataNode(w,p),LIMIT);
         if(component==null)return null;
         out.positions.addAll(component);
@@ -53,16 +63,18 @@ final class Network {
         if(!ODC.requireEnergy||w.isRemote)return;
         List<TileEntity> loaded=new ArrayList<>(w.loadedTileEntityList);Set<IEnergyStorage> reachable=Collections.newSetFromMap(new IdentityHashMap<IEnergyStorage,Boolean>());
         for(TileEntity t:loaded)if(t instanceof Tiles.Battery&&live(w,t))for(Endpoint e:power(w,t.getPos()))reachable.add(e.energy);
-        for(TileEntity t:loaded)if(isPowerDevice(t)&&live(w,t)){IEnergyStorage storage=t.getCapability(CapabilityEnergy.ENERGY,null);if(storage instanceof Tiles.Buffer&&!reachable.contains(storage))((Tiles.Buffer)storage).lastFeed=Long.MIN_VALUE;}
+        for(TileEntity t:loaded)if(isPowerDevice(t)&&live(w,t)){IEnergyStorage storage=t.getCapability(CapabilityEnergy.ENERGY,null);if(storage instanceof Tiles.Buffer&&!reachable.contains(storage)){Tiles.Buffer b=(Tiles.Buffer)storage;boolean was=b.lastFeed!=Long.MIN_VALUE;b.lastFeed=Long.MIN_VALUE;if(was&&b.tile instanceof Tiles.Rack){Tiles.Rack r=(Tiles.Rack)b.tile;for(int bay=0;bay<r.capacity();bay++)if(r.isServer(bay)&&(r.enabledMask&(1<<bay))!=0)ClusterScheduler.trip(r,bay,6,TaskData.get(w));}}}
     }
     /** Internal creative power network. Discover each receiving device only once per battery. */
-    static List<Endpoint> power(World w,BlockPos origin){
-        List<Endpoint> out=new ArrayList<>();Set<BlockPos> seen=new HashSet<>(),ends=new HashSet<>();Set<IEnergyStorage> unique=Collections.newSetFromMap(new IdentityHashMap<IEnergyStorage,Boolean>());ArrayDeque<BlockPos> q=new ArrayDeque<>();seen.add(origin);q.add(origin);
+    static List<Endpoint> power(World w,BlockPos origin){return power(w,origin,null);}
+    static List<Endpoint> power(World w,BlockPos origin,Set<BlockPos> trace){Cache c=cache(w);PowerPath path=c.power.get(origin);if(path==null){path=new PowerPath();path.endpoints=powerFresh(w,origin,path.trace);c.power.put(origin,path);}if(trace!=null)trace.addAll(path.trace);return path.endpoints;}
+    private static List<Endpoint> powerFresh(World w,BlockPos origin,Set<BlockPos> trace){
+        List<Endpoint> out=new ArrayList<>();Set<BlockPos> seen=new HashSet<>(),ends=new HashSet<>();Set<IEnergyStorage> unique=Collections.newSetFromMap(new IdentityHashMap<IEnergyStorage,Boolean>());ArrayDeque<BlockPos> q=new ArrayDeque<>();seen.add(origin);q.add(origin);if(trace!=null)trace.add(origin);
         while(!q.isEmpty()){
             BlockPos p=q.removeFirst();for(EnumFacing f:EnumFacing.VALUES){BlockPos n=p.offset(f);if(!w.isBlockLoaded(n)||n.equals(origin))continue;
                 Block b=w.getBlockState(n).getBlock();
-                if(b==Hardware.POWER_CABLE||b==Hardware.RELAY&&!w.isBlockPowered(n)){if(seen.add(n)){if(seen.size()>LIMIT)return Collections.emptyList();q.addLast(n);}}
-                else if(ends.add(n)){TileEntity t=deviceAt(w,n);if(isPowerDevice(t)){IEnergyStorage e=t.getCapability(CapabilityEnergy.ENERGY,f.getOpposite());if(e!=null&&e.canReceive()&&unique.add(e))out.add(new Endpoint(e));}}
+                if(b==Hardware.POWER_CABLE||b==Hardware.RELAY&&!w.isBlockPowered(n)){if(seen.add(n)){if(seen.size()>LIMIT)return Collections.emptyList();q.addLast(n);if(trace!=null)trace.add(n);}}
+                else if(ends.add(n)){TileEntity t=deviceAt(w,n);if(isPowerDevice(t)){IEnergyStorage e=t.getCapability(CapabilityEnergy.ENERGY,f.getOpposite());if(e!=null&&e.canReceive()&&unique.add(e)){out.add(new Endpoint(e));if(trace!=null){trace.add(n);if(e instanceof Tiles.Buffer)trace.add(((Tiles.Buffer)e).tile.getPos());}}}}
             }
         }
         return out;

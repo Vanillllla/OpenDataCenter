@@ -21,6 +21,8 @@ import java.util.*;
 public final class Tiles {
     public static abstract class Owned extends TileEntity {
         UUID owner;
+        @Override public void onLoad(){super.onLoad();Network.invalidate(world);}
+        @Override public void invalidate(){super.invalidate();Network.invalidate(world);}
         void setOwner(UUID id){owner=id;markDirty();}
         boolean allows(EntityPlayer p){return owner==null||owner.equals(p.getUniqueID())||p.capabilities.isCreativeMode;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);owner=n.hasUniqueId("Owner")?n.getUniqueId("Owner"):null;}
@@ -63,7 +65,7 @@ public final class Tiles {
     public static final class Rack extends InventoryTile {
         final Buffer energy=new Buffer(this,100000);
         final int[] ports=new int[8]; // 0 empty, otherwise bay+1
-        final int[] status=new int[9], work=new int[9], remainder=new int[9];
+        final int[] status=new int[9], work=new int[9], remainder=new int[9], fault=new int[9], cpuUsed=new int[9], gpuUsed=new int[9], ramUsed=new int[9], netUsed=new int[9], powerUsed=new int[9];
         int role=0, enabledMask, miningMask, poweredMask, runningMask, lastPower, revision;
         boolean switchOnline;
         UUID id=UUID.randomUUID();
@@ -80,23 +82,23 @@ public final class Tiles {
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return role!=-1&&i<capacity()&&slots.get(i).isEmpty()&&RackLayout.canInsert(layout(),i,Hardware.rackUnits(s))&&(Hardware.switchTier(s)==0||switchTier()==0);}
         void refund(int count,EntityPlayer player){if(count<=0||world==null||world.isRemote)return;ItemStack stack=new ItemStack(Hardware.PATCH,count);if(player!=null)player.inventory.addItemStackToInventory(stack);if(!stack.isEmpty())net.minecraft.inventory.InventoryHelper.spawnItemStack(world,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,stack);}
         int clearPorts(){return PortMap.clear(ports);}
-        void detach(int i){if(world==null||world.isRemote)return;int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;}
+        void detach(int i){if(world==null||world.isRemote)return;OfflineState.invalidateAt(world,pos);int n=0;if(Hardware.switchTier(slots.get(i))>0)n=clearPorts();else n=PortMap.detach(ports,i);refund(n,null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;}
         @Override public void setInventorySlotContents(int i,ItemStack s){
             if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
             if(!ItemStack.areItemStacksEqual(slots.get(i),s))detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);
         }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
-        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;enabledMask^=bit;if((enabledMask&bit)==0){poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
+        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){poweredMask&=~bit;runningMask&=~bit;}changed();return true;}
         boolean connect(int bay,int port,EntityPlayer p){if(!isServer(bay)||Hardware.nic(slots.get(bay))==0)return false;
             int found=-1;for(int i=0;i<p.inventory.mainInventory.size();i++)if(!p.inventory.mainInventory.get(i).isEmpty()&&p.inventory.mainInventory.get(i).getItem()==Hardware.PATCH){found=i;break;}
-            int result=PortMap.toggle(ports,Hardware.ports(switchTier()),port,bay,found>=0);if(result==PortMap.REJECT)return false;
+            int result=PortMap.toggle(ports,Hardware.ports(switchTier()),port,bay,found>=0);if(result==PortMap.REJECT)return false;OfflineState.invalidateAt(world,pos);
             if(result==PortMap.CONNECTED){p.inventory.mainInventory.get(found).shrink(1);p.inventory.markDirty();}else refund(1,p);changed();return true;
         }
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY&&master()!=null||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){Rack m=master();return c==CapabilityEnergy.ENERGY?(m==null?null:CapabilityEnergy.ENERGY.cast(m.energy)):super.getCapability(c,f);}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setIntArray("Ports",ports);n.setIntArray("Remainder",remainder);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("Remainder",remainder);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
         @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }

@@ -1,0 +1,7 @@
+package odc;
+import java.util.*;
+public final class EconomyEngineTest {
+    static long checks;static void check(boolean b){checks++;if(!b)throw new AssertionError("economy "+checks);}
+    public static void main(String[] args){long[] a={10000,5000,0},b={0,0,0};check(EconomyEngine.transfer(a,b,0,1000));check(a[0]==9000&&b[0]==1000);check(!EconomyEngine.transfer(a,b,2,1000));check(EconomyEngine.exchange(a,1,1000,1500));check(a[0]==10500&&a[1]==4000);check(!EconomyEngine.exchange(a,0,1000,1000));check(EconomyEngine.microReward(160,100,20)==160000);check(EconomyEngine.microReward(160,200,20)==80000);check(EconomyEngine.progress(99990,100)==100000);
+        Random r=new Random(46);for(int i=0;i<25000;i++){long[] x={r.nextInt(100000),r.nextInt(100000),r.nextInt(100000)},y={r.nextInt(100000),r.nextInt(100000),r.nextInt(100000)};int c=r.nextInt(3);long amount=1+r.nextInt(200000),sum=x[c]+y[c],before=x[c];boolean success=EconomyEngine.transfer(x,y,c,amount);check(x[c]+y[c]==sum);check(success==(before>=amount));check(x[c]>=0&&y[c]>=0);int rate=EconomyEngine.rate(100+r.nextInt(6000),i,c);check(c==0?rate==1000:rate>=500&&rate<=5000);int diff=EconomyEngine.difficulty(100+r.nextInt(900),r.nextInt(2000000));check(diff>=100&&diff<=1000);check(EconomyEngine.microReward(100,diff,20)>=EconomyEngine.microReward(100,diff+1,20));}System.out.println("PASS EconomyEngine: 25000 cases, "+checks+" assertions");}
+}

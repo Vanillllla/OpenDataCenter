@@ -18,7 +18,7 @@ final class RackMultiblock {
         boolean keepLowSwitch=low.switchTier()>0;int returned=low.clearPorts()+high.clearPorts();
         for(int i=0;i<4;i++){ItemStack item=high.slots.get(i);if(keepLowSwitch&&Hardware.switchTier(item)>0)InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,item);else low.slots.set(i+5,item);high.slots.set(i,ItemStack.EMPTY);low.remainder[i+5]=high.remainder[i];high.remainder[i]=0;}
         low.enabledMask|=high.enabledMask<<5;low.miningMask|=high.miningMask<<5;low.poweredMask=low.runningMask=0;high.enabledMask=high.miningMask=high.poweredMask=high.runningMask=0;
-        low.role=1;high.role=-1;low.revision++;high.revision++;low.refund(returned,null);low.changed();high.changed();return true;
+        low.role=1;high.role=-1;low.revision++;high.revision++;low.refund(returned,null);low.changed();high.changed();Network.invalidate(w);return true;
     }
     /** Called before the broken tile is removed. Master owns every item exactly once. */
     static void breakRack(World w,BlockPos p){Tiles.Rack r=at(w,p);if(r==null||w.isRemote)return;Tiles.Rack master=r.master();if(master==null)return;

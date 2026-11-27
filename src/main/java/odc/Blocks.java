@@ -27,8 +27,9 @@ final class Blocks {
         @Override public IBlockState getStateFromMeta(int m){return getDefaultState().withProperty(FACING,EnumFacing.byHorizontalIndex(m&3));}
         @Override public int getMetaFromState(IBlockState s){return s.getValue(FACING).getHorizontalIndex();}
         @Override public IBlockState getStateForPlacement(World w,BlockPos p,EnumFacing face,float x,float y,float z,int meta,EntityLivingBase e){return getDefaultState().withProperty(FACING,e.getHorizontalFacing().getOpposite());}
-        @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack item){super.onBlockPlacedBy(w,p,s,e,item);if(!w.isRemote&&e instanceof EntityPlayer){TileEntity t=w.getTileEntity(p);if(t instanceof Tiles.Owned)((Tiles.Owned)t).setOwner(((EntityPlayer)e).getUniqueID());}}
-        @Override public void breakBlock(World w,BlockPos p,IBlockState s){TileEntity t=w.getTileEntity(p);if(!w.isRemote&&t instanceof Tiles.InventoryTile)InventoryHelper.dropInventoryItems(w,p,(Tiles.InventoryTile)t);super.breakBlock(w,p,s);}
+        @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack item){super.onBlockPlacedBy(w,p,s,e,item);Network.invalidate(w);if(!w.isRemote&&e instanceof EntityPlayer){TileEntity t=w.getTileEntity(p);if(t instanceof Tiles.Owned)((Tiles.Owned)t).setOwner(((EntityPlayer)e).getUniqueID());}}
+        @Override public void breakBlock(World w,BlockPos p,IBlockState s){TileEntity t=w.getTileEntity(p);if(!w.isRemote&&t instanceof Tiles.InventoryTile)InventoryHelper.dropInventoryItems(w,p,(Tiles.InventoryTile)t);super.breakBlock(w,p,s);Network.invalidate(w);OfflineState.invalidateAt(w,p);}
+        @Override public void onBlockAdded(World w,BlockPos p,IBlockState s){super.onBlockAdded(w,p,s);Network.invalidate(w);OfflineState.invalidateAt(w,p);}
         @Override public boolean isOpaqueCube(IBlockState s){return false;}
         @Override public boolean isFullCube(IBlockState s){return false;}
         @Override public BlockFaceShape getBlockFaceShape(IBlockAccess w,IBlockState s,BlockPos p,EnumFacing f){return BlockFaceShape.UNDEFINED;}
@@ -46,7 +47,7 @@ final class Blocks {
         @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Rack();}
         @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack i){super.onBlockPlacedBy(w,p,s,e,i);RackMultiblock.placed(w,p);}
         @Override public void breakBlock(World w,BlockPos p,IBlockState s){RackMultiblock.breakRack(w,p);super.breakBlock(w,p,s);}
-        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){if(!w.isRemote){Tiles.Rack r=RackMultiblock.at(w,p);Tiles.Rack m=r==null?null:r.master();if(m!=null&&m.allows(player)){BlockPos q=m.getPos();player.openGui(ODC.instance,0,w,q.getX(),q.getY(),q.getZ());}}return true;}
+        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){if(hand==EnumHand.MAIN_HAND)return RackInteraction.interact(w,p,player,side,y,false);return true;}
         @Override int gui(){return 0;}
     }
     static final class Machine extends Oriented {
@@ -99,8 +100,9 @@ final class Blocks {
         @Override public AxisAlignedBB getBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){s=getActualState(s,w,p);double lo=relay?.25:.375,hi=1-lo;return new AxisAlignedBB(s.getValue(LINK[4])?0:lo,s.getValue(LINK[0])?0:lo,s.getValue(LINK[2])?0:lo,s.getValue(LINK[5])?1:hi,s.getValue(LINK[1])?1:hi,s.getValue(LINK[3])?1:hi);}
         @Nullable @Override public AxisAlignedBB getCollisionBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return getBoundingBox(s,w,p);}
         @Override public void addCollisionBoxToList(IBlockState s,World w,BlockPos p,AxisAlignedBB entityBox,java.util.List<AxisAlignedBB> boxes,@Nullable net.minecraft.entity.Entity entity,boolean actual){s=getActualState(s,w,p);double lo=relay?.25:.375,hi=1-lo;addCollisionBoxToList(p,entityBox,boxes,new AxisAlignedBB(lo,lo,lo,hi,hi,hi));for(EnumFacing f:EnumFacing.VALUES)if(s.getValue(LINK[f.getIndex()]))addCollisionBoxToList(p,entityBox,boxes,new AxisAlignedBB(f==EnumFacing.WEST?0:.375,f==EnumFacing.DOWN?0:.375,f==EnumFacing.NORTH?0:.375,f==EnumFacing.EAST?1:.625,f==EnumFacing.UP?1:.625,f==EnumFacing.SOUTH?1:.625));}
-        void updateRelay(World w,BlockPos p,IBlockState s){if(relay&&!w.isRemote&&s.getValue(ACTIVE)!=w.isBlockPowered(p)){w.setBlockState(p,s.withProperty(ACTIVE,w.isBlockPowered(p)),3);Network.revokeDisconnected(w);}}
-        @Override public void onBlockAdded(World w,BlockPos p,IBlockState s){super.onBlockAdded(w,p,s);updateRelay(w,p,s);}
+        void updateRelay(World w,BlockPos p,IBlockState s){if(relay&&!w.isRemote&&s.getValue(ACTIVE)!=w.isBlockPowered(p)){OfflineState.invalidateAt(w,p);w.setBlockState(p,s.withProperty(ACTIVE,w.isBlockPowered(p)),3);Network.invalidate(w);Network.revokeDisconnected(w);}}
+        @Override public void onBlockAdded(World w,BlockPos p,IBlockState s){super.onBlockAdded(w,p,s);Network.invalidate(w);OfflineState.invalidateAt(w,p);updateRelay(w,p,s);}
+        @Override public void breakBlock(World w,BlockPos p,IBlockState s){super.breakBlock(w,p,s);Network.invalidate(w);OfflineState.invalidateAt(w,p);}
         @Override public void neighborChanged(IBlockState s,World w,BlockPos p,Block b,BlockPos from){super.neighborChanged(s,w,p,b,from);updateRelay(w,p,s);}
     }
 }
