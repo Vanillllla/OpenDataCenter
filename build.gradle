@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.5.3-alpha'
+version = '0.5.4.1-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -82,3 +82,10 @@ task verifyFixedResources(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.FixedResourcesTest'
 }
 check.dependsOn verifyFixedResources
+
+// Shared, side-independent DataOS view model and control geometry.
+task verifyDataOSUi(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.DataOSUiStateTest'
+}
+check.dependsOn verifyDataOSUi

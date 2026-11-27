@@ -12,48 +12,67 @@ import org.lwjgl.opengl.GL11;
 
 /** Light DataOS shell with virtualized, vertically scrolling tables. Coordinates are logical pixels. */
 final class DataOSScreen extends GuiContainer {
-    private static final int W=474, ROW=20, TOP=48, HEADER=20, OVERVIEW_FIXED=268;
+    private static final int W=474, ROW=20, TOP=48, HEADER=20, OVERVIEW_FIXED=268, SERVER_TOP=TOP+22, RESOURCE_FIXED=164;
     private static final int FG=0xff26323d, MUTED=0xff65717e, BLUE=0xff245790, WHITE=0xfffafbfc, EDGE=0xff9faebb, ALT=0xffedf2f7;
     private static final int[] COL={0,84,109,157,189,246,300,343,401,450};
     private final PanelMenu menu;
     private int tab,scroll,requested=-1,viewHeight=220,h=278;private float scale=1;private int originX,originY;
-    private UUID editing,serverDetail;private String groupText="";private int poolPicker=-1,poolScroll,serverScroll;private boolean dragging;private int dragOffset;
+    private UUID editing,serverDetail;private int editAction=2,focus;private String serverSearch="",serverPool="",taskSearch="";private int powerFilter,serverSort=1;private boolean serverDescending;
+    private DataOSWidgets widgets;private NBTTagCompound rendered;private boolean listDrag;private int listDragOffset;private int popup=-1,popupScroll,popupSection,popupFilter;private List<String> popupItems=Collections.emptyList();
+    private final DataOSUiState.History<NavState> navigation=new DataOSUiState.History<>();
+    private static final class NavState {int tab,scroll,taskScroll,detailScroll,serverScroll,section,type,taskSort;boolean taskDescending;UUID server,task,pool;boolean details;String search,host;int[] filters;}
+    private UUID expectedTask;private boolean taskDraftOpen;private int modalDrag,drawnScroll,drawnTaskScroll,drawnDetailScroll,drawnServerScroll;private String hostKey="";private String groupText="";private int poolPicker=-1,poolScroll,serverScroll;private boolean dragging;private int dragOffset;
     private final int[] tabScroll=new int[8];
     DataOSScreen(PanelMenu menu){super(menu);this.menu=menu;}
     private String tr(String en,String ru){return mc.getLanguageManager().getCurrentLanguage().getLanguageCode().equals("ru_ru")?ru:en;}
     private String[] tabs(){return new String[]{tr("Overview","Обзор"),tr("Servers","Серверы"),tr("Tasks","Задачи"),tr("Resources","Ресурсы"),tr("Network","Сеть"),tr("Power","Питание"),tr("Wallet","Кошелёк"),tr("Log","Журнал")};}
     @Override public void initGui(){super.initGui();layout();requested=-1;request();}
-    private void layout(){scale=Math.min(1f,Math.min((width-12f)/W,(height-12f)/220f));scale=Math.max(.1f,scale);h=Math.min(420,Math.max(220,(int)((height-12)/scale)));viewHeight=h-TOP-12;originX=(int)((width-W*scale)/2);originY=(int)((height-h*scale)/2);}
-    private NBTTagCompound data(){return menu.view;}
-    private int count(){return data().getInteger("Tab")==tab?data().getInteger("Count"):0;}
-    private int content(){return tab==0?OVERVIEW_FIXED+HEADER+count()*ROW:tab==1?count()*ROW:0;}
-    private int visibleHeight(){return viewHeight-(tab==1?HEADER:0);}
+    private void layout(){scale=Math.min(1f,Math.min((width-12f)/W,(height-12f)/264f));scale=Math.max(.1f,scale);h=Math.min(420,Math.max(264,(int)((height-12)/scale)));viewHeight=h-TOP-12;originX=(int)((width-W*scale)/2);originY=(int)((height-h*scale)/2);}
+    private NBTTagCompound data(){return rendered==null?menu.view:rendered;}
+    private DataOSUiState.Query query(){return new DataOSUiState.Query(serverSearch,serverPool,powerFilter,serverSort,serverDescending);}
+    private boolean ready(){return data().hasKey("Tab")&&data().getInteger("Tab")==tab&&(tab!=1||query().encode().equals(data().getString("Query")));}
+    private void requestNow(){requested=-1;request();}
+    private int count(){return ready()?data().getInteger("Count"):0;}
+    private int content(){return tab==0?OVERVIEW_FIXED+HEADER+count()*ROW:tab==1?count()*ROW:tab==3?RESOURCE_FIXED+count()*ROW:0;}
+    private int visibleHeight(){return viewHeight-(tab==1?HEADER+22:0);}
     private int maxScroll(){return Math.max(0,content()-visibleHeight());}
-    private void request(){int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;send(0,0,null);}
+    private void request(){int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):tab==3?Math.max(0,(scroll-RESOURCE_FIXED)/ROW):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),0,0,null,tab==1?query().encode():""));}
     private void send(int action,int value,UUID id){RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),action,value,id));}
     private void setScroll(int value){scroll=Math.max(0,Math.min(maxScroll(),value));tabScroll[tab]=scroll;request();}
-    private void changeTab(int next){if(next==tab)return;editing=null;serverDetail=null;poolPicker=-1;clearTaskContext();pending=false;tabScroll[tab]=scroll;tab=next;scroll=tabScroll[tab];requested=-1;request();}
+    private void changeTab(int next){if(next==tab||pending)return;focus=0;poolPicker=-1;popup=-1;confirm=-1;tabScroll[tab]=scroll;tab=next;scroll=tabScroll[tab];requestNow();}
+    private void localTab(int next){tabScroll[tab]=scroll;tab=next;scroll=tabScroll[tab];focus=0;poolPicker=-1;popup=-1;confirm=-1;requestNow();}
+    private NavState capture(){NavState n=new NavState();n.tab=tab;n.scroll=scroll;n.server=serverDetail;n.serverScroll=serverScroll;n.taskScroll=taskScroll;n.detailScroll=detailScroll;n.details=detailsOpen;n.taskSort=taskSort;n.taskDescending=taskDescending;n.search=taskSearch;n.host=hostKey;n.filters=new int[]{tierFilter,ruleFilter,sizeFilter,priceFilter,pauseFilter,timeFilter,sortMode,kindFilter,stateFilter};n.section=data().getInteger("Section");n.type=data().getInteger("SelectedType");n.task=data().getUniqueId("Selected");n.pool=data().hasUniqueId("Pool")?data().getUniqueId("Pool"):TaskConsole.NONE;return n;}
+    private void clearFilters(){taskSort=0;taskDescending=false;taskSearch="";hostKey="";tierFilter=ruleFilter=sizeFilter=priceFilter=pauseFilter=timeFilter=sortMode=kindFilter=stateFilter=0;}
+    private void navServer(UUID id){if(id==null||TaskConsole.NONE.equals(id)||pending||!data().getBoolean("Online"))return;navigation.push(capture());serverDetail=id;serverScroll=0;send(9,0,id);localTab(1);}
+    private void navTask(UUID id){if(taskDraftOpen||id==null||TaskConsole.NONE.equals(id)||pending||!data().getBoolean("Online"))return;navigation.push(capture());clearFilters();clearTaskContext();expectedTask=id;detailsOpen=true;taskScroll=0;send(6,0,id);localTab(2);}
+    private void navPool(UUID id){if(id==null||pending||!data().getBoolean("Online"))return;navigation.push(capture());send(8,0,id);tabScroll[3]=0;localTab(3);scroll=0;requestNow();}
+    private void goBack(){if(pending||taskDraftOpen)return;NavState n=navigation.pop();if(n==null)return;focus=0;editing=null;poolPicker=popup=-1;confirm=-1;serverDetail=n.server;serverScroll=n.serverScroll;taskScroll=n.taskScroll;detailScroll=n.detailScroll;detailsOpen=n.details;taskSort=n.taskSort;taskDescending=n.taskDescending;taskSearch=n.search;hostKey=n.host;int[] f=n.filters;tierFilter=f[0];ruleFilter=f[1];sizeFilter=f[2];priceFilter=f[3];pauseFilter=f[4];timeFilter=f[5];sortMode=f[6];kindFilter=f[7];stateFilter=f[8];expectedTask=null;
+        if(n.tab==2){expectedTask=n.task;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),7,n.section,n.task,Integer.toString(n.type)));}
+        else if(n.tab==1&&n.server!=null)send(9,0,n.server);else if(n.tab==3)send(8,0,n.pool);
+        localTab(n.tab);scroll=n.scroll;requestNow();if(n.tab==1&&n.server==null)send(5,0,TaskConsole.NONE);
+    }
     private int lx(int x){return (int)Math.floor((x-originX)/scale);}private int ly(int y){return (int)Math.floor((y-originY)/scale);}
-    private void rect(int x,int y,int w,int h,int color){if(w>0&&h>0)Gui.drawRect(x,y,x+w,y+h,color);}
-    private void text(String s,int x,int y,int max,int c){if(max>0)fontRenderer.drawString(fontRenderer.trimStringToWidth(s,max),x,y,c);}
-    private void center(String s,int x,int y,int w,int c){s=fontRenderer.trimStringToWidth(s,Math.max(0,w-4));text(s,x+(w-fontRenderer.getStringWidth(s))/2,y,w,c);}
-    private void button(String s,int x,int y,int w,int h,boolean selected,boolean hover){rect(x,y,w,h,selected?0xff527eae:0xff9aa9b8);rect(x+1,y+1,w-2,h-2,selected?0xffd8e9fa:hover?0xffedf5ff:0xffe7ebef);rect(x+1,y+1,w-2,1,0xffffffff);rect(x+1,y+h-2,w-2,1,0xffc0cbd5);center(s,x,y+(h-8)/2,w,FG);}
+    private void rect(int x,int y,int w,int h,int color){DataOSWidgets.rect(x,y,w,h,color);}
+    private void text(String s,int x,int y,int max,int c){widgets.text(s,x,y,max,c);}
+    private void center(String s,int x,int y,int w,int c){widgets.center(s,x,y,w,c);}
+    private void button(String s,int x,int y,int w,int h,boolean selected,boolean hover){widgets.button(s,x,y,w,h,selected,true);}
     private void scissor(int x,int y,int w,int h){double sx=mc.displayWidth/(double)width,sy=mc.displayHeight/(double)height;int l=(int)Math.ceil((originX+x*scale)*sx),r=(int)Math.floor((originX+(x+w)*scale)*sx),b=(int)Math.ceil(mc.displayHeight-(originY+(y+h)*scale)*sy),t=(int)Math.floor(mc.displayHeight-(originY+y*scale)*sy);GL11.glEnable(GL11.GL_SCISSOR_TEST);GL11.glScissor(l,b,Math.max(0,r-l),Math.max(0,t-b));}
-    private NBTTagCompound row(int index){NBTTagCompound d=data();if(d.getInteger("Tab")!=tab)return null;int local=index-d.getInteger("Start");NBTTagList rows=d.getTagList("Rows",10);return local>=0&&local<rows.tagCount()?rows.getCompoundTagAt(local):null;}
+    private NBTTagCompound row(int index){NBTTagCompound d=data();if(!ready())return null;int local=index-d.getInteger("Start");NBTTagList rows=d.getTagList("Rows",10);return local>=0&&local<rows.tagCount()?rows.getCompoundTagAt(local):null;}
     private static String num(long n){return Long.toString(n);}
     private static String money(long n){return String.format(Locale.ROOT,"%.3f",n/1000d);}
     private String pair(long a,long b){return num(a)+" / "+num(b);}
     private String ids(NBTTagCompound r){int[] a=r.getIntArray("Jobs");if(a.length==0)return "—";StringBuilder s=new StringBuilder();for(int id:a){if(s.length()>0)s.append(", ");s.append(id);}return s.toString();}
     private String[] headers(){return new String[]{tr("Name","Название"),"ID","CPU","GPU","RAM",tr("Disk","Диск"),tr("Tasks","Задачи"),tr("Pool","Пул"),tr("Power","Питание")};}
-    @Override public void drawScreen(int mx,int my,float partial){drawDefaultBackground();layout();if(data().getInteger("Tab")==tab&&scroll>maxScroll())setScroll(maxScroll());int x=lx(mx),y=ly(my);GlStateManager.pushMatrix();GlStateManager.translate(originX,originY,0);GlStateManager.scale(scale,scale,1);
-        rect(0,0,W,h,0xff63788d);rect(1,1,W-2,h-2,0xffe7ebef);rect(3,3,W-6,h-6,0xfff2f4f6);rect(4,4,W-8,19,0xff3269a8);text("DataOS",11,10,100,0xffffffff);text(data().getBoolean("Online")?"ONLINE":"OFFLINE",W-62,10,56,0xffffffff);
+    @Override public void drawScreen(int mx,int my,float partial){drawDefaultBackground();rendered=menu.view;layout();if(ready()&&scroll>maxScroll())setScroll(maxScroll());int x=lx(mx),y=ly(my);widgets=new DataOSWidgets(fontRenderer,x,y);GlStateManager.pushMatrix();GlStateManager.translate(originX,originY,0);GlStateManager.scale(scale,scale,1);
+        rect(0,0,W,h,0xff63788d);rect(1,1,W-2,h-2,0xffe7ebef);rect(3,3,W-6,h-6,0xfff2f4f6);rect(4,4,W-8,19,0xff3269a8);text("DataOS",11,10,100,0xffffffff);if(navigation.available())button(tr("< Back","< Назад"),92,6,74,15,false,false);text(data().getBoolean("Online")?"ONLINE":"OFFLINE",W-62,10,56,0xffffffff);
         String[] names=tabs();for(int i=0;i<names.length;i++){int tx=5+i*58;button(names[i],tx,27,57,17,i==tab,x>=tx&&x<tx+57&&y>=27&&y<44);}
         rect(5,TOP,W-10,viewHeight,WHITE);rect(5,TOP,W-10,1,EDGE);rect(5,TOP+viewHeight-1,W-10,1,EDGE);
-        if(tab==0){scissor(6,TOP+1,452,viewHeight-2);overview(TOP-scroll);GL11.glDisable(GL11.GL_SCISSOR_TEST);}
-        else if(tab==1){serverHeader(TOP);scissor(6,TOP+HEADER,452,viewHeight-HEADER-1);int first=scroll/ROW;for(int i=first;i<count()&&TOP+HEADER+i*ROW-scroll<TOP+viewHeight;i++){int yy=TOP+HEADER+i*ROW-scroll;serverRow(i,yy,x,y);}GL11.glDisable(GL11.GL_SCISSOR_TEST);}
+        if(tab==0&&ready()){scissor(6,TOP+1,452,viewHeight-2);overview(TOP-scroll);GL11.glDisable(GL11.GL_SCISSOR_TEST);}
+        else if(tab==1){serverControls();serverHeader(SERVER_TOP);scissor(6,SERVER_TOP+HEADER,452,viewHeight-HEADER-23);int first=scroll/ROW;for(int i=first;i<count()&&SERVER_TOP+HEADER+i*ROW-scroll<TOP+viewHeight;i++){int yy=SERVER_TOP+HEADER+i*ROW-scroll;serverRow(i,yy,x,y);}GL11.glDisable(GL11.GL_SCISSOR_TEST);if(!ready())text(tr("Loading...","Загрузка..."),12,SERVER_TOP+HEADER+8,420,MUTED);}
         else if(tab==2 && data().getInteger("Tab")==2){taskPanel();}else if(tab==3&&data().getInteger("Tab")==3){resourcePanel();}else{text(tr("This tab will be redesigned in the next stage.","Вкладка будет переработана на следующем этапе."),14,TOP+15,430,MUTED);}
-        if(tab==0||tab==1)scrollbar();if(tab==1&&serverDetail!=null)serverWindow();if(poolPicker>=0)poolWindow();GlStateManager.popMatrix();
-        if(tab==1&&serverDetail==null&&y>=TOP+HEADER&&y<TOP+viewHeight&&x>=6+COL[6]&&x<6+COL[7]){NBTTagCompound r=row((y-TOP-HEADER+scroll)/ROW);if(r!=null&&r.getIntArray("Jobs").length>0){List<String> tip=new ArrayList<>();tip.add(tr("Running task IDs","ID запущенных задач"));String a=ids(r);while(a.length()>0){int n=Math.min(a.length(),55);tip.add(a.substring(0,n));a=a.substring(n);}drawHoveringText(tip,mx,my);}}
+        if(tab==0||tab==1||tab==3)scrollbar();if(tab==1&&serverDetail!=null)serverWindow();if(poolPicker>=0)poolWindow();if(popup>=0)drawPopup();if(tab==2&&confirm>=0&&!pending&&!data().getBoolean("Assign"))confirmWindow();GlStateManager.popMatrix();drawnScroll=scroll;drawnTaskScroll=taskScroll;drawnDetailScroll=detailScroll;drawnServerScroll=serverScroll;
+        if(tab==1&&serverDetail==null&&popup<0&&poolPicker<0&&y>=SERVER_TOP+HEADER&&y<TOP+viewHeight&&x>=6&&x<456){NBTTagCompound r=row((y-SERVER_TOP-HEADER+scroll)/ROW);if(r!=null){List<String> tip=new ArrayList<>();if(x<6+COL[1])tip.add(r.getString("Name"));else if(x>=6+COL[7]&&x<6+COL[8])tip.add(r.getString("Pool"));else if(x>=6+COL[6]&&x<6+COL[7]&&r.getIntArray("Jobs").length>0){tip.add(tr("Running task IDs","ID запущенных задач"));String a=ids(r);while(a.length()>0){int n=Math.min(a.length(),55);tip.add(a.substring(0,n));a=a.substring(n);}}else if(x>=6+COL[8])tip.add(r.getBoolean("Editable")?powerLabel(r.getBoolean("Powered")?1:r.getBoolean("Enabled")?3:2):tr("Read-only","Только просмотр"));if(!tip.isEmpty())drawHoveringText(tip,mx,my);}}
+        if(taskDraftOpen&&tab!=2&&y>=27&&y<44&&x>=121&&x<178)drawHoveringText(Collections.singletonList(tr("Resource draft preserved; finish or cancel it before opening another task.","Черновик ресурсов сохранён; завершите или отмените его перед переходом к другой задаче.")),mx,my);
     }
     private void section(String title,int y){rect(11,y,440,17,0xffdce7f1);text(title,16,y+5,430,BLUE);}
     private void overview(int y){NBTTagCompound d=data();section(tr("Infrastructure","Инфраструктура"),y+5);text(tr("Racks: ","Стойки: ")+d.getInteger("Racks")+"      "+tr("Servers: ","Серверы: ")+d.getInteger("Servers")+"      "+tr("Tasks: ","Задачи: ")+d.getInteger("Tasks"),16,y+28,430,FG);
@@ -62,51 +81,63 @@ final class DataOSScreen extends GuiContainer {
         section(tr("Income and balance","Доход и баланс"),y+214);text(tr("Per second","В секунду"),166,y+219,130,BLUE);text(tr("Balance","Баланс"),330,y+219,108,BLUE);for(int i=0;i<2;i++){int yy=y+235+i*14;text(TaskData.COINS[i],16,yy,100,FG);text(money(d.getLong("Income"+i))+" /s",166,yy,130,FG);text(money(d.getLong("Balance"+i)),330,yy,108,BLUE);}
         section(tr("Running and paused tasks","Запущенные и приостановленные задачи"),y+OVERVIEW_FIXED);int base=y+OVERVIEW_FIXED+HEADER;int first=Math.max(0,(TOP-base)/ROW);for(int i=first;i<count()&&base+i*ROW<TOP+viewHeight;i++){int yy=base+i*ROW;NBTTagCompound r=row(i);rect(11,yy,440,ROW-1,i%2==0?ALT:WHITE);if(r==null)continue;text("#"+r.getInteger("Id"),16,yy+6,38,FG);text(title(r.getInteger("Type")),60,yy+6,220,FG);text(r.getBoolean("Enabled")?(r.getInteger("Work")>0?tr("Running","Работает"):tr("Waiting","Ожидает")):tr("Paused","Пауза"),290,yy+6,150,MUTED);}
     }
-    private void serverHeader(int y){rect(6,y,450,HEADER,0xffdce7f1);String[] names=headers();for(int i=0;i<names.length;i++){center(names[i],6+COL[i],y+6,COL[i+1]-COL[i],FG);if(i>0)rect(6+COL[i],y,1,HEADER,EDGE);}}
-    private void serverRow(int i,int y,int mx,int my){rect(6,y,450,ROW-1,i%2==0?ALT:WHITE);NBTTagCompound r=row(i);if(r==null)return;String[] s={r.getString("Name"),num(r.getInteger("Id")),pair(r.getInteger("CPU"),r.getInteger("Cores")),pair(r.getInteger("GPU"),r.getInteger("GPUs")),pair(r.getInteger("RAM"),r.getInteger("RAMTotal")),pair(r.getInteger("Disk"),r.getInteger("DiskTotal")),ids(r)};for(int k=0;k<s.length;k++)center(s[k],6+COL[k],y+6,COL[k+1]-COL[k],FG);
-        boolean edit=editing!=null&&editing.equals(r.getUniqueId("Key"));String group=edit?groupText+"_":r.getString("Pool");button(group,6+COL[7]+2,y+2,COL[8]-COL[7]-4,16,edit,false);boolean on=r.getBoolean("Enabled");int bx=6+COL[8]+2;button(on?tr("OFF","ВЫКЛ"):tr("ON","ВКЛ"),bx+10,y+2,34,16,false,mx>=bx&&mx<bx+44&&my>=y&&my<y+ROW);circle(bx,y+7,r.getBoolean("Powered")?0xff42a852:0xff929ba2);}
-    private NBTTagCompound detailServer(){if(serverDetail==null)return null;NBTTagList rows=data().getTagList("Rows",10);for(int i=0;i<rows.tagCount();i++){NBTTagCompound r=rows.getCompoundTagAt(i);if(serverDetail.equals(r.getUniqueId("Key")))return r;}return null;}
+    private String powerLabel(int n){return new String[]{tr("All power states","Все состояния"),tr("Powered","Работает"),tr("Off","Выключен"),tr("Waiting for power","Нет питания")}[n];}
+    private void serverControls(){widgets.field(serverSearch,tr("Name / ID...","Название / ID..."),7,TOP+3,174,16,focus==1);button((serverPool.isEmpty()?tr("All pools","Все пулы"):serverPool)+" v",184,TOP+3,133,16,false,false);button(powerLabel(powerFilter)+" v",320,TOP+3,112,16,false,false);button("X",435,TOP+3,21,16,false,false);}
+    private void queryChanged(){scroll=0;requestNow();}
+    private void serverHeader(int y){widgets.header(6,y,450,HEADER);String[] names=headers();for(int i=0;i<names.length;i++){center(names[i]+(serverSort==i?(serverDescending?" v":" ^"):""),6+COL[i],y+6,COL[i+1]-COL[i],FG);if(i>0)rect(6+COL[i],y,1,HEADER,EDGE);}}
+    private void serverRow(int i,int y,int mx,int my){widgets.row(i,6,y,450,ROW-1,false);NBTTagCompound r=row(i);if(r==null)return;String[] s={r.getString("Name"),num(r.getInteger("Id")),pair(r.getInteger("CPU"),r.getInteger("Cores")),pair(r.getInteger("GPU"),r.getInteger("GPUs")),pair(r.getInteger("RAM"),r.getInteger("RAMTotal")),pair(r.getInteger("Disk"),r.getInteger("DiskTotal")),ids(r)};for(int k=0;k<s.length;k++)center(s[k],6+COL[k],y+6,COL[k+1]-COL[k],FG);
+        boolean edit=editing!=null&&editing.equals(r.getUniqueId("Key"));String group=edit?groupText+"_":r.getString("Pool");button(group,6+COL[7]+2,y+2,COL[8]-COL[7]-4,16,edit,false);boolean on=r.getBoolean("Enabled");int bx=6+COL[8]+2;widgets.button(on?tr("OFF","ВЫКЛ"):tr("ON","ВКЛ"),bx+10,y+2,34,16,false,r.getBoolean("Editable")&&data().getBoolean("Online"));circle(bx,y+7,r.getBoolean("Powered")?0xff42a852:0xff929ba2);}
+    private NBTTagCompound detailServer(){if(serverDetail==null||data().getInteger("Tab")!=1)return null;NBTTagCompound r=data().getCompoundTag("ServerDetail");return serverDetail.equals(r.getUniqueId("Key"))?r:null;}
+    private void commitServerEdit(){if(editing==null)return;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),editAction,0,editing,groupText));editing=null;}
+    private void closeServer(){serverDetail=null;editing=null;send(5,0,TaskConsole.NONE);}
+    private void openServer(UUID id){serverDetail=id;serverScroll=0;send(5,0,id);}
+    private int serverWindowHeight(){return Math.min(230,viewHeight-6);}
+    private final List<UUID> serverLineJobs=new ArrayList<>();private int serverLineCount,serverLineVisible;
     private void loadBar(String label,long used,long total,String unit,int x,int y,int w){text(label,x,y,90,FG);text(pair(used,total)+" "+unit,x+92,y,122,FG);int bw=Math.max(8,w-220);rect(x+214,y,bw,9,0xffd7dfe7);rect(x+215,y+1,(int)((bw-2)*Math.min(1,Math.max(0,used)/(double)Math.max(1,total))),7,0xff5795c9);}
-    private void serverWindow(){NBTTagCompound r=detailServer();if(r==null){serverDetail=null;return;}int x=30,y=TOP+3,w=414,hh=Math.min(196,viewHeight-6);rect(5,TOP,W-10,viewHeight,0x55000000);rect(x,y,w,hh,EDGE);rect(x+1,y+1,w-2,hh-2,WHITE);rect(x+2,y+2,w-4,16,BLUE);text(r.getString("Name")+"  #"+r.getInteger("Id"),x+8,y+6,w-45,0xffffffff);button("X",x+w-24,y+3,20,14,false,false);text(tr("Pool: ","Пул: ")+r.getString("Pool")+"    "+tr("Tasks: ","Задачи: ")+ids(r),x+8,y+22,w-16,FG);
+    private void serverWindow(){NBTTagCompound r=detailServer();int x=30,y=TOP+3,w=414,hh=serverWindowHeight();rect(5,TOP,W-10,viewHeight,0x55000000);widgets.modal(x,y,w,hh,r==null?tr("Server","Сервер"):r.getString("Name")+"  #"+r.getInteger("Id"));button("X",x+w-24,y+3,20,14,false,false);if(r==null){text(tr("Loading or server unavailable","Загрузка или сервер недоступен"),x+8,y+27,w-16,MUTED);return;}
+        widgets.button(tr("Rename","Имя"),x+8,y+22,65,16,false,r.getBoolean("Editable"));widgets.button(tr("Pool","Пул"),x+76,y+22,58,16,false,r.getBoolean("Editable"));button(tr("Pool: ","Пул: ")+r.getString("Pool")+" >",x+138,y+22,w-146,16,false,false);
+        if(editing!=null&&editing.equals(serverDetail)){widgets.field(groupText,editAction==4?tr("Server name","Название сервера"):tr("Pool name","Название пула"),x+8,y+40,w-80,16,true);button("Enter",x+w-68,y+40,60,16,false,false);}else text(tr("Tasks: ","Задачи: ")+ids(r),x+8,y+44,w-16,FG);
         int[] a=r.getIntArray("DiskUsed"),b=r.getIntArray("DiskTypes");if(a.length!=3||b.length!=3){a=new int[3];b=new int[3];}
         List<String> labels=new ArrayList<>(Arrays.asList("CPU","GPU","RAM","HDD","SSD","M.2",tr("Network","Сеть")));List<Long> used=new ArrayList<>(Arrays.asList((long)r.getInteger("CPU"),(long)r.getInteger("GPU"),(long)r.getInteger("RAM"),(long)a[2],(long)a[1],(long)a[0],(long)r.getInteger("Net")));List<Long> total=new ArrayList<>(Arrays.asList((long)r.getInteger("Cores"),(long)r.getInteger("GPUs"),(long)r.getInteger("RAMTotal"),(long)b[2],(long)b[1],(long)b[0],(long)r.getInteger("NetTotal")));List<String> units=new ArrayList<>(Arrays.asList(tr("cores","ядер"),"","GB","GB","GB","GB","Mb/s"));
         int[] parts=r.getIntArray("Parts");if(parts.length==ServerSpec.COUNT){BitSet cores=BitSet.valueOf(r.getByteArray("CoreMask"));int offset=0;for(int slot:new int[]{ServerSpec.CPU,ServerSpec.CPU2}){Part part=Part.at(parts[slot]);if(part.cores==0)continue;labels.add("CPU "+(slot==ServerSpec.CPU?1:2)+" "+part.name);used.add((long)cores.get(offset,offset+part.cores).cardinality());total.add((long)part.cores);units.add(tr("cores","ядер"));offset+=part.cores;}int gpu=0;for(int slot=ServerSpec.PCIE;slot<ServerSpec.PSU;slot++){Part part=Part.at(parts[slot]);for(int k=0;k<part.chips;k++,gpu++){labels.add("GPU "+gpu+" "+part.name);used.add((r.getInteger("GpuMask")&(1<<gpu))!=0?1L:0L);total.add(1L);units.add(part.gb+" GB VRAM");}}}
-        int visible=Math.max(1,(hh-56)/13);serverScroll=Math.max(0,Math.min(serverScroll,Math.max(0,labels.size()-visible)));for(int i=serverScroll;i<Math.min(labels.size(),serverScroll+visible);i++)loadBar(labels.get(i),used.get(i),total.get(i),units.get(i),x+8,y+36+(i-serverScroll)*13,w-16);text(tr("Power: ","Питание: ")+r.getInteger("Power")+" FE/t   "+tr("Wheel: components","Колесо: компоненты"),x+8,y+hh-13,w-16,FG);
+        serverLineJobs.clear();for(int i=0;i<labels.size();i++)serverLineJobs.add(null);NBTTagList links=r.getTagList("JobLinks",10);for(int i=0;i<links.tagCount();i++){NBTTagCompound j=links.getCompoundTagAt(i);labels.add(tr("Task #","Задача #")+j.getInteger("Id")+" — "+title(j.getInteger("Type")));serverLineJobs.add(j.getUniqueId("Key"));}
+        int visible=Math.max(1,(hh-75)/13);serverLineCount=labels.size();serverLineVisible=visible;serverScroll=DataOSUiState.clamp(serverScroll,0,Math.max(0,labels.size()-visible));for(int i=serverScroll;i<Math.min(labels.size(),serverScroll+visible);i++){int yy=y+60+(i-serverScroll)*13;if(serverLineJobs.get(i)!=null){widgets.row(i,x+8,yy-2,w-24,13,false);text(labels.get(i)+"  >",x+10,yy,w-30,BLUE);}else loadBar(labels.get(i),used.get(i),total.get(i),units.get(i),x+8,yy,w-24);}widgets.scroll(x+w-10,y+59,6,new DataOSUiState.Scroll(visible*13,labels.size()*13),serverScroll*13);text(tr("Power: ","Питание: ")+r.getInteger("Power")+" FE/t",x+8,y+hh-13,w-16,FG);
     }
-
-    private void resourcePanel(){NBTTagCompound d=data();button(tr("Pool: ","Пул: ")+(d.getString("PoolName").isEmpty()?tr("All","Все"):d.getString("PoolName"))+"  v",12,TOP+5,300,18,false,false);String[] labels={"CPU","GPU","RAM","M.2","SSD","HDD",tr("Network (shared)","Сеть (общая)")};String[] units={tr("cores","ядер"),"","GB","GB","GB","GB","Mb/s"};for(int i=0;i<7;i++)loadBar(labels[i],d.getLong("U"+i),d.getLong("T"+i),units[i],16,TOP+34+i*16,434);}
-    private int poolCount(){return data().getTagList("Pools",10).tagCount()+(poolPicker==3?1:0);}
+    private void serverWindowClick(int x,int y){int top=TOP+3;if(DataOSUiState.hit(x,y,420,top+3,24,15)){closeServer();return;}NBTTagCompound r=detailServer();if(r==null)return;if(editing!=null&&DataOSUiState.hit(x,y,376,top+40,60,16)){commitServerEdit();return;}if(DataOSUiState.hit(x,y,38,top+22,65,16)&&r.getBoolean("Editable")){editing=serverDetail;editAction=4;groupText=r.getString("Name");return;}if(DataOSUiState.hit(x,y,106,top+22,58,16)&&r.getBoolean("Editable")){editing=serverDetail;editAction=2;groupText=r.getString("Pool");return;}if(DataOSUiState.hit(x,y,168,top+22,268,16)){navPool(r.getUniqueId("PoolKey"));return;}if(DataOSUiState.hit(x,y,434,top+59,8,serverLineVisible*13)){modalDrag=1;dragModal(y);return;}if(serverScroll==drawnServerScroll&&DataOSUiState.hit(x,y,38,top+60,392,serverLineVisible*13)){int i=serverScroll+(y-top-60)/13;if(i<serverLineJobs.size()&&serverLineJobs.get(i)!=null)navTask(serverLineJobs.get(i));}}
+    private void resourcePanel(){NBTTagCompound d=data();scissor(6,TOP+1,452,viewHeight-2);int y=TOP-scroll;button(tr("Pool: ","Пул: ")+(d.getString("PoolName").isEmpty()?tr("All","Все"):d.getString("PoolName"))+"  v",12,y+5,300,18,false,false);String[] labels={"CPU","GPU","RAM","M.2","SSD","HDD",tr("Network (shared)","Сеть (общая)")};String[] units={tr("cores","ядер"),"","GB","GB","GB","GB","Mb/s"};for(int i=0;i<7;i++)loadBar(labels[i],d.getLong("U"+i),d.getLong("T"+i),units[i],16,y+34+i*16,434);section(tr("Servers and tasks in pool","Серверы и задачи пула"),y+147);int base=y+RESOURCE_FIXED;for(int i=Math.max(0,(TOP-base)/ROW);i<count()&&base+i*ROW<TOP+viewHeight;i++){NBTTagCompound r=row(i);int yy=base+i*ROW;widgets.row(i,11,yy,440,ROW-1,false);if(r==null)continue;text((r.getBoolean("ServerLink")?tr("Server ","Сервер "):tr("Task ","Задача "))+"#"+r.getInteger("Id")+"   "+(r.getBoolean("ServerLink")?r.getString("Name"):title(r.getInteger("Type")))+"  >",16,yy+6,430,BLUE);}GL11.glDisable(GL11.GL_SCISSOR_TEST);}
+    private int poolCount(){return data().getTagList("Pools",10).tagCount()+(poolPicker==3||poolPicker==4?1:0);}
     private int poolVisible(){return Math.max(1,(viewHeight-45)/17);}
-    private void poolWindow(){int x=72,y=TOP+4,w=330,hh=viewHeight-8;rect(5,TOP,W-10,viewHeight,0x55000000);rect(x,y,w,hh,EDGE);rect(x+1,y+1,w-2,hh-2,WHITE);rect(x+2,y+2,w-4,18,BLUE);text(tr("Select pool","Выберите пул"),x+8,y+7,w-40,0xffffffff);button("X",x+w-25,y+3,21,15,false,false);NBTTagList rows=data().getTagList("Pools",10);poolScroll=Math.max(0,Math.min(poolScroll,Math.max(0,poolCount()-poolVisible())));for(int i=poolScroll;i<Math.min(poolCount(),poolScroll+poolVisible());i++){boolean all=poolPicker==3&&i==0;String name=all?tr("All pools","Все пулы"):rows.getCompoundTagAt(i-(poolPicker==3?1:0)).getString("Name");button(name,x+8,y+24+(i-poolScroll)*17,w-16,16,false,false);}if(poolCount()==0)text(tr("Create a pool on a server first.","Сначала задайте пул серверу."),x+8,y+26,w-16,MUTED);}
-    private void poolClick(int x,int y){int top=TOP+4;if(x>=377&&x<402&&y>=top&&y<top+20){poolPicker=-1;return;}if(x<80||x>=394||y<top+24)return;int i=poolScroll+(y-top-24)/17;if(i>=poolCount()||i>=poolScroll+poolVisible())return;int op=poolPicker;UUID key=op==3&&i==0?TaskConsole.NONE:data().getTagList("Pools",10).getCompoundTagAt(i-(op==3?1:0)).getUniqueId("Key");poolPicker=-1;if(op==3)send(3,0,key);else cmd(11,op==13?3:op,key,null);}
+    private void poolWindow(){int x=72,y=TOP+4,w=330,hh=viewHeight-8;rect(5,TOP,W-10,viewHeight,0x55000000);widgets.modal(x,y,w,hh,tr("Select pool","Выберите пул"));button("X",x+w-25,y+3,21,15,false,false);NBTTagList rows=data().getTagList("Pools",10);poolScroll=Math.max(0,Math.min(poolScroll,Math.max(0,poolCount()-poolVisible())));for(int i=poolScroll;i<Math.min(poolCount(),poolScroll+poolVisible());i++){boolean all=(poolPicker==3||poolPicker==4)&&i==0;String name=all?tr("All pools","Все пулы"):rows.getCompoundTagAt(i-(poolPicker==3||poolPicker==4?1:0)).getString("Name");button(name,x+8,y+24+(i-poolScroll)*17,w-24,16,false,false);}widgets.scroll(x+w-14,y+24,7,new DataOSUiState.Scroll(poolVisible()*17,poolCount()*17),poolScroll*17);if(poolCount()==0)text(tr("Create a pool on a server first.","Сначала задайте пул серверу."),x+8,y+26,w-16,MUTED);}
+    private void poolClick(int x,int y){int top=TOP+4;if(x>=377&&x<402&&y>=top&&y<top+20){poolPicker=-1;return;}if(DataOSUiState.hit(x,y,388,top+24,8,poolVisible()*17)){modalDrag=2;dragModal(y);return;}if(x<80||x>=388||y<top+24)return;int i=poolScroll+(y-top-24)/17;if(i>=poolCount()||i>=poolScroll+poolVisible())return;int op=poolPicker;UUID key=(op==3||op==4)&&i==0?TaskConsole.NONE:data().getTagList("Pools",10).getCompoundTagAt(i-((op==3||op==4)?1:0)).getUniqueId("Key");poolPicker=-1;if(op==4){serverPool=i==0?"":data().getTagList("Pools",10).getCompoundTagAt(i-1).getString("Name");queryChanged();}else if(op==3){scroll=0;send(3,0,key);requestNow();}else cmd(11,op==13?3:op,key,null);}
     private int taskScroll,confirm=-1,input;
     private boolean pending;private int sentRevision,seenRevision=Integer.MIN_VALUE,seenActions;
     private String entry="";
     private UUID host=TaskConsole.NONE;
     private String ui(String key){return net.minecraft.client.resources.I18n.format("tasks.odc."+key);}
     private final String[] sections={"active","permanent","offers","contracts","services","history"};
-    private void clearTaskContext(){confirm=-1;input=0;entry="";host=TaskConsole.NONE;detailsOpen=false;detailScroll=0;editScroll=0;editDrag=null;numberKey=null;editorScrollbarDrag=false;}
+    private void clearTaskContext(){expectedTask=null;confirm=-1;input=0;entry="";host=TaskConsole.NONE;detailsOpen=false;detailScroll=0;editScroll=0;editDrag=null;numberKey=null;editorScrollbarDrag=false;}
     private void syncTaskContext(){
         int rev=data().getInteger("Revision"),actions=data().getInteger("Actions");
         if(pending&&rev!=sentRevision)pending=false;
+        if(expectedTask!=null&&expectedTask.equals(data().getUniqueId("Selected")))expectedTask=null;
         if(rev!=seenRevision||actions!=seenActions){confirm=-1;seenRevision=rev;seenActions=actions;}
         if(data().getBoolean("Assign")){if(!host.equals(TaskConsole.NONE)&&detail().getKeySet().isEmpty()){host=TaskConsole.NONE;input=0;}}
-        else if(detail().getKeySet().isEmpty())clearTaskContext();
+        else if(detail().getKeySet().isEmpty()&&expectedTask==null){confirm=-1;input=0;}
         if(!data().getBoolean("Online")){confirm=-1;input=0;}
     }
     private void cmd(int op,int value,UUID key,int[] limits){if(pending||!data().getBoolean("Online"))return;sentRevision=data().getInteger("Revision");pending=true;confirm=-1;RackInteraction.channel.sendToServer(new TaskCommand(menu.windowId,sentRevision,op,value,key,limits));}
     private boolean enabledAction(int i){
-        if(pending||!data().getBoolean("Online"))return false;
+        if(pending||expectedTask!=null||!data().getBoolean("Online"))return false;
         if(data().getBoolean("Assign"))return data().getBoolean("DraftAvailable")&&(i!=2||!detail().getKeySet().isEmpty())&&(i!=3||data().getBoolean("CanCommit"));
         return !detail().getKeySet().isEmpty()&&TaskActions.has(data().getInteger("Actions"),operation(i));
     }
     private int operation(int i){return i==0?(data().getInteger("Section")==2?2:3):i==1?7:i==2?(detail().getLong("Notice")==0?8:9):10;}
-    private void taskButton(String label,int x,int y,int w,int hh,boolean selected,boolean enabled){button(label,x,y,w,hh,selected&&enabled,false);if(!enabled){rect(x+1,y+1,w-2,hh-2,0xffe1e4e7);center(label,x,y+(hh-8)/2,w,0xff929aa2);}}
+    private void taskButton(String label,int x,int y,int w,int hh,boolean selected,boolean enabled){widgets.button(label,x,y,w,hh,selected,enabled);}
 
-    private int tierFilter,ruleFilter,sizeFilter,priceFilter,pauseFilter,timeFilter,sortMode,kindFilter,stateFilter,hostFilter;
+    private int tierFilter,ruleFilter,sizeFilter,priceFilter,pauseFilter,timeFilter,sortMode,kindFilter,stateFilter,taskSort;private boolean taskDescending;
     private List<String> hosts(){
         SortedSet<String> names=new TreeSet<>();NBTTagList all=data().getTagList("Rows",10);
-        for(int i=0;i<all.tagCount();i++)for(String id:all.getCompoundTagAt(i).getString("Machines").split(" "))if(!id.isEmpty())names.add(id);
+        for(int i=0;i<all.tagCount();i++)for(String id:all.getCompoundTagAt(i).getString("HostKeys").split(" "))if(!id.isEmpty())names.add(id);
         return new ArrayList<>(names);
     }
     private String status(NBTTagCompound r){
@@ -120,45 +151,48 @@ final class DataOSScreen extends GuiContainer {
     private final String[] states={"all","accepted","running","waiting","paused","notice","maintenance","interrupted"};
     private NBTTagList taskRows(){
         NBTTagList all=data().getTagList("Rows",10);int sec=data().getInteger("Section");
-        if(data().getBoolean("Assign") || sec!=0 && sec!=2)return all;
+        if(data().getBoolean("Assign"))return all;
         List<String> hosts=hosts();List<NBTTagCompound> rows=new ArrayList<>();
         for(int i=0;i<all.tagCount();i++){NBTTagCompound r=all.getCompoundTagAt(i);int t=r.getInteger("Type"),rule=r.getInteger("Rule");
-            if(tierFilter>0 && Workload.ALL[t].tier!=tierFilter)continue;
-            if(sec==0 && (kindFilter>0 && kindFilter!=(t<9?1:t<21?2:3) || stateFilter>0&&!states[stateFilter].equals(status(r)) || hostFilter>0&&hostFilter<=hosts.size()&&!r.getString("Machines").contains(hosts.get(hostFilter-1))))continue;
+            if(t<0||t>=Workload.ALL.length)continue;if(!DataOSUiState.matches(taskSearch,title(t),r.getString("Company"),r.getString("PoolName"),r.hasKey("Job")?"#"+r.getInteger("Job"):"",r.hasKey("Job")?Integer.toString(r.getInteger("Job")):"",ui(status(r))))continue;
+            if((sec==0||sec==2)&&tierFilter>0 && Workload.ALL[t].tier!=tierFilter)continue;
+            if(sec==0 && (kindFilter>0 && kindFilter!=(t<9?1:t<21?2:3) || stateFilter>0&&!states[stateFilter].equals(status(r)) || !hostKey.isEmpty()&&!Arrays.asList(r.getString("HostKeys").split(" ")).contains(hostKey)))continue;
             if(sec==2 && (ruleFilter>0&&ruleFilter!=rule+1 || sizeFilter>0&&sizeFilter!=r.getInteger("Size")+1 || priceFilter>0&&(priceFilter==2)!=(r.getLong("Fee")>0) || pauseFilter>0&&(pauseFilter==2)!=ContractMarket.CONTINUOUS[rule] || timeFilter>0&&(timeFilter==2)!=ContractMarket.TIMED[rule]))continue;
             rows.add(r);
         }
         if(sec==2 && sortMode>0)rows.sort(Comparator.comparingDouble(r->sortMode==1?-r.getLong("Pay"):sortMode==2?r.getLong("Fee"):sortMode==3?r.getLong("Goal"):sortMode==4?Workload.ALL[r.getInteger("Type")].tier:-(r.getLong("Pay")-r.getLong("Fee"))*Workload.ALL[r.getInteger("Type")].x/r.getLong("Goal")));
+        if(sec!=2||sortMode==0){Comparator<NBTTagCompound> cmp=taskSort==1?Comparator.comparing(r->title(r.getInteger("Type")),String.CASE_INSENSITIVE_ORDER):taskSort==2?Comparator.comparing(this::status):Comparator.comparingInt(r->r.hasKey("Job")?r.getInteger("Job"):r.getInteger("Type"));rows.sort(DataOSUiState.ordered(cmp,Comparator.comparing(r->rowKey(r).toString()),taskDescending));}
         NBTTagList result=new NBTTagList();for(NBTTagCompound r:rows)result.appendTag(r);return result;
     }
     private String[] controls(int sec){
         String all=ui("all");
-        if(sec==0)return new String[]{"T "+(tierFilter==0?all:tierFilter),ui("kind"+kindFilter),ui(states[stateFilter]),hostFilter>0&&hostFilter<=hosts().size()?hosts().get(hostFilter-1):ui("hosts")};
+        if(sec==0)return new String[]{"T "+(tierFilter==0?all:tierFilter),ui("kind"+kindFilter),ui(states[stateFilter]),hostKey.isEmpty()?ui("hosts"):hostKey.substring(0,Math.min(8,hostKey.length()))};
         return new String[]{"T "+(tierFilter==0?all:tierFilter),ruleFilter==0?ui("rules"):ui("rule"+(ruleFilter-1)),ui("size"+sizeFilter),ui("price"+priceFilter),ui("pause"+pauseFilter),ui("time"+timeFilter),ui("sort"+sortMode)};
     }
-    private void filter(int sec,int i){
-        if(i==0)tierFilter=(tierFilter+1)%4;
-        else if(sec==0){if(i==1)kindFilter=(kindFilter+1)%4;if(i==2)stateFilter=(stateFilter+1)%states.length;if(i==3)hostFilter=(hostFilter+1)%(hosts().size()+1);}
-        else if(i==1)ruleFilter=(ruleFilter+1)%9;else if(i==2)sizeFilter=(sizeFilter+1)%6;else if(i==3)priceFilter=(priceFilter+1)%3;else if(i==4)pauseFilter=(pauseFilter+1)%3;else if(i==5)timeFilter=(timeFilter+1)%3;else sortMode=(sortMode+1)%6;
-        taskScroll=0;clearTaskContext();cmd(0,sec,TaskConsole.NONE,null);
+    private List<String> filterOptions(int sec,int i){List<String> result=new ArrayList<>();if(i==0){result.add(ui("all"));for(int k=1;k<=3;k++)result.add("T "+k);return result;}if(sec==0){if(i==1)for(int k=0;k<4;k++)result.add(ui("kind"+k));else if(i==2)for(String st:states)result.add(ui(st));else{result.add(ui("hosts"));for(String host:hosts())result.add(host);}return result;}
+        String prefix=i==1?"rule":i==2?"size":i==3?"price":i==4?"pause":i==5?"time":"sort";int count=i==1?9:i==2?6:i==6?6:3;for(int k=0;k<count;k++)result.add(i==1?(k==0?ui("rules"):ui(prefix+(k-1))):ui(prefix+k));return result;
     }
-    private int rowTop(){int sec=data().getInteger("Section");return !data().getBoolean("Assign")&&(sec==0||sec==2)?86:68;}
+    private void filter(int sec,int i){popup=1;popupSection=sec;popupFilter=i;popupItems=filterOptions(sec,i);popupScroll=0;focus=0;}
+    private void chooseFilter(int k){int sec=popupSection,i=popupFilter;if(i==0)tierFilter=k;else if(sec==0){if(i==1)kindFilter=k;else if(i==2)stateFilter=k;else hostKey=k==0?"":popupItems.get(k);}else if(i==1)ruleFilter=k;else if(i==2)sizeFilter=k;else if(i==3)priceFilter=k;else if(i==4)pauseFilter=k;else if(i==5)timeFilter=k;else sortMode=k;taskScroll=0;confirm=-1;}
+    private int rowTop(){int sec=data().getInteger("Section");return !data().getBoolean("Assign")&&(sec==0||sec==2)?120:102;}
     private int visibleRows(){return Math.max(1,(h-rowTop()-96)/16);}
     private boolean selected(NBTTagCompound r){
         if(data().getBoolean("Assign"))return !host.equals(TaskConsole.NONE)&&host.equals(rowKey(r));
         return TaskActions.matches(data().getUniqueId("Selected"),data().getInteger("SelectedType"),rowKey(r),r.getInteger("Type"));
     }
-    private NBTTagCompound detail(){NBTTagList rows=taskRows();for(int i=0;i<rows.tagCount();i++){NBTTagCompound r=rows.getCompoundTagAt(i);if(selected(r))return r;}return new NBTTagCompound();}
+    private NBTTagCompound detail(){NBTTagList rows=detailsOpen?data().getTagList("Rows",10):taskRows();for(int i=0;i<rows.tagCount();i++){NBTTagCompound r=rows.getCompoundTagAt(i);if(selected(r))return r;}return new NBTTagCompound();}
     private UUID rowKey(NBTTagCompound r){return r.hasUniqueId("Key")?r.getUniqueId("Key"):TaskConsole.NONE;}
     private String title(int type){return net.minecraft.client.resources.I18n.format("task.odc."+type);}
     private boolean detailsOpen;
     private int detailScroll;
     private String decimal(double v){return String.format(Locale.ROOT,"%.3f",v);}
-    private List<String> detailLines(){
+    private final List<UUID> detailLinks=new ArrayList<>();
+    private List<String> detailLines(){detailLinks.clear();
         NBTTagCompound r=detail(),d=data();boolean draft=d.getBoolean("Assign");
         int t=d.getInteger("SelectedType");if(!draft && r.hasKey("Type"))t=r.getInteger("Type");
         List<String> lines=new ArrayList<>();if(t<0||t>=Workload.ALL.length)return lines;
         Workload w=Workload.ALL[t];long now=d.getLong("Now");
+        NBTTagList hosts=r.getTagList("Bindings",10);Set<UUID> unique=new LinkedHashSet<>();for(int i=0;i<hosts.tagCount();i++){NBTTagCompound b=hosts.getCompoundTagAt(i);UUID key=b.getUniqueId("Server");if(unique.add(key)){lines.add(tr("Server: ","Сервер: ")+b.getString("Host")+"  >");detailLinks.add(key);}}
         lines.add(title(t)+"   T"+w.tier+"   "+ui(status(r)));
         lines.add("CPU "+w.cpu+"   GPU "+w.gpu+" × "+w.vram+" GB   RAM "+w.ram+" GB");
         lines.add("Disk "+w.disk+" GB   I/O "+w.io+" MB/s   NET "+w.net+" MB/s   X "+w.x);
@@ -234,13 +268,13 @@ final class DataOSScreen extends GuiContainer {
             EditRow row=rows.get(i);int y=top+i*EDIT_ROW-editScroll;
             if(row.physical==-2){rect(8,y+1,450,22,0xffdce7f1);text((categories.contains(row.kind)?"v  ":">  ")+resourceName(row.kind),13,y+7,275,BLUE);text(sum[row.kind.ordinal()]+" "+unitName(row.kind),348,y+7,105,BLUE);continue;}
             if(row.data==null){text(tr("Loading...","Загрузка..."),22,y+7,180,MUTED);if(pageRequest<0)pageRequest=Math.max(0,row.physical-16);continue;}
-            NBTTagCompound r=row.data;rect(8,y+1,450,22,i%2==0?ALT:WHITE);int max=r.getInteger("Max"),amount=r.getInteger("Amount");UUID key=r.getUniqueId("Key");if(key.equals(editDrag))amount=dragValue;
+            NBTTagCompound r=row.data;widgets.row(i,8,y+1,450,22,false);int max=r.getInteger("Max"),amount=r.getInteger("Amount");UUID key=r.getUniqueId("Key");if(key.equals(editDrag))amount=dragValue;
             if(row.physical==-1){text((key.equals(d.getUniqueId("Expanded"))?"v ":"> ")+familyName(row),12,y+3,215,FG);text(tr("Choose model quantity / click to expand","Количество / раскрыть модель"),18,y+13,205,MUTED);}
             else{text(r.getString("Host"),22,y+3,205,FG);text((row.kind==PoolResources.Kind.NETWORK?"NIC":"slot "+r.getInteger("Slot"))+((row.kind==PoolResources.Kind.CPU||row.kind==PoolResources.Kind.GPU)?" / "+r.getInteger("Unit"):""),24,y+13,205,MUTED);}
             boolean enabled=d.getBoolean("DraftAvailable")&&!pending&&max>0;taskButton("-",229,y+4,17,16,false,enabled&&amount>0);taskButton("+",381,y+4,17,16,false,enabled&&amount<max);
-            rect(250,y+10,127,5,0xffbac6d0);int pos=(int)(119L*amount/Math.max(1,max));rect(250,y+10,pos+4,5,0xff719dcb);rect(250+pos,y+6,8,13,enabled?BLUE:MUTED);text(key.equals(numberKey)?numberText+"_":amount+"/"+max,402,y+7,54,FG);
+            widgets.slider(250,y+6,127,amount,max,enabled);widgets.field(key.equals(numberKey)?numberText:amount+"/"+max,"",400,y+3,56,18,key.equals(numberKey));
         }
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);int max=editorMax(rows),room=Math.max(1,bottom-top);rect(461,top,5,room,0xffdce2e8);int thumb=Math.max(8,(int)(room*(long)room/Math.max(room,rows.size()*EDIT_ROW)));rect(461,top+(max==0?0:(int)((room-thumb)*(long)editScroll/max)),5,thumb,0xff8ca4bb);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);widgets.scroll(461,top,5,new DataOSUiState.Scroll(bottom-top,rows.size()*EDIT_ROW),editScroll);
         if(pageRequest>=0&&!pending&&editDrag==null&&numberKey==null&&!d.getUniqueId("Expanded").equals(TaskConsole.NONE))cmd(14,pageRequest,d.getUniqueId("Expanded"),null);
         text(draftError(d.getString("Error")),12,h-49,450,d.getBoolean("CanCommit")?0xff35764a:0xff9e422e);text(d.getString("Diagnostic"),12,h-38,450,MUTED);
         taskButton(ui("back"),8,h-27,100,18,false,!pending);taskButton(tr("Clear","Сбросить"),114,h-27,100,18,false,!pending&&d.getBoolean("DraftAvailable"));taskButton(tr("Apply / start","Применить / запуск"),280,h-27,184,18,false,!pending&&d.getBoolean("CanCommit"));
@@ -256,25 +290,26 @@ final class DataOSScreen extends GuiContainer {
         if(x>=400&&x<458&&max>0){numberKey=key;numberMax=max;numberText=Integer.toString(amount);return;}
         if(x>=250&&x<377&&max>0){numberKey=null;editDrag=key;dragMax=max;dragValue=sliderValue(x,max);}
     }
-    private void editorDragScroll(int y){int top=editorTop(),room=Math.max(1,editorBottom()-top);editScroll=(int)Math.max(0,Math.min(editorMax(editorRows()),(long)(y-top)*editorMax(editorRows())/room));}
+    private void editorDragScroll(int y){int top=editorTop();DataOSUiState.Scroll s=new DataOSUiState.Scroll(editorBottom()-top,editorRows().size()*EDIT_ROW);editScroll=s.value(y-top-s.thumb/2);}
     private void editorNumberKey(char c,int k){if(k==Keyboard.KEY_ESCAPE){numberKey=null;return;}if(k==Keyboard.KEY_BACK){if(!numberText.isEmpty())numberText=numberText.substring(0,numberText.length()-1);return;}if(k==Keyboard.KEY_DELETE){numberText="";return;}if(k==Keyboard.KEY_RETURN||k==Keyboard.KEY_NUMPADENTER){try{int n=Integer.parseInt(numberText);if(n>=0&&n<=numberMax){UUID key=numberKey;numberKey=null;cmd(12,n,key,null);}}catch(NumberFormatException ignored){}return;}if(c>='0'&&c<='9'&&numberText.length()<10)numberText+=c;}
     private void taskPanel(){
-        syncTaskContext();boolean draft=data().getBoolean("Assign");if(draft){draftPanel();return;}int section=data().getInteger("Section");NBTTagList rows=taskRows();
+        syncTaskContext();boolean draft=data().getBoolean("Assign");taskDraftOpen=draft;if(draft){draftPanel();return;}int section=data().getInteger("Section");NBTTagList rows=taskRows();
         if(detailsOpen){
-            List<String> lines=detailLines();int count=(h-91)/13;detailScroll=Math.max(0,Math.min(detailScroll,lines.size()-count));
-            for(int i=detailScroll;i<Math.min(lines.size(),detailScroll+count);i++)text(lines.get(i),12,55+(i-detailScroll)*13,450,FG);
+            List<String> lines=detailLines();if(expectedTask!=null||detail().getKeySet().isEmpty()){lines=Collections.singletonList(tr("Loading or task unavailable","Загрузка или задача недоступна"));detailLinks.clear();}int count=detailVisible();detailScroll=Math.max(0,Math.min(detailScroll,Math.max(0,lines.size()-count)));
+            for(int i=detailScroll;i<Math.min(lines.size(),detailScroll+count);i++){int yy=55+(i-detailScroll)*13;widgets.row(i,8,yy-2,449,13,false);text(lines.get(i),12,yy,440,i<detailLinks.size()?BLUE:FG);}widgets.scroll(459,53,7,new DataOSUiState.Scroll(count*13,lines.size()*13),detailScroll*13);
             button(ui("back"),8,h-27,100,18,false,false);return;
         }
         for(int i=0;i<6;i++)button(ui(sections[i]),6+i*77,49,75,17,i==section,false);
-        if(rowTop()==86){String[] c=controls(section);int w=455/c.length;for(int i=0;i<c.length;i++)button(c[i],7+i*w,68,w-1,15,false,false);}
+        widgets.field(taskSearch,tr("Search tasks...","Поиск задач..."),7,68,420,15,focus==2);button("X",431,68,25,15,false,false);if(rowTop()==120){String[] c=controls(section);int w=455/c.length;for(int i=0;i<c.length;i++)button(c[i],7+i*w,86,w-1,15,false,false);}
+        widgets.header(7,rowTop()-16,449,15);String[] cols={"ID",tr("Task","Задача"),tr("State","Состояние")};int[] starts={7,57,330},sizes={50,273,126};for(int i=0;i<3;i++)text(cols[i]+(taskSort==i?(taskDescending?" v":" ^"):""),starts[i]+3,rowTop()-12,sizes[i]-6,BLUE);
         taskScroll=Math.max(0,Math.min(taskScroll,rows.tagCount()-visibleRows()));
         for(int n=taskScroll;n<Math.min(rows.tagCount(),taskScroll+visibleRows());n++){
             NBTTagCompound r=rows.getCompoundTagAt(n);int y=rowTop()+(n-taskScroll)*16;
             String name=draft?(r.getBoolean("Chosen")?"[+] ":"[ ] ")+rowKey(r).toString().substring(0,8)+"   CPU "+r.getInteger("CPU")+"   GPU "+r.getInteger("GPU")+"   RAM "+r.getInteger("RAM")+" GB   Disk "+r.getInteger("Disk")+" GB":title(r.getInteger("Type"));
             if(r.hasKey("Company"))name+="   "+r.getString("Company")+"   "+ui("rule"+r.getInteger("Rule"))+"   "+r.getLong("Pay")/1000.0+" NCoin";
-            if(r.hasKey("Job"))name+="   #"+r.getInteger("Job")+"   "+ui(status(r));
-            rect(7,y,456,15,!pending&&selected(r)?0xffcde1fa:n%2==0?ALT:WHITE);text(name,10,y+3,448,FG);
+            widgets.row(n,7,y,449,15,!pending&&selected(r));text(r.hasKey("Job")?"#"+r.getInteger("Job"):"—",10,y+3,44,FG);text(name,60,y+3,267,FG);text(ui(status(r)),333,y+3,119,FG);
         }
+        widgets.scroll(459,rowTop(),7,taskListScroll(),taskScroll*16);
         taskButton(ui("details"),361,h-48,100,16,false,!pending&&data().getBoolean("Online")&&(draft?data().getBoolean("DraftAvailable"):!detail().getKeySet().isEmpty()));int t=data().getInteger("SelectedType"),y=h-90; NBTTagCompound r=detail();
         if(t>=0 && t<Workload.ALL.length&&(draft||!r.getKeySet().isEmpty())&&!pending){Workload w=Workload.ALL[t];text(title(t)+"   T"+w.tier+"   CPU "+w.cpu+"   GPU "+w.gpu+" × "+w.vram+" GB   RAM "+w.ram+" GB",10,y,450,BLUE);
             text("Disk "+w.disk+" GB   I/O "+w.io+" MB/s   NET "+w.net+" MB/s   X "+w.x,10,y+11,450,FG);}
@@ -290,14 +325,17 @@ final class DataOSScreen extends GuiContainer {
     }
     private void taskClick(int x,int y){
         syncTaskContext();
-        if(detailsOpen){if(y>=h-27&&y<h-9&&x>=8&&x<108)detailsOpen=false;return;}
+        if(detailsOpen){if(y>=h-27&&y<h-9&&x>=8&&x<108){if(navigation.available())goBack();else{detailsOpen=false;expectedTask=null;}return;}if(x>=459&&x<467&&y>=53&&y<53+detailVisible()*13){listDrag=true;listDragOffset=detailListScroll().thumb/2;dragTaskList(y);return;}if(detailScroll==drawnDetailScroll&&x>=8&&x<457&&y>=53&&y<53+detailVisible()*13){int i=detailScroll+(y-53)/13;if(i<detailLinks.size())navServer(detailLinks.get(i));}return;}
         if(pending||!data().getBoolean("Online"))return;
         boolean draft=data().getBoolean("Assign");
         if(draft){draftClick(x,y);return;}
         if(x>=361&&x<461&&y>=h-48&&y<h-32){if(draft?data().getBoolean("DraftAvailable"):!detail().getKeySet().isEmpty()){detailsOpen=true;detailScroll=0;}return;}
         if(y>=49&&y<66&&x>=6&&x<468){clearTaskContext();taskScroll=0;cmd(0,(x-6)/77,TaskConsole.NONE,null);return;}
-        if(rowTop()==86&&y>=68&&y<84&&x>=7&&x<462){int sec=data().getInteger("Section");filter(sec,Math.min(controls(sec).length-1,(x-7)/(455/controls(sec).length)));return;}
-        if(x>=7&&x<463&&y>=rowTop()&&y<rowTop()+visibleRows()*16){
+        if(rowTop()==120&&y>=86&&y<102&&x>=7&&x<462){int sec=data().getInteger("Section");filter(sec,Math.min(controls(sec).length-1,(x-7)/(455/controls(sec).length)));return;}
+        if(y>=68&&y<83&&x>=7&&x<457){if(x>=431){taskSearch="";taskScroll=0;focus=0;}else focus=2;return;}focus=0;
+        if(y>=rowTop()-16&&y<rowTop()&&x>=7&&x<456){int next=x<57?0:x<330?1:2;if(next==taskSort)taskDescending=!taskDescending;else{taskSort=next;taskDescending=false;}if(data().getInteger("Section")==2)sortMode=0;taskScroll=0;return;}
+        if(x>=459&&x<467&&y>=rowTop()&&y<rowTop()+visibleRows()*16){listDrag=true;listDragOffset=taskListScroll().thumb/2;dragTaskList(y);return;}
+        if(taskScroll==drawnTaskScroll&&x>=7&&x<456&&y>=rowTop()&&y<rowTop()+visibleRows()*16){
             int index=taskScroll+(y-rowTop())/16;NBTTagList rows=taskRows();clearTaskContext();
             if(index>=rows.tagCount()){cmd(0,data().getInteger("Section"),TaskConsole.NONE,null);return;}
             NBTTagCompound r=rows.getCompoundTagAt(index);
@@ -309,7 +347,7 @@ final class DataOSScreen extends GuiContainer {
         if(draft){
             if(i==0||i==2){entry="";input=i==0?1:2;return;}
             if(i==1){int[] a=new int[6];a[0]=data().getBoolean("Strict")?0:1;cmd(5,data().getInteger("Units"),key,a);}else cmd(6,0,key,null);
-        }else{int op=operation(i);if(op!=3&&confirm!=op){confirm=op;return;}confirm=-1;if(op==2||op==3&&!detail().hasKey("Job")){poolPicker=op==3?13:2;poolScroll=0;return;}cmd(op,0,key,null);}
+        }else{int op=operation(i);if(op!=3){confirm=op;return;}performTaskAction(op,key);}
     }
     private void taskKey(char c,int k){
         syncTaskContext();if(input==0||pending||!enabledAction(input==1?0:2)){input=0;return;}
@@ -326,22 +364,44 @@ final class DataOSScreen extends GuiContainer {
         }catch(NumberFormatException ignored){}return;}if((Character.isDigit(c)||c==','||c=='+'||c=='-')&&entry.length()<70)entry+=c;
     }
     private void circle(int x,int y,int c){rect(x+2,y,3,7,c);rect(x,y+2,7,3,c);rect(x+1,y+1,5,5,c);}
-    private int scrollTop(){return TOP+(tab==1?HEADER:0);}
-    private int thumb(){return Math.max(12,(int)((long)visibleHeight()*visibleHeight()/Math.max(visibleHeight(),content())));}
-    private int thumbY(){return scrollTop()+(maxScroll()==0?0:(int)((long)(visibleHeight()-thumb())*scroll/maxScroll()));}
-    private void scrollbar(){int t=scrollTop();rect(459,t,8,visibleHeight(),0xffdce2e8);rect(460,thumbY(),6,thumb(),0xff8ca4bb);}
-    @Override public void handleMouseInput() throws IOException{super.handleMouseInput();int wheel=Mouse.getEventDWheel();if(poolPicker>=0){if(wheel!=0)poolScroll=Math.max(0,Math.min(Math.max(0,poolCount()-poolVisible()),poolScroll-Integer.signum(wheel)*3));return;}if(serverDetail!=null){if(wheel!=0)serverScroll=Math.max(0,serverScroll-Integer.signum(wheel)*3);return;}if(tab==2 && wheel!=0){if(data().getBoolean("Assign")){editScroll=Math.max(0,Math.min(editorMax(editorRows()),editScroll-Integer.signum(wheel)*EDIT_ROW*3));return;}if(detailsOpen)detailScroll+=wheel>0?-3:3;else taskScroll+=wheel>0?-3:3;return;}if(tab==2){taskScroll-=Integer.signum(wheel)*2;return;}if(wheel!=0&&(tab==0||tab==1)){int x=lx(Mouse.getEventX()*width/mc.displayWidth),y=ly(height-Mouse.getEventY()*height/mc.displayHeight-1);if(x>=5&&x<W-5&&y>=TOP&&y<TOP+viewHeight)setScroll(scroll-(wheel>0?1:-1)*ROW*3);}}
+    private int scrollTop(){return TOP+(tab==1?HEADER+22:0);}
+    private int thumb(){return mainScroll().thumb;}
+    private int thumbY(){return scrollTop()+mainScroll().position(scroll);}
+    private void scrollbar(){widgets.scroll(459,scrollTop(),8,mainScroll(),scroll);}
+    private DataOSUiState.Scroll mainScroll(){return new DataOSUiState.Scroll(visibleHeight(),content());}
+    private int detailVisible(){return Math.max(1,(h-91)/13);}
+    private DataOSUiState.Scroll taskListScroll(){return new DataOSUiState.Scroll(visibleRows()*16,taskRows().tagCount()*16);}
+    private DataOSUiState.Scroll detailListScroll(){return new DataOSUiState.Scroll(detailVisible()*13,detailLines().size()*13);}
+    private void dragTaskList(int y){if(detailsOpen)detailScroll=detailListScroll().value(y-53-listDragOffset)/13;else taskScroll=taskListScroll().value(y-rowTop()-listDragOffset)/16;}
+    private int popupTop(){return TOP+22;}
+    private int popupVisible(){return Math.min(popupItems.size(),Math.max(1,(viewHeight-48)/17));}
+    private void drawPopup(){int x=194,y=popupTop(),w=260,hh=24+popupVisible()*17;widgets.modal(x,y,w,hh,popup==0?tr("Power state","Состояние питания"):tr("Select filter","Выберите фильтр"));button("X",x+w-24,y+3,20,14,false,false);popupScroll=DataOSUiState.clamp(popupScroll,0,Math.max(0,popupItems.size()-popupVisible()));for(int i=popupScroll;i<Math.min(popupItems.size(),popupScroll+popupVisible());i++)button(popupItems.get(i),x+5,y+20+(i-popupScroll)*17,w-18,16,popup==0&&powerFilter==i,false);widgets.scroll(x+w-10,y+20,7,new DataOSUiState.Scroll(popupVisible()*17,popupItems.size()*17),popupScroll*17);}
+    private void popupClick(int x,int y){int top=popupTop();if(DataOSUiState.hit(x,y,430,top+3,20,14)){popup=-1;return;}if(DataOSUiState.hit(x,y,444,top+20,8,popupVisible()*17)){modalDrag=3;dragModal(y);return;}if(DataOSUiState.hit(x,y,199,top+20,242,popupVisible()*17)){int k=popupScroll+(y-top-20)/17;if(popup==0){powerFilter=k;queryChanged();}else chooseFilter(k);}popup=-1;}
+    private void dragModal(int y){if(modalDrag==1){DataOSUiState.Scroll s=new DataOSUiState.Scroll(serverLineVisible*13,serverLineCount*13);serverScroll=s.value(y-(TOP+3+59)-s.thumb/2)/13;}else if(modalDrag==2){DataOSUiState.Scroll s=new DataOSUiState.Scroll(poolVisible()*17,poolCount()*17);poolScroll=s.value(y-(TOP+4+24)-s.thumb/2)/17;}else if(modalDrag==3){DataOSUiState.Scroll s=new DataOSUiState.Scroll(popupVisible()*17,popupItems.size()*17);popupScroll=s.value(y-(popupTop()+20)-s.thumb/2)/17;}}
+    private void performTaskAction(int op,UUID key){confirm=-1;if(op==2||op==3&&!detail().hasKey("Job")){poolPicker=op==3?13:2;poolScroll=0;return;}cmd(op,0,key,null);}
+    private void confirmWindow(){int x=87,y=TOP+28;rect(5,TOP,W-10,viewHeight,0x55000000);widgets.modal(x,y,300,77,tr("Confirm action","Подтвердите действие"));text(ui(confirm==2?"accept":confirm==7?"pause":confirm==8?"maintenance":confirm==9?"undo":"cancel")+" — "+title(data().getInteger("SelectedType")),x+8,y+25,284,FG);if(confirm==2)text(ui("fee")+" "+decimal(detail().getLong("Fee")/1000.)+" NCoin",x+8,y+37,284,MUTED);button(tr("Confirm","Подтвердить"),x+8,y+51,138,18,false,false);button(tr("Back","Назад"),x+154,y+51,138,18,false,false);}
+    private void confirmClick(int x,int y){int op=confirm;confirm=-1;int top=TOP+28;if(DataOSUiState.hit(x,y,95,top+51,138,18)&&TaskActions.has(data().getInteger("Actions"),op)&&!detail().getKeySet().isEmpty()&&data().getBoolean("Online"))performTaskAction(op,data().getUniqueId("Selected"));}
+    @Override public void handleMouseInput() throws IOException{super.handleMouseInput();int wheel=Mouse.getEventDWheel();if(wheel==0)return;int step=Integer.signum(wheel)*3;if(popup>=0){popupScroll=DataOSUiState.clamp(popupScroll-step,0,Math.max(0,popupItems.size()-popupVisible()));return;}if(tab==2&&confirm>=0)return;if(poolPicker>=0){poolScroll=DataOSUiState.clamp(poolScroll-step,0,Math.max(0,poolCount()-poolVisible()));return;}if(tab==1&&serverDetail!=null){serverScroll=DataOSUiState.clamp(serverScroll-step,0,Math.max(0,serverLineCount-serverLineVisible));return;}if(tab==2){if(data().getBoolean("Assign")){editScroll=DataOSUiState.clamp(editScroll-step*EDIT_ROW,0,editorMax(editorRows()));return;}if(detailsOpen)detailScroll=Math.max(0,detailScroll-step);else taskScroll=Math.max(0,taskScroll-step);return;}if(ready()&&(tab==0||tab==1||tab==3)){int x=lx(Mouse.getEventX()*width/mc.displayWidth),y=ly(height-Mouse.getEventY()*height/mc.displayHeight-1);if(x>=5&&x<W-5&&y>=TOP&&y<TOP+viewHeight)setScroll(scroll-step*ROW);}}
     @Override protected void mouseClicked(int mx,int my,int b)throws IOException{int x=lx(mx),y=ly(my);if(b!=0)return;
-        if(poolPicker>=0){poolClick(x,y);return;}if(serverDetail!=null){if(x>=420&&x<444&&y>=TOP+3&&y<TOP+21)serverDetail=null;return;}
+        if(popup>=0){popupClick(x,y);return;}if(poolPicker>=0){poolClick(x,y);return;}if(tab==2&&confirm>=0){confirmClick(x,y);return;}
+        if(DataOSUiState.hit(x,y,92,6,74,15)&&navigation.available()){goBack();return;}
+        if(tab==1&&serverDetail!=null){serverWindowClick(x,y);return;}
         if(y>=27&&y<44&&x>=5&&x<469){changeTab((x-5)/58);return;}
-        if(tab==3&&data().getInteger("Tab")==3&&x>=12&&x<312&&y>=TOP+5&&y<TOP+23){poolPicker=3;poolScroll=0;return;}
-        if(tab==2&&data().getInteger("Tab")==2){taskClick(x,y);return;}
-        if((tab==0||tab==1)&&x>=459&&x<=467&&y>=scrollTop()&&y<scrollTop()+visibleHeight()){dragging=true;dragOffset=y-thumbY();if(dragOffset<0||dragOffset>=thumb()){dragOffset=thumb()/2;drag(y);}return;}
-        if(tab==1&&x>=6&&x<456&&y>=TOP+HEADER&&y<TOP+viewHeight){NBTTagCompound r=row((y-TOP-HEADER+scroll)/ROW);if(r!=null){if(x>=6+COL[8]){if(r.getBoolean("Editable"))send(1,r.getBoolean("Enabled")?0:1,r.getUniqueId("Key"));return;}if(x>=6+COL[7]&&r.getBoolean("Editable")){editing=r.getUniqueId("Key");groupText=r.getString("Pool");return;}editing=null;serverDetail=r.getUniqueId("Key");serverScroll=0;return;}}editing=null;}
-    private void drag(int y){int room=visibleHeight()-thumb();if(room>0)setScroll((int)((long)(y-scrollTop()-dragOffset)*maxScroll()/room));}
-    @Override protected void mouseClickMove(int x,int y,int button,long time){if(editorScrollbarDrag){editorDragScroll(ly(y));return;}if(editDrag!=null){dragValue=sliderValue(lx(x),dragMax);return;}if(dragging)drag(ly(y));}
-    @Override protected void mouseReleased(int x,int y,int state){dragging=false;editorScrollbarDrag=false;if(editDrag!=null){UUID key=editDrag;int value=dragValue;editDrag=null;if(tab==2&&data().getBoolean("Assign"))cmd(12,value,key,null);}}
-    @Override protected void keyTyped(char c,int k)throws IOException{if(poolPicker>=0){if(k==Keyboard.KEY_ESCAPE)poolPicker=-1;return;}if(serverDetail!=null){if(k==Keyboard.KEY_ESCAPE)serverDetail=null;return;}if(tab==2&&data().getBoolean("Assign")&&numberKey!=null){editorNumberKey(c,k);return;}if(tab==2&&data().getBoolean("Assign")&&k==Keyboard.KEY_ESCAPE){cmd(0,data().getInteger("Section"),TaskConsole.NONE,null);return;}if(tab==2&&input!=0){taskKey(c,k);return;}if(editing!=null){if(k==Keyboard.KEY_ESCAPE){editing=null;return;}if(k==Keyboard.KEY_RETURN||k==Keyboard.KEY_NUMPADENTER){RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),2,0,editing,groupText));editing=null;return;}if(k==Keyboard.KEY_BACK){if(!groupText.isEmpty())groupText=groupText.substring(0,groupText.length()-1);return;}if(k==Keyboard.KEY_DELETE){groupText="";return;}if(!Character.isISOControl(c)&&c!=167&&groupText.length()<32)groupText+=c;return;}super.keyTyped(c,k);}
+        if(tab==3&&ready()){if(DataOSUiState.hit(x,y,12,TOP-scroll+5,300,18)&&y>=TOP&&y<TOP+viewHeight){poolPicker=3;poolScroll=0;return;}if(scroll==drawnScroll&&x>=11&&x<451&&y>=TOP&&y<TOP+viewHeight&&y>=TOP-scroll+RESOURCE_FIXED){NBTTagCompound r=row((y-TOP+scroll-RESOURCE_FIXED)/ROW);if(r!=null){if(r.getBoolean("ServerLink"))navServer(r.getUniqueId("Key"));else navTask(r.getUniqueId("Key"));}return;}}
+        if(tab==2&&ready()){taskClick(x,y);return;}
+        if((tab==0||tab==1||tab==3)&&x>=459&&x<=467&&y>=scrollTop()&&y<scrollTop()+visibleHeight()){dragging=true;dragOffset=y-thumbY();if(dragOffset<0||dragOffset>=thumb()){dragOffset=thumb()/2;drag(y);}return;}
+        if(tab==1){if(DataOSUiState.hit(x,y,7,TOP+3,174,16)){focus=1;return;}focus=0;if(DataOSUiState.hit(x,y,184,TOP+3,133,16)){poolPicker=4;poolScroll=0;return;}if(DataOSUiState.hit(x,y,320,TOP+3,112,16)){popup=0;popupScroll=0;popupItems=Arrays.asList(powerLabel(0),powerLabel(1),powerLabel(2),powerLabel(3));return;}if(DataOSUiState.hit(x,y,435,TOP+3,21,16)){serverSearch=serverPool="";powerFilter=0;serverSort=1;serverDescending=false;queryChanged();return;}
+            if(y>=SERVER_TOP&&y<SERVER_TOP+HEADER&&x>=6&&x<456){for(int i=0;i<COL.length-1;i++)if(x>=6+COL[i]&&x<6+COL[i+1]){if(serverSort==i)serverDescending=!serverDescending;else{serverSort=i;serverDescending=false;}queryChanged();return;}}
+            if(ready()&&scroll==drawnScroll&&x>=6&&x<456&&y>=SERVER_TOP+HEADER&&y<TOP+viewHeight){NBTTagCompound r=row((y-SERVER_TOP-HEADER+scroll)/ROW);if(r!=null){if(x>=6+COL[8]){if(r.getBoolean("Editable")&&data().getBoolean("Online"))send(1,r.getBoolean("Enabled")?0:1,r.getUniqueId("Key"));return;}editing=null;openServer(r.getUniqueId("Key"));if(x>=6+COL[7]&&r.getBoolean("Editable")){editing=serverDetail;editAction=2;groupText=r.getString("Pool");}return;}}}
+    }
+    private void drag(int y){setScroll(mainScroll().value(y-scrollTop()-dragOffset));}
+    @Override protected void mouseClickMove(int x,int y,int button,long time){if(modalDrag!=0){dragModal(ly(y));return;}if(listDrag){dragTaskList(ly(y));return;}if(editorScrollbarDrag){editorDragScroll(ly(y));return;}if(editDrag!=null){dragValue=sliderValue(lx(x),dragMax);return;}if(dragging)drag(ly(y));}
+    @Override protected void mouseReleased(int x,int y,int state){dragging=false;listDrag=false;modalDrag=0;editorScrollbarDrag=false;if(editDrag!=null){UUID key=editDrag;int value=dragValue;editDrag=null;if(tab==2&&data().getBoolean("Assign"))cmd(12,value,key,null);}}
+    @Override protected void keyTyped(char c,int k)throws IOException{if(popup>=0){if(k==Keyboard.KEY_ESCAPE)popup=-1;return;}if(poolPicker>=0){if(k==Keyboard.KEY_ESCAPE)poolPicker=-1;return;}if(tab==2&&confirm>=0){if(k==Keyboard.KEY_ESCAPE)confirm=-1;return;}
+        if(tab==1&&editing!=null){if(k==Keyboard.KEY_ESCAPE){editing=null;return;}if(k==Keyboard.KEY_RETURN||k==Keyboard.KEY_NUMPADENTER){commitServerEdit();return;}groupText=DataOSUiState.edit(groupText,c,k==Keyboard.KEY_BACK,k==Keyboard.KEY_DELETE,32);return;}
+        if(tab==1&&serverDetail!=null){if(k==Keyboard.KEY_ESCAPE)closeServer();return;}
+        if(focus!=0){if(k==Keyboard.KEY_ESCAPE||k==Keyboard.KEY_RETURN||k==Keyboard.KEY_NUMPADENTER){focus=0;return;}if(focus==1){String n=DataOSUiState.edit(serverSearch,c,k==Keyboard.KEY_BACK,k==Keyboard.KEY_DELETE,64);if(!n.equals(serverSearch)){serverSearch=n;queryChanged();}}else{String n=DataOSUiState.edit(taskSearch,c,k==Keyboard.KEY_BACK,k==Keyboard.KEY_DELETE,64);if(!n.equals(taskSearch)){taskSearch=n;taskScroll=0;confirm=-1;}}return;}
+        if(tab==2&&data().getBoolean("Assign")&&numberKey!=null){editorNumberKey(c,k);return;}if(tab==2&&data().getBoolean("Assign")&&k==Keyboard.KEY_ESCAPE){cmd(0,data().getInteger("Section"),TaskConsole.NONE,null);return;}if(tab==2&&input!=0){taskKey(c,k);return;}if(k==Keyboard.KEY_ESCAPE&&navigation.available()){goBack();return;}super.keyTyped(c,k);}
     @Override protected void drawGuiContainerBackgroundLayer(float f,int x,int y){}
     @Override public boolean doesGuiPauseGame(){return false;}
 }
