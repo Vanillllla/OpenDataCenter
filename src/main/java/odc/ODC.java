@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.4.2-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.4.3-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -27,7 +27,7 @@ public final class ODC {
         c.load();
         requireEnergy=c.getBoolean("requireEnergy","energy",true,"Require electricity for computers, racks and network devices.");
         batteryOutput=c.getInt("creativeBatteryOutput","energy",50000,1,1000000,"Maximum FE per tick from each creative battery.");
-        rewardDivisor=c.getInt("rewardDivisor","mining",20,1,1000000,"Divisor for hash credit; integer milli-NTC accounting.");
+        rewardDivisor=c.getInt("rewardDivisor","mining",20,1,1000000,"Divisor for hash credit; integer milli-KriptoCoin accounting.");
         c.save();
         market=Market.load(e.getModConfigurationDirectory());
         GameRegistry.registerTileEntity(Tiles.Rack.class,new ResourceLocation(ID,"rack"));

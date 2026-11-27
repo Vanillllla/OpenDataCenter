@@ -1,3 +1,10 @@
+# 0.4.3-alpha — DataOS stage 1
+
+- New scrollable Overview and Servers tabs.
+- Network-local numeric IDs, group input, power toggle.
+- CPU core reservations, per-type disk statistics, two-currency ledger.
+- Other tabs deferred; not compiled.
+
 # Changelog
 
 ## 0.4.1-alpha — Light DataOS

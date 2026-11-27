@@ -1,0 +1,7 @@
+# DataOS 0.4.3 — stage 1 (work in progress)
+Only Overview and Servers are active in the new terminal. Other tabs are placeholders pending specifications. No migration, no Forge build performed.
+- Scroll vertically by wheel or scrollbar. Tables use a 32-row server-side viewport rather than horizontal pages. Group cells accept integer input, Enter saves, Delete clears, 0 means no group.
+- Display server IDs are zero-based in each currently discovered data network, ordered by rack coordinates and bay. Topology or membership changes can renumber IDs. Internal UUIDs guard actions against stale row numbers. Network display includes all connected racks; existing ownership permissions still govern operations. Partially unloaded topologies remain subject to previous network discovery limitations.
+- CPU allocation uses whole physical cores, one supporting core for GPU work per server/task. CPU performance is derived from existing per-tier CU, GPU-exclusive allocation retained. Storage currently uses a deterministic M.2/PCIe NVMe → SATA SSD → HDD reservation order until task-specific storage requirements are defined.
+- NCoin is paid by bank/AI services; KriptoCoin by existing mining algorithms. This is a temporary earning rule until the other tabs and economy are specified. Two wallet entries only. Prior economy/task tests refer to the old API and are not run in this staged release.
+- World block assets unchanged except version metadata. Existing world rendering unchanged.

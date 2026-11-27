@@ -38,6 +38,11 @@ public final class ServerSpec {
     public static int ramGB(int[] p){int n=0;int[] v={0,4,16,32,64};for(int i=RAM;i<SATA;i++)if(p[i]>=0&&p[i]<v.length)n+=v[p[i]];return n;}
     public static int diskGB(int[] p){int n=0;int[] sata={0,512,2048,256,1024,4096,8192,2048},nvme={0,512,2048,4096};for(int i=SATA;i<NVME;i++)if(p[i]>=0&&p[i]<sata.length)n+=sata[p[i]];for(int i=NVME;i<PCIE;i++)if(p[i]>=0&&p[i]<nvme.length)n+=nvme[p[i]];for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)n+=4096;return n;}
     public static int diskCount(int[] p){int n=0;for(int i=SATA;i<PCIE;i++)if(p[i]>0)n++;for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)n++;return n;}
+    public static int cpuCores(int tier){return tier==1?4:tier==2?8:tier==3?16:0;}
+    public static int cpuCores(int[] p){return cpuCores(p[CPU])+cpuCores(p[CPU2]);}
+    // Storage order: M.2 / PCIe NVMe, SATA SSD, HDD. Generic disk requests reserve SSD first.
+    public static int[] storageGB(int[] p){int[] v=new int[3];int[] sata={0,512,2048,256,1024,4096,8192,2048},nvme={0,512,2048,4096};for(int i=SATA;i<NVME;i++){int t=p[i];if(t>0&&t<sata.length)v[t==1||t==2||t==5||t==6?2:1]+=sata[t];}for(int i=NVME;i<PCIE;i++)if(p[i]>0&&p[i]<nvme.length)v[0]+=nvme[p[i]];for(int i=PCIE;i<PSU;i++)if(p[i]==PCIE_SSD)v[0]+=4096;return v;}
+    public static int[] allocatedStorage(int[] p,int used){int[] v=storageGB(p);for(int i=0;i<3;i++){v[i]=Math.min(v[i],Math.max(0,used));used-=v[i];}return v;}
     public static int cpuCU(int tier){return tier==1?40:tier==2?160:tier==3?480:0;}
     public static int cpuWatts(int tier){return tier==1?8:tier==2?20:tier==3?55:0;}
     public static int cpuCU(int[] p){return cpuCU(p[CPU])+cpuCU(p[CPU2]);}

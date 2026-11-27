@@ -18,7 +18,7 @@ public final class Menus {
         private PanelMenu panel(int id,EntityPlayer p,World w,int x,int y,int z){TileEntity t=w.getTileEntity(new BlockPos(x,y,z));if(id==CONTROL&&!(t instanceof Tiles.Computer)||id!=CONTROL&&!(t instanceof Tiles.Rack))return null;Tiles.Owned a=(Tiles.Owned)t;if(!w.isRemote&&(!a.allows(p)||p.getDistanceSq(x+.5,y+.5,z+.5)>64))return null;if(id!=CONTROL){Tiles.Rack r=(Tiles.Rack)t;int bay=id%20;if(!w.isRemote&&(bay>=r.capacity()||(id<40?!r.isServer(bay):Hardware.switchTier(r.slots.get(bay))==0)))return null;}return new PanelMenu(id,p,a);}
         private boolean isPanel(int id){return id==CONTROL||id>=20&&id<=28||id>=40&&id<=48;}
         @Override public Object getServerGuiElement(int id,EntityPlayer p,World w,int x,int y,int z){return isPanel(id)?panel(id,p,w,x,y,z):menu(id,p,w,x,y,z);}
-        @Override public Object getClientGuiElement(int id,EntityPlayer p,World w,int x,int y,int z){if(isPanel(id)){PanelMenu a=panel(id,p,w,x,y,z);return a==null?null:new PanelScreen(a);}Menu m=menu(id,p,w,x,y,z);return m==null?null:new Client.Screen(m);}
+        @Override public Object getClientGuiElement(int id,EntityPlayer p,World w,int x,int y,int z){if(isPanel(id)){PanelMenu a=panel(id,p,w,x,y,z);return a==null?null:a.type==0?new DataOSScreen(a):new PanelScreen(a);}Menu m=menu(id,p,w,x,y,z);return m==null?null:new Client.Screen(m);}
     }
     /** A write-through inventory view. Never stores a duplicate of the chassis contents. */
     static final class Parts extends InventoryBasic {
