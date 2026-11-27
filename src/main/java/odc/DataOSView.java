@@ -38,9 +38,9 @@ final class DataOSView {
         dashboard.statistics(out,pool);if(menu.tab==0||menu.tab==6)dashboard.finances(out);if(menu.tab==0)dashboard.recent(out);
         List<NBTTagCompound> listing=new ArrayList<>();
         if(menu.tab==1){out.setTag("Pools",poolRows(dashboard.pools));out.setString("Query",menu.serverQuery.encode());DataOSUiState.Query q=menu.serverQuery;
-            for(int i=0;i<servers.size();i++){Menus.Target t=servers.get(i);NBTTagCompound summary=serverSummary(menu,c,data,t,i,dashboard);if(q.accepts(summary.getString("Name"),i,summary.getString("Pool"),summary.getBoolean("Enabled"),summary.getBoolean("Powered")))listing.add(summary);}
+            for(int i=0;i<servers.size();i++){Menus.Target t=servers.get(i);if(!t.rack.networkConnected(t.bay))continue;NBTTagCompound summary=serverSummary(menu,c,data,t,i,dashboard);if(q.accepts(summary.getString("Name"),i,summary.getString("Pool"),summary.getBoolean("Enabled"),summary.getBoolean("Powered")))listing.add(summary);}
             listing.sort(DataOSUiState.ordered(serverOrder(q.column),Comparator.comparingInt(r->r.getInteger("Id")),q.descending));
-            if(!TaskConsole.NONE.equals(menu.detailServer))for(int i=0;i<servers.size();i++)if(menu.detailServer.equals(ClusterScheduler.serverId(servers.get(i).item))){out.setTag("ServerDetail",serverRow(menu,c,data,servers.get(i),i,jobs,dashboard));break;}out.setUniqueId("DetailRequest",menu.detailServer);
+            if(!TaskConsole.NONE.equals(menu.detailServer))for(int i=0;i<servers.size();i++)if(servers.get(i).rack.networkConnected(servers.get(i).bay)&&menu.detailServer.equals(ClusterScheduler.serverId(servers.get(i).item))){out.setTag("ServerDetail",serverRow(menu,c,data,servers.get(i),i,jobs,dashboard));break;}out.setUniqueId("DetailRequest",menu.detailServer);
         }else if(menu.tab==0){for(TaskData.Job j:jobs){if(!DashboardView.current(j)||!j.enabled&&!j.terms.hasKey("Start")&&!j.terms.getBoolean("Fault")&&j.bindings.isEmpty())continue;NBTTagCompound row=jobLink(j);row.setBoolean("Enabled",j.enabled);row.setInteger("Work",j.work);row.setLong("Progress",j.progress);row.setLong("Income",j.earned);listing.add(row);}}
         else if(menu.tab==3){for(int i=0;i<servers.size();i++){Menus.Target t=servers.get(i);UUID id=ClusterScheduler.serverId(t.item);if(!TaskConsole.NONE.equals(menu.resourcePool)&&!data.poolId(c.owner,id).equals(menu.resourcePool))continue;NBTTagCompound r=serverSummary(menu,c,data,t,i,dashboard);r.setBoolean("ServerLink",true);listing.add(r);}for(TaskData.Job j:jobs)if(!j.terms.hasKey("End")&&!j.terms.getBoolean("Finished")&&(TaskConsole.NONE.equals(menu.resourcePool)||Objects.equals(j.pool,menu.resourcePool)))listing.add(jobLink(j));}
         else if(menu.tab==6)listing.addAll(dashboard.financialRows());
@@ -60,18 +60,18 @@ final class DataOSView {
         NBTTagList links=new NBTTagList();for(TaskData.Job j:jobs)if(!j.terms.hasKey("End")&&!j.terms.getBoolean("Finished")&&FixedResources.hosts(j.bindings).contains(id)){NBTTagCompound link=jobLink(j);links.appendTag(link);}row.setTag("JobLinks",links);return row;
     }
     static boolean action(PanelMenu m,UUID id,int action,int value,String text){
-        if(m.type!=0||!m.canInteractWith(m.player))return false;TaskData d=TaskData.get(m.player.world);
+        if(m.type!=0||!m.canOperate(m.player))return false;TaskData d=TaskData.get(m.player.world);
         if(action==11&&(m.tab==0||m.tab==6||m.tab==7)){for(EventJournal.Entry e:d.recentEvents(m.tile,d.journal.limit()))if(e.id.equals(id)){m.setTab(7);m.detailEvent=id;return true;}return false;}
         if(action==10&&m.tab==7){if(TaskConsole.NONE.equals(id)){m.detailEvent=id;return true;}for(EventJournal.Entry e:d.recentEvents(m.tile,d.journal.limit()))if(e.id.equals(id)){m.detailEvent=id;return true;}return false;}
         if(action==8&&(TaskConsole.NONE.equals(id)||hasPool(m.tile,d,id))){m.setTab(3);m.resourcePool=id;m.scrollRow=0;return true;}
         if(m.tab==3&&action==3&&(TaskConsole.NONE.equals(id)||hasPool(m.tile,d,id))){m.resourcePool=id;return true;}
         if(!((Tiles.Computer)m.tile).online)return false;
-        if(action==5&&m.tab==1){if(TaskConsole.NONE.equals(id)){m.detailServer=id;return true;}for(Menus.Target t:servers(m.tile))if(id.equals(ClusterScheduler.serverId(t.item))){m.detailServer=id;return true;}return false;}
+        if(action==5&&m.tab==1){if(TaskConsole.NONE.equals(id)){m.detailServer=id;return true;}for(Menus.Target t:servers(m.tile))if(t.rack.networkConnected(t.bay)&&id.equals(ClusterScheduler.serverId(t.item))){m.detailServer=id;return true;}return false;}
         if(action==6){if(m.console.assigning)return false;TaskData.Job j=TaskConsole.find(jobs(m.tile,d),id);if(j==null||j.terms.hasKey("End")||j.terms.getBoolean("Finished"))return false;m.setTab(2);m.console.reset(0);m.console.selected=id;m.console.type=j.type;m.console.revision++;return true;}
         if(action==7){if(m.console.assigning)return false;if(value<0||value>=6)return false;int type;try{type=Integer.parseInt(text);}catch(NumberFormatException e){return false;}m.setTab(2);m.console.reset(value);m.console.selected=id;m.console.type=type;if(!m.console.selectionExists(d,m.tile.owner,jobs(m.tile,d),d.now()))m.console.reset(value);m.console.revision++;return true;}
-        if(action==9){for(Menus.Target t:servers(m.tile))if(id.equals(ClusterScheduler.serverId(t.item))){m.setTab(1);m.detailServer=id;return true;}return false;}
+        if(action==9){for(Menus.Target t:servers(m.tile))if(t.rack.networkConnected(t.bay)&&id.equals(ClusterScheduler.serverId(t.item))){m.setTab(1);m.detailServer=id;return true;}return false;}
         if(m.tab!=1)return false;
-        for(Menus.Target t:servers(m.tile))if(ClusterScheduler.serverId(t.item).equals(id)&&t.rack.allows(m.player)){
+        for(Menus.Target t:servers(m.tile))if(t.rack.networkConnected(t.bay)&&ClusterScheduler.serverId(t.item).equals(id)&&t.rack.allows(m.player)){
             if(action==1){boolean enabled=(t.rack.enabledMask&(1<<t.bay))!=0;return enabled==(value!=0)||t.rack.toggle(t.bay);}
             if(action==2)return d.setPool(t.rack,t.bay,text);
             if(action==4){String name=text==null?"":text.trim();if(name.isEmpty()||name.length()>32||name.chars().anyMatch(ch->ch<32||ch==167||ch==127))return false;t.item.setStackDisplayName(name);t.rack.changed();return true;}

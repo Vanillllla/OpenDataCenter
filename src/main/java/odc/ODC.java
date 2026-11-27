@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.1.8-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.1.9-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -41,7 +41,7 @@ public final class ODC {
     }
     @SubscribeEvent public static void blocks(RegistryEvent.Register<Block> e){e.getRegistry().registerAll(Hardware.BLOCKS);}
     @SubscribeEvent public static void items(RegistryEvent.Register<Item> e){
-        for(Block b:Hardware.BLOCKS){ItemBlock ib=new ItemBlock(b);ib.setRegistryName(b.getRegistryName());e.getRegistry().register(ib);}
+        for(Block b:Hardware.BLOCKS){ItemBlock ib=b instanceof Blocks.NetworkTerminal?new Hardware.NetworkTerminalItem((Blocks.NetworkTerminal)b):new ItemBlock(b);ib.setRegistryName(b.getRegistryName());e.getRegistry().register(ib);}
         e.getRegistry().registerAll(Hardware.ITEMS.toArray(new Item[0]));
     }
 }

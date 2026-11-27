@@ -51,7 +51,7 @@ for name,on in [('relay_open',False),('relay_closed',True)]:tex(name,lambda d,n,
 # Terminal faces, separate atlas animation used by baked screen.
 tex('terminal_lower_off',lambda d,n:(plate(d,n),d.rectangle((3,3,12,12),fill=(65,66,74)),[d.rectangle((x,4,x+1,11),fill=(24,26,32)) for x in (4,7,10)],d.point((12,12),fill=(41,48,43))))
 tex('terminal_lower_on',lambda d,n:(plate(d,n),d.rectangle((3,3,12,12),fill=(65,66,74)),[d.rectangle((x,4,x+1,11),fill=(24,26,32)) for x in (4,7,10)],d.point((12,12),fill=(114,216,76))))
-tex('terminal_screen_off',lambda d,n:(framed(d,n,(12,16,23),(37,39,45),(62,65,75)),d.rectangle((3,3,n-4,n-4),fill=(14,19,29))))
+tex('terminal_screen_off',lambda d,n:(framed(d,n,(12,16,23),(37,39,45),(62,65,75)),d.rectangle((3,3,n-4,n-4),fill=(8,9,12))))
 frames=[]
 for i in range(4):
  im=Image.new('RGBA',(16,16));d=ImageDraw.Draw(im);framed(d,16,(14,33,63),(37,39,45),(69,75,87));d.rectangle((2,2,13,13),fill=(15,48,94));d.line((4,5,11,5),fill=(64,144,203));d.line((4,7,9,7),fill=(43,98,151));d.rectangle((4,11,11,12),fill=(24,61,108));

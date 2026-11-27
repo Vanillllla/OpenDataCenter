@@ -80,6 +80,7 @@ public final class Tiles {
         int switchTier(){for(ItemStack s:slots){int t=Hardware.switchTier(s);if(t>0)return t;}return 0;}
         int switchBay(){for(int i=0;i<capacity();i++)if(Hardware.switchTier(slots.get(i))>0)return i;return -1;}
         int portOf(int bay){return PortMap.portOf(ports,bay);}
+        boolean networkConnected(int bay){return isServer(bay)&&switchBay()>=0&&Hardware.nic(slots.get(bay))>0&&PortMap.connected(ports,Hardware.ports(switchTier()),bay);}
         int serverCount(){int n=0;for(int i=0;i<capacity();i++)if(Hardware.units(slots.get(i))>0)n++;return n;}
         boolean isServer(int bay){return bay>=0&&bay<capacity()&&Hardware.units(slots.get(bay))>0;}
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return role!=-1&&i<capacity()&&slots.get(i).isEmpty()&&RackLayout.canInsert(layout(),i,Hardware.rackUnits(s))&&(Hardware.switchTier(s)==0||switchTier()==0);}
@@ -130,7 +131,8 @@ public final class Tiles {
     public static abstract class Powered extends Owned implements ITickable {
         final Buffer energy=new Buffer(this,480);boolean online=false;
         abstract int idlePower();
-        @Override public void update(){if(!world.isRemote){boolean now=energy.use(idlePower());if(online!=now){online=now;if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}}
+        boolean operational(){return TerminalPower.operational(online,energy.fed());}
+        @Override public void update(){if(!world.isRemote){boolean now=energy.use(idlePower());if(online!=now){online=now;if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();if(this instanceof Computer)world.markBlockRangeForRenderUpdate(pos,pos.up());else if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}}
         @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY||super.hasCapability(c,f);}
         @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY?CapabilityEnergy.ENERGY.cast(energy):super.getCapability(c,f);}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setBoolean("Online",online);return n;}

@@ -11,8 +11,7 @@ def check(ok,msg):
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
 blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower'}
-items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
-items.update({'switch_8p_50000', 'switch_2p_10000', 'switch_8p_10000', 'switch_4p_10000', 'switch_pro', 'switch_basic', 'switch_2p_1000', 'switch_2p_500', 'switch_4p_1000', 'switch_2p_100'})
+items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','switch_2p_100','switch_2p_500','switch_2p_1000','switch_2p_10000','switch_4p_1000','switch_4p_10000','switch_8p_10000','switch_8p_50000','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
@@ -95,7 +94,7 @@ check(max_cable<=24,'cable quad budget')
 print(f'Geometry: {mesh_count} meshes, {quad_count} authored faces, max {max_cable} quads per cable; no positive-area coplanar axis-aligned overlaps.')
 for u in (1,2,4):
     for state in ('ready','empty'):tex_ref(f'odc:blocks/server_{u}_{state}')
-for name in ('switch_panel_1','switch_panel_2','switch_panel_2p','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_cable_mesh_t1','patch_cable_mesh_t3','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
+for name in ('switch_panel_1','switch_panel_2','switch_panel_2port','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_cable_mesh_t1','patch_cable_mesh_t3','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
 # The switch PNG socket spans two centered pixels; inspect exact colors via optional Pillow test separately.
 check(not (root/'textures/blocks/patch_up.png').exists() and not (root/'textures/blocks/patch_down.png').exists(),'legacy flat patch sprites removed')
 recipes=set()

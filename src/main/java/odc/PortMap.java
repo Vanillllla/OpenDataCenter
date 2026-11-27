@@ -5,6 +5,7 @@ final class PortMap {
     static final int REJECT=0,CONNECTED=1,DISCONNECTED=2;
     private PortMap(){}
     static int portOf(int[] ports,int bay){if(bay<0||bay>8)return -1;for(int i=0;i<ports.length;i++)if(ports[i]==bay+1)return i;return -1;}
+    static boolean connected(int[] ports,int limit,int bay){int port=portOf(ports,bay);return port>=0&&port<limit;}
     static int toggle(int[] ports,int limit,int port,int bay,boolean cable){if(port<0||port>=limit||port>=ports.length||bay<0||bay>8)return REJECT;
         if(ports[port]==bay+1){ports[port]=0;return DISCONNECTED;}
         if(!cable||ports[port]!=0||portOf(ports,bay)>=0)return REJECT;ports[port]=bay+1;return CONNECTED;}

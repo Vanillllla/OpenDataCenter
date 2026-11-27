@@ -24,7 +24,7 @@ tex('net_led_on',(91,177,106));tex('net_led_off',(54,75,65))
 for tier,col in [(1,'#82b9d1'),(2,'#91c78c'),(3,'#c2a1e0')]:
     for active in (False,True):
         def screen(d,tier=tier,active=active,col=col):
-            d.rectangle((0,0,15,15),fill='#333e48');d.rectangle((1,1,14,10),fill='#172a35' if active else '#283039');d.rectangle((1,11,14,14),fill='#56656e');
+            d.rectangle((0,0,15,15),fill='#333e48');d.rectangle((1,1,14,10),fill='#172a35' if active else '#08090c');d.rectangle((1,11,14,14),fill='#56656e');
             if active:
                 for x,y in [(3,3),(11,3),(7,8)]:d.rectangle((x-1,y-1,x+1,y+1),fill=col)
                 d.line((3,4,3,6,11,6,11,4),fill=col);d.line((7,6,7,7),fill=col)

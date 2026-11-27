@@ -17,18 +17,20 @@ final class Hardware {
     static final CreativeTabs TAB=new CreativeTabs("odc"){@Override public ItemStack createIcon(){return new ItemStack(CHASSIS4);}};
     static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),TOWER=new Blocks.Tower(),NETWORK_TERMINAL=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_1),NETWORK_TERMINAL_T2=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_2),NETWORK_TERMINAL_T3=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_3),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
     static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
+    static final class NetworkTerminalItem extends ItemBlock {
+        private final NetworkEquipment equipment;
+        NetworkTerminalItem(Blocks.NetworkTerminal block){super(block);equipment=block.equipment;}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){super.addInformation(stack,world,tips,flag);tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.network_terminal.capacity",equipment.mbps));}
+    }
     static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
     static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
     static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);
     static final Item CHIP=item("precision_chip",""), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
+    static final Item[] SWITCHES=new Item[SwitchLimits.count()+1];
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
     static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3));
-    static final Item[] SWITCHES=new Item[SwitchLimits.count()+1];
     static {
-        for(int t=1;t<SWITCHES.length;t++){
-            SWITCHES[t]=new Component(SwitchLimits.id(t),SwitchLimits.ports(t)+" ports | "+SwitchLimits.portMbps(t)+" Mb/s per port\n"+SwitchLimits.totalMbps(t)+" Mb/s total | "+SwitchLimits.power(t)+" FE/t").setMaxStackSize(1);
-            ITEMS.add(SWITCHES[t]);
-        }
+        for(int i=1;i<SWITCHES.length;i++){SwitchLimits.Model m=SwitchLimits.model(i);SWITCHES[i]=item(m.id,m.ports+" ports | "+m.total+" Mb/s total\n"+m.port+" Mb/s per port");ITEMS.add(SWITCHES[i]);}
         for(Part model:Part.models) if(model.index>0) {
             Item component=item(model.id,String.join("\n",model.details()));
             MODELS.put(component,model);
@@ -38,7 +40,7 @@ final class Hardware {
     private static Item item(String id,String tip){return new Component(id,tip);}
     static int size(ItemStack s){return s.getItem() instanceof Chassis?((Chassis)s.getItem()).units:0;}
     static int units(ItemStack s){return s.isEmpty()?0:size(s);}
-    static int switchTier(ItemStack s){if(!s.isEmpty())for(int t=1;t<SWITCHES.length;t++)if(s.getItem()==SWITCHES[t])return t;return 0;}
+    static int switchTier(ItemStack s){if(!s.isEmpty())for(int i=1;i<SWITCHES.length;i++)if(s.getItem()==SWITCHES[i])return i;return 0;}
     static int rackUnits(ItemStack s){return switchTier(s)>0?1:units(s);}
     static int ports(int tier){return SwitchLimits.ports(tier);}
     static int switchMbps(int tier){return SwitchLimits.totalMbps(tier);}

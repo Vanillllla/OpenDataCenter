@@ -16,7 +16,7 @@ final class PatchCordMesh {
     static double portX(int port,int count){return .125+(port+.5)*.75/count;}
     static double portY(double bottom,double top){return bottom+(top-bottom)*.5;}
     static Face[] get(int capacity,int bay,int count,int port,boolean up){
-        int a=capacity==9?1:0,b=count==8?1:count==2?2:0,d=up?1:0;
+        int a=capacity==9?1:0,b=count==2?0:count==4?1:2,d=up?1:0;
         if((capacity!=4&&capacity!=9)||bay<0||bay>=capacity||(count!=2&&count!=4&&count!=8)||port<0||port>=count)throw new IllegalArgumentException("Invalid patch cord location");
         Face[] result=CACHE[a][bay][b][port][d];
         if(result==null){double pitch=capacity==9?1.875/9:.875/4;double bottom=.0625+bay*pitch+.012,top=.0625+(bay+1)*pitch-.012;result=create(portX(port,count),bottom,top,up);CACHE[a][bay][b][port][d]=result;}
