@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "RPR",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "odc:nic_pro"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "P": {
+      "item": "odc:nvme_advanced"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    }
+  },
+  "result": {
+    "item": "odc:nvme_pcie",
+    "count": 1
+  }
+}

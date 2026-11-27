@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "RPR",
+    "ICI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:diamond"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "P": {
+      "item": "odc:ram_advanced"
+    },
+    "C": {
+      "item": "odc:precision_chip"
+    }
+  },
+  "result": {
+    "item": "odc:ram_elite",
+    "count": 1
+  }
+}

@@ -12,6 +12,7 @@ for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
 blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station'}
 items={'cpu_basic','cpu_pro','gpu_basic','gpu_pro','chassis_1u','chassis_2u','chassis_4u','precision_chip','board_basic','board_pro','board_advanced','ram_basic','ram_pro','ram_advanced','hdd_basic','hdd_pro','ssd_basic','ssd_pro','nvme_basic','nvme_pro','psu_basic','psu_pro','psu_advanced','nic_basic','nic_pro','switch_basic','switch_pro','ethernet_patch'}
+items.update({'hdd_elite', 'ssd_advanced', 'nvme_pcie', 'cpu_advanced', 'ram_elite', 'board_dual', 'hdd_advanced', 'gpu_advanced', 'gpu_elite', 'nvme_advanced'})
 check({p.stem for p in (root/'blockstates').glob('*.json')}==blocks,'block state registry')
 check({p.stem for p in (root/'models/item').glob('*.json')}==blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
 for f in root.rglob('*.png'):

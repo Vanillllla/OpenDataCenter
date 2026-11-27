@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1-alpha — Light DataOS
+
+- Light Minecraft/Windows XP-inspired DataOS, server and switch panels.
+- Beveled buttons, blue title bar, readable text, selected tabs and light input fields.
+- World models, assets and server-side computation unchanged.
+
 ## 0.4.0-alpha — Compute & DataOS
 
 - Независимые задачи и планирование CPU/GPU/RAM/диска/сети; эксклюзивные GPU, ручные и автоматические назначения.
@@ -39,3 +45,9 @@
 - Удалены прежние банковские и AI-задачи из активного движка. Майнинг CPU + GPU.
 - Исправлены имена методов, вызвавшие ошибки с stable_39 в журнале сборки 0.2.0.
 - Не поддерживается перенос старых миров. Полный Forge runtime ещё требуется проверить.
+
+## 0.4.2-alpha — Component inventory and PCIe
+- 31 original 32×32 component sprites, four motherboard models (T1–T3 + dual-socket T4), and all requested component tier counts. World block assets and block inventory models unchanged.
+- Shared PCIe slots (1/2/4 by chassis, limited by motherboard): GPU, NIC or PCIe NVMe adapter. Advanced T3 and dual T4 have 1 Gbit/s onboard NIC. A single server patch lead uses the fastest NIC, without link aggregation. Second CPU optional on dual board; its compute and power are summed when installed. Values and recipes provisional.
+- New components are registered, craftable, localized in EN/RU. Scheduler reserves physical GPU slot indices, never NIC or SSD slots; storage includes PCIe NVMe.
+- Java core regression and asset validation passed; full Forge build and in-game GUI testing not performed (no Forge dependency cache/JDK 8). New world recommended as per alpha policy.

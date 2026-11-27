@@ -17,10 +17,10 @@ public final class TaskEngine {
     public static final class Result {public final List<Slice> slices=new ArrayList<>();public int cpu,gpus,ram,disk,net,work;public boolean full;}
     public static final class Plan {public final Map<Integer,Result> tasks=new LinkedHashMap<>();public final int[] cpu,gpu,ram,disk,net,power,actualCPU;public final int[][] actualGPU;public final Set<Integer> overload=new HashSet<>(); Plan(int n){cpu=new int[n];gpu=new int[n];ram=new int[n];disk=new int[n];net=new int[n];power=new int[n];actualCPU=new int[n];actualGPU=new int[n][4];}}
     static int minVram(int type){return type==2||type==AI||type==INFERENCE?8:type==1?2:0;}
-    static int vram(int tier){return tier==1?4:tier==2?16:0;}
+    static int vram(int tier){return ServerSpec.gpuVram(tier);}
     static int cpuWork(int type,int cu,int pct){int f=type==0?150:type==1?25:type==2?10:type==BANK?100:0;return cu*pct*f/10000;}
-    static int gpuWork(int type,int tier){int h=tier==1?40:tier==2?160:0;return type==0?h/4:type==1?h:type==2?h*13/10:type==AI?h*2:type==INFERENCE?h:0;}
-    public static int power(Node n,int cpu,int[] gpuLoad){int p=n.idle+(n.cpuPeak*cpu+99)/100;for(int i=0;i<n.gpu.length;i++)if(n.gpu[i]>0)p+=((n.gpu[i]==1?23:80)*gpuLoad[i]+99)/100;return p;}
+    static int gpuWork(int type,int tier){int h=ServerSpec.gpuHash(tier);return type==0?h/4:type==1?h:type==2?h*13/10:type==AI?h*2:type==INFERENCE?h:0;}
+    public static int power(Node n,int cpu,int[] gpuLoad){int p=n.idle+(n.cpuPeak*cpu+99)/100;for(int i=0;i<n.gpu.length;i++)if(n.gpu[i]>0)p+=((ServerSpec.gpuPeak(n.gpu[i])-ServerSpec.gpuIdle(n.gpu[i]))*gpuLoad[i]+99)/100;return p;}
     public static Plan plan(List<Node> nodes,List<Task> tasks,int[] switchCap,int wan,Map<UUID,Integer> groups,Set<Integer> excluded){
         Plan p=new Plan(nodes.size());int[] local=switchCap.clone();int global=wan;List<Task> sorted=new ArrayList<>(tasks);sorted.sort(Comparator.<Task>comparingInt(t->-t.priority).thenComparingInt(t->t.id));
         for(Task t:sorted){Result r=new Result();p.tasks.put(t.id,r);if(!t.enabled)continue;int needC=Math.max(0,t.cpu),needG=Math.max(0,t.gpus),needR=Math.max(0,t.ram),needD=Math.max(0,t.disk),needN=Math.max(1,t.net);int[] savedLocal=local.clone();int savedGlobal=global;

@@ -1,4 +1,4 @@
-# OpenDataCenter 0.4.0-alpha — Compute & DataOS
+# OpenDataCenter 0.4.2-alpha — Light DataOS
 
 Minecraft 1.12.2 / Forge 14.23.5.2860 / MCP stable_39 / JDK 8. Исходный проект, не готовый JAR. Модели, текстуры, рецепты и игровые ресурсы из 0.3.2 не изменены. Старые миры не поддерживаются — создайте новый мир.
 
@@ -7,7 +7,7 @@ Minecraft 1.12.2 / Forge 14.23.5.2860 / MCP stable_39 / JDK 8. Исходный 
 1. Установить JDK 8 (не JRE), распаковать проект отдельно.
 2. `test-core.bat` — автономные математические тесты (или `bash tools/test-core.sh`).
 3. `build.bat` — скачивание официального Forge MDK и сборка. Если wrapper уже перенесён из настроенного проекта, можно выполнить `gradlew.bat build`.
-4. Ожидаемый результат: `build/libs/OpenDataCenter-1.12.2-0.4.0-alpha.jar`.
+4. Ожидаемый результат: `build/libs/OpenDataCenter-1.12.2-0.4.2-alpha.jar`.
 5. `build.bat -RunClient` — тестовый клиент, `build.bat -RunServer` — тестовый сервер.
 
 Полноценная компиляция Forge и запуск игры не подтверждены в среде подготовки релиза: Maven Forge не разрешается через DNS, установлен JDK 21. Чистые Java-классы и тесты проверены, синтаксис всех Java-исходников разобран. См. `docs/TEST_REPORT.md`.

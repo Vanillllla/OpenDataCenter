@@ -53,8 +53,8 @@ public final class Menus {
             for(int r=0;r<3;r++)for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c+r*9+9,70+c*18,162+r*18));for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c,70+c*18,220));
         }
         static int rackX(int i){return i<5?12:156;}static int rackY(int i){return 37+(i<5?i:i-5)*20;}
-        static int partX(int i){if(i==0)return 46;if(i==1)return 82;if(i<ServerSpec.SATA)return 12+(i-2)*18;if(i<ServerSpec.NVME)return 12+(i-10)*18;if(i<ServerSpec.GPU)return 183+(i-18)*18;if(i<ServerSpec.PSU)return 183+(i-20)*18;if(i<ServerSpec.NIC)return 183+(i-24)*18;return 118;}
-        static int partY(int i){return i<2||i==ServerSpec.NIC?37:i<ServerSpec.SATA?70:i<ServerSpec.NVME?105:i<ServerSpec.GPU?37:i<ServerSpec.PSU?70:105;}
+        static int partX(int i){if(i==0)return 46;if(i==1)return 82;if(i==ServerSpec.CPU2)return 118;if(i<ServerSpec.SATA)return 12+(i-2)*18;if(i<ServerSpec.NVME)return 12+(i-10)*18;if(i<ServerSpec.GPU)return 183+(i-18)*18;if(i<ServerSpec.PSU)return 183+(i-20)*18;if(i<ServerSpec.CPU2)return 183+(i-24)*18;return 118;}
+        static int partY(int i){return i<2||i==ServerSpec.CPU2?37:i<ServerSpec.SATA?70:i<ServerSpec.NVME?105:i<ServerSpec.GPU?37:i<ServerSpec.PSU?70:105;}
         int chassis(){return type==WORKBENCH?((Tiles.Workbench)tile).chassis():0;}
         boolean fits(int i){return type==WORKBENCH&&ServerSpec.fits(chassis(),Hardware.spec(((Tiles.Workbench)tile).slots.get(0))[0],i);}
         @Override public void onContainerClosed(EntityPlayer p){super.onContainerClosed(p);if(type==WORKBENCH&&!p.world.isRemote&&((Tiles.Workbench)tile).editor==this)((Tiles.Workbench)tile).editor=null;}

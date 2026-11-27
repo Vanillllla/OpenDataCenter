@@ -14,7 +14,7 @@ public final class ClusterScheduler {
     static UUID key(List<Tiles.Computer> cs){return cs.stream().map(c->c.id).min(Comparator.comparing(UUID::toString)).orElse(null);}
     static UUID key(Tiles.Computer c){Network.Domain d=Network.scan(c.getWorld(),c.getPos());List<Tiles.Computer> cs=new ArrayList<>();if(d!=null)for(Tiles.Owned t:d.devices)if(t instanceof Tiles.Computer&&Objects.equals(c.owner,t.owner))cs.add((Tiles.Computer)t);return cs.isEmpty()?c.id:key(cs);}
     static final class Ref {final Tiles.Rack rack;final int bay;Ref(Tiles.Rack r,int b){rack=r;bay=b;}}
-    static int diskCount(int[] p){int n=0;for(int i=ServerSpec.SATA;i<ServerSpec.GPU;i++)if(p[i]>0)n++;return n;}
+    static int diskCount(int[] p){return ServerSpec.diskCount(p);}
     static int add(int a,int b){return (int)Math.min(Integer.MAX_VALUE,(long)a+b);}
     @SubscribeEvent public static void tick(TickEvent.WorldTickEvent e){World w=e.world;if(e.phase!=TickEvent.Phase.END||w.isRemote||w.getTotalWorldTime()%20!=0)return;
         Network.revokeDisconnected(w);TaskData d=TaskData.get(w);OfflineState offline=OfflineState.get(w);d.clock();for(TaskData.Job j:d.jobs){j.work=j.usedCPU=j.usedGPU=j.usedRAM=j.usedDisk=j.usedNet=0;j.full=false;}
@@ -33,7 +33,7 @@ public final class ClusterScheduler {
         List<TaskEngine.Node> nodes=new ArrayList<>();List<Ref> refs=new ArrayList<>();Set<UUID> seen=new HashSet<>();int[] caps=new int[racks.size()];
         for(int ri=0;ri<racks.size();ri++){Tiles.Rack r=racks.get(ri);int st=r.switchTier();caps[ri]=r.switchOnline?Hardware.switchMbps(st):0;
             for(int b=0;b<r.capacity();b++)if(r.isServer(b)){if((r.enabledMask&(1<<b))==0){r.status[b]=r.fault[b];continue;}ItemStack s=r.slots.get(b);if(Hardware.state(s)!=ServerSpec.READY){r.status[b]=ComputeEngine.INCOMPLETE;continue;}UUID id=serverId(s);if(!seen.add(id)){r.status[b]=ComputeEngine.INCOMPATIBLE;continue;}int[] p=Hardware.spec(s);int net=online&&r.switchOnline&&r.portOf(b)>=0?Math.min(Hardware.nic(s),Hardware.portMbps(st)):0;
-                nodes.add(new TaskEngine.Node(id,ri,p[1]==1?40:160,ServerSpec.ramGB(p),ServerSpec.diskGB(p),net,ServerSpec.psu(p),Hardware.idle(s)+ServerSpec.ramGB(p)/16+2*ServerSpec.gpuCount(p,1)+5*ServerSpec.gpuCount(p,2)+diskCount(p), p[1]==1?8:20,Arrays.copyOfRange(p,ServerSpec.GPU,ServerSpec.PSU)));refs.add(new Ref(r,b));}}
+                nodes.add(new TaskEngine.Node(id,ri,ServerSpec.cpuCU(p),ServerSpec.ramGB(p),ServerSpec.diskGB(p),net,ServerSpec.psu(p),Hardware.idle(s)+ServerSpec.ramGB(p)/16+ServerSpec.gpuIdle(p)+diskCount(p), ServerSpec.cpuWatts(p),ServerSpec.gpuSlots(p)));refs.add(new Ref(r,b));}}
         Set<Integer> excluded=new HashSet<>();TaskEngine.Plan plan;
         while(true){plan=TaskEngine.plan(nodes,new ArrayList<TaskEngine.Task>(jobs),caps,online?wan:0,d.groups,excluded);boolean repeat=false;for(int i:plan.overload)if(excluded.add(i)){Ref f=refs.get(i);trip(f.rack,f.bay,11,d);repeat=true;}if(repeat)continue;
             int[] budget=new int[racks.size()];for(int ri=0;ri<budget.length;ri++)budget[ri]=ODC.requireEnergy?racks.get(ri).energy.getEnergyStored()/20:Integer.MAX_VALUE;
