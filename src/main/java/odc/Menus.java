@@ -70,7 +70,7 @@ public final class Menus {
             ItemStack cooler=!client&&!p.get(i).isEmpty()?detach(p,i):ItemStack.EMPTY;
             p.set(i,one);bench.write(p);deliver(cooler);}
         @Override public int getInventoryStackLimit(){return 1;}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassisModel(),Hardware.spec(bench.slots.get(0)),i,part)&&(getStackInSlot(i).isEmpty()||canRemove(i));}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&!HardwareDamage.broken(s)&&ServerSpec.accepts(bench.chassisModel(),Hardware.spec(bench.slots.get(0)),i,part)&&(getStackInSlot(i).isEmpty()||canRemove(i));}
     }
     static final class Target {final Tiles.Rack rack;final int bay;final ItemStack item;Target(Tiles.Rack r,int b){rack=r;bay=b;item=r.slots.get(b);}}
     public static final class Menu extends Container {

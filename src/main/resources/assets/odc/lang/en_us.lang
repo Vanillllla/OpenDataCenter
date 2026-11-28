@@ -475,3 +475,8 @@ item.odc.liquid_manifold.name=Rack Liquid Manifold
 tile.odc.liquid_chiller_t1.name=Liquid Chiller T1
 tile.odc.liquid_chiller_t2.name=Liquid Chiller T2
 tile.odc.liquid_chiller_t3.name=Liquid Chiller T3
+
+gui.odc.boot.8=Broken component installed
+gui.odc.status.12=Overheated
+gui.odc.status.13=Hardware failure
+tooltip.odc.broken=Broken — non-functional

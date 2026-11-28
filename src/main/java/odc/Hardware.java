@@ -88,16 +88,19 @@ final class Hardware {
     static void writeParts(ItemStack s,NonNullList<ItemStack> p){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();NBTTagCompound h=new NBTTagCompound();ItemStackHelper.saveAllItems(h,p);n.setTag("Hardware",h);n.setInteger("HardwareSchema",2);s.setTagCompound(n);}
     static void ensureId(ItemStack s){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("ServerId")){n.setUniqueId("ServerId",java.util.UUID.randomUUID());s.setTagCompound(n);}}
     static java.util.UUID switchId(ItemStack s){if(switchTier(s)==0)throw new IllegalArgumentException("Not a switch");NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("SwitchId")){n.setUniqueId("SwitchId",java.util.UUID.randomUUID());s.setTagCompound(n);}return n.getUniqueId("SwitchId");}
-    static int state(ItemStack s){return ServerSpec.state(chassis(s),spec(s));}
+    static int state(ItemStack s){NonNullList<ItemStack> p=parts(s);return HardwareDamage.mask(p)!=0?ServerSpec.BROKEN:ServerSpec.state(chassis(s),tiers(p));}
+    // Physical spec remains stable for PCIe occupancy, cooling and reservations.
+    // Use only for inventory/capability discovery, never renumber existing bindings.
+    static int[] functionalSpec(ItemStack s){NonNullList<ItemStack> p=parts(s);int[] models=tiers(p);for(int i=0;i<models.length;i++)if(HardwareDamage.broken(p.get(i)))models[i]=0;return models;}
     static ThermalProfile thermalProfile(ItemStack s){return ServerSpec.thermalProfile(chassis(s),spec(s));}
     static int gpus(ItemStack s){return ServerSpec.gpuTotal(spec(s));}
     static int vram(ItemStack s){return ServerSpec.vram(spec(s));}
-    static int nic(ItemStack s){return ServerSpec.nic(spec(s));}
+    static int nic(ItemStack s){return ServerSpec.nic(functionalSpec(s));}
     static int idle(ItemStack s){int[] p=spec(s);return ServerSpec.idleInputWatts(p);}
     private static class Component extends Item {
         final String tip;
         Component(String id,String tip){this.tip=tip;setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setCreativeTab(TAB);}
-        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){if(!tip.isEmpty())java.util.Collections.addAll(tips,tip.split("\n"));Part model=MODELS.get(this);if(model!=null&&model.electronic())tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.thermal.limit",model.criticalC));if(model!=null&&model.onboardNicMbps()>0)tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.board.onboard_nic",model.onboardNicMbps()));}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){if(!tip.isEmpty())java.util.Collections.addAll(tips,tip.split("\n"));Part model=MODELS.get(this);if(HardwareDamage.broken(s))tips.add(net.minecraft.util.text.TextFormatting.RED+net.minecraft.client.resources.I18n.format("tooltip.odc.broken"));if(model!=null&&model.electronic())tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.thermal.limit",model.criticalC));if(model!=null&&model.onboardNicMbps()>0)tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.board.onboard_nic",model.onboardNicMbps()));}
     }
     private static final class Chassis extends Component {
         final ChassisSpec model;

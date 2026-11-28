@@ -475,3 +475,8 @@ item.odc.liquid_manifold.name=Коллектор жидкостного охла
 tile.odc.liquid_chiller_t1.name=Жидкостный охладитель T1
 tile.odc.liquid_chiller_t2.name=Жидкостный охладитель T2
 tile.odc.liquid_chiller_t3.name=Жидкостный охладитель T3
+
+gui.odc.boot.8=Установлен сломанный компонент
+gui.odc.status.12=Перегрев
+gui.odc.status.13=Поломка комплектующих
+tooltip.odc.broken=Сломан — не функционирует

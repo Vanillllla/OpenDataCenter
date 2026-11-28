@@ -104,7 +104,7 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
                     int[] spec=Hardware.spec(item);ChassisSpec chassis=Hardware.chassis(item);int psu=RackPowerMesh.psuMask(chassis,spec);
                     for(int slot=0;slot<chassis.psuSlots&&i+slot<rack.capacity();slot++)powerFaces(RackPowerMesh.lane(rack.capacity(),i+slot,(psu&(1<<slot))!=0));
                     boolean on=(rack.poweredMask&(1<<i))!=0,run=(rack.runningMask&(1<<i))!=0;
-                    front("server_"+units+"_"+(ServerSpec.state(chassis,spec)==ServerSpec.READY?"ready":"empty"),.125,bottom,.875,top,.15);
+                    front("server_"+units+"_"+(Hardware.state(item)==ServerSpec.READY?"ready":"empty"),.125,bottom,.875,top,.15);
                     front(on?"led_on":"led_off",.804,top-h*.27,.850,top-h*.10,.148);
                     front(run?"led_activity":"led_off",.750,top-h*.27,.786,top-h*.10,.148);
                 }

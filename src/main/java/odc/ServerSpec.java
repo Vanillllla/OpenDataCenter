@@ -6,7 +6,7 @@ import java.util.Arrays;
 public final class ServerSpec {
     static final int BOARD=0, CPU=1, RAM=2, SATA=10, NVME=22, PCIE=24, PSU=31, CPU2=35, LEGACY_COUNT=36,
         CPU_COOLER=36, GPU_COOLER=38, FAN=45, COUNT=53;
-    static final int READY=0, NO_BOARD=1, NO_CPU=2, NO_RAM=3, NO_DISK=4, INVALID=5, CAPACITY=6, NO_PSU=7;
+    static final int READY=0, NO_BOARD=1, NO_CPU=2, NO_RAM=3, NO_DISK=4, INVALID=5, CAPACITY=6, NO_PSU=7, BROKEN=8;
     static boolean chassis(int u) { return u==1 || u==2 || u==4; }
     static int chassisPcie(int u) { ChassisSpec c=ChassisSpec.legacy(u);return c==null?0:c.pcieSlots; }
     static int[] upgradeParts(int[] p){return p.length==LEGACY_COUNT?Arrays.copyOf(p,COUNT):p;}

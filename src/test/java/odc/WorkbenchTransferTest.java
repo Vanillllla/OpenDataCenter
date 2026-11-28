@@ -202,6 +202,25 @@ public final class WorkbenchTransferTest {
         player.inventory.clear();player.inventory.setItemStack(new ItemStack(model("InTroll Zeon 2680 v4")));
         click(menu,1+ServerSpec.CPU2,0);cursor(player,cpu,1,"CPU replacement returns old CPU");
         check(inChassis(bench.slots.get(0),tower)==0&&player.inventory.mainInventory.stream().anyMatch(s->s.getItem()==tower),"replacement returns linked cooler");
+        // Failure is metadata on the actual component, not a new spawned item.
+        player.inventory.clear();player.inventory.setItemStack(ItemStack.EMPTY);
+        menu.parts.setInventorySlotContents(ServerSpec.PCIE,new ItemStack(gpu));
+        net.minecraft.util.NonNullList<ItemStack> damaged=bench.parts();
+        check(HardwareDamage.mark(damaged.get(ServerSpec.PCIE)),"electronic part damaged");
+        check(!HardwareDamage.mark(damaged.get(ServerSpec.PCIE))&&!HardwareDamage.mark(damaged.get(ServerSpec.FAN)),"idempotent damage, fans immune");
+        int gpuModel=Hardware.model(damaged.get(ServerSpec.PCIE));
+        Hardware.writeParts(bench.slots.get(0),damaged);
+        HardwareDamage.latch(bench.slots.get(0),ComputeEngine.HARDWARE_FAILURE);
+        ItemStack damagedCase=new ItemStack(bench.slots.get(0).writeToNBT(new net.minecraft.nbt.NBTTagCompound()));
+        check(HardwareDamage.fault(damagedCase)==ComputeEngine.HARDWARE_FAILURE&&Hardware.state(damagedCase)==ServerSpec.BROKEN,"chassis damage NBT");
+        check(Hardware.spec(damagedCase)[ServerSpec.PCIE]==gpuModel&&Hardware.functionalSpec(damagedCase)[ServerSpec.PCIE]==0,"physical identity retained, no functional GPU");
+        check(HardwareDamage.broken(Hardware.parts(damagedCase).get(ServerSpec.PCIE)),"nested damage preserved");
+        bench.setInventorySlotContents(0,damagedCase);
+        click(menu,pci,0);cursor(player,gpu,1,"broken GPU extracted");
+        check(HardwareDamage.broken(player.inventory.getItemStack())&&inChassis(bench.slots.get(0),gpu)==0,"exact damaged item returned");
+        click(menu,pci,0);check(HardwareDamage.broken(player.inventory.getItemStack())&&inChassis(bench.slots.get(0),gpu)==0,"broken GPU cannot be installed");
+        player.inventory.setItemStack(new ItemStack(gpu));click(menu,pci,0);
+        check(inChassis(bench.slots.get(0),gpu)==1&&!HardwareDamage.broken(bench.parts().get(ServerSpec.PCIE)),"replacement healthy");
         // Render state is a pure function of the stored chassis, including after NBT reload.
         odc.Blocks.Workbench block=(odc.Blocks.Workbench)Hardware.WORKBENCH;
         Item[] cases={Hardware.CHASSIS1,Hardware.CHASSIS2,Hardware.CHASSIS4};

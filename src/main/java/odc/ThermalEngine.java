@@ -104,6 +104,18 @@ final class ThermalEngine {
             air-=ambientWatts/profile.airHeatCapacity;
             air=safe(air,ambient);internal=safe(internal,ambient);for(int k=0;k<temp.length;k++)temp[k]=safe(temp[k],ambient);
         }
+        int[] snapshot(){
+            int[] saved=new int[ServerSpec.COUNT+2];Arrays.fill(saved,-1);
+            for(int k=0;k<slots.length;k++)saved[slots[k]]=(int)Math.round(safe(temp[k],25)*1000);
+            saved[ServerSpec.COUNT]=(int)Math.round(safe(internal,25)*1000);
+            saved[ServerSpec.COUNT+1]=(int)Math.round(safe(air,25)*1000);return saved;
+        }
+        void restore(int[] saved,double ambient){
+            if(saved.length!=ServerSpec.COUNT+2)return;
+            for(int k=0;k<slots.length;k++)temp[k]=saved[slots[k]]<0?safe(ambient,25):safe(saved[slots[k]]/1000.0,ambient);
+            internal=safe(saved[ServerSpec.COUNT]<0?ambient:saved[ServerSpec.COUNT]/1000.0,ambient);
+            air=safe(saved[ServerSpec.COUNT+1]<0?ambient:saved[ServerSpec.COUNT+1]/1000.0,ambient);
+        }
         double storedHeat(double reference){
             double energy=(air-reference)*profile.airHeatCapacity+(internal-reference)*profile.internalHeatCapacity;
             for(int k=0;k<slots.length;k++)energy+=(temp[k]-reference)*capacity[k];return energy;

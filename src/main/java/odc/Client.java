@@ -111,7 +111,7 @@ public final class Client {
                 label("M.2",219,35,TEXT);label("SATA",180,54,TEXT);label("PSU",261,116,TEXT);
                 label(tr("gpu_cooling"),12,160,TEXT);label(tr("cpu_cooling"),12,190,TEXT);label(tr("fans"),100,190,TEXT);
                 int[] spec=Hardware.spec(menu.getSlot(0).getStack());
-                int state=ServerSpec.state(menu.chassisModel(),spec);
+                int state=Hardware.state(menu.getSlot(0).getStack());
                 clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),11,137,280,state==0?GREEN:AMBER);
                 clipped(ServerSpec.ramGB(spec)+" GB RAM   "+ServerSpec.occupiedPcie(spec)+"/"+ServerSpec.capacity(menu.chassisModel(),spec[0],ServerSpec.PCIE)+" PCIe   "+ServerSpec.drawWatts(spec)+"/"+ServerSpec.psu(spec)+" W",11,148,280,TEXT);
             }
