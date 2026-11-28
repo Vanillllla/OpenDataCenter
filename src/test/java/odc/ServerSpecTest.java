@@ -75,6 +75,24 @@ public final class ServerSpecTest {
                 check(ServerSpec.validPcie(u,pc)==valid,"exhaustive PCIe placement");
             }
         }
+        Set<String> chassisIds=new HashSet<>();
+        for(ChassisSpec c:ChassisSpec.values()){
+            check(chassisIds.add(c.id)&&ChassisSpec.byId(c.id)==c,"unique stable chassis id");
+            int[] config=new int[ServerSpec.COUNT];config[ServerSpec.BOARD]=model("ASBrick Rack EP2C612 WS");
+            check(ServerSpec.capacity(c,config[0],ServerSpec.PCIE)==c.pcieSlots,"model PCIe");
+            check(ServerSpec.capacity(c,config[0],ServerSpec.PSU)==c.psuSlots,"model PSU");
+            check(ServerSpec.capacity(c,config[0],ServerSpec.FAN)==c.fanSlots,"model fans");
+            check(c.supports(ChassisSpec.Cooling.TOWER)==(c.units==4)&&c.supports(ChassisSpec.Cooling.LIQUID)==c.liquid,"cooler compatibility");
+            config[0]=0;
+            check(ServerSpec.accepts(c,config,ServerSpec.BOARD,Part.at(model("ASBrick Rack EP2C612 WS")))==(c.maxSockets==2),"board compatibility");
+        }
+        check(chassisIds.size()==9,"nine models");
+        int[] oldParts=new int[ServerSpec.LEGACY_COUNT];oldParts[ServerSpec.CPU2]=7;
+        check(ServerSpec.upgradeParts(oldParts).length==ServerSpec.COUNT&&ServerSpec.upgradeParts(oldParts)[ServerSpec.CPU2]==7,"legacy slot positions preserved");
+        int[] cooling=new int[ServerSpec.COUNT];cooling[ServerSpec.BOARD]=model("ASBrick Rack EP2C612 WS");cooling[ServerSpec.PCIE]=gpu3;
+        check(ServerSpec.slotAvailable(ChassisSpec.GPU_4,cooling,ServerSpec.GPU_COOLER)&&!ServerSpec.slotAvailable(ChassisSpec.GPU_4,cooling,ServerSpec.GPU_COOLER+1),"one GPU cooling position per card");
+        check(!ServerSpec.slotAvailable(ChassisSpec.STORAGE_4,cooling,ServerSpec.GPU_COOLER),"non-liquid chassis");
+        check(ServerSpec.coolingTarget(ServerSpec.CPU_COOLER+1)==ServerSpec.CPU2,"second CPU cooling target");
         Random r=new Random(37);
         int layouts=0;int[] sizes={0,1,2,4};for(int key=0;key<(1<<18);key++){int[] a=new int[9];boolean[] busy=new boolean[9];boolean valid=true;for(int i=0;i<9;i++){a[i]=sizes[(key>>(i*2))&3];if(i+a[i]>9){valid=false;break;}for(int k=i;k<i+a[i];k++){if(busy[k])valid=false;busy[k]=true;}}if(!valid)continue;layouts++;
             for(int i=0;i<9;i++){check((RackLayout.startAt(a,i)>=0)==busy[i],"9U occupied");for(int u:new int[]{1,2,4}){boolean expect=i+u<=9;for(int j=0;j<9;j++)if(j!=i&&a[j]>0&&j<i+u&&i<j+a[j])expect=false;check(expect==RackLayout.canInsert(a,i,u),"9U collision");}if(a[i]>0){check((RackLayout.retainedIndex(i,a[i],false)>=0)==(i+a[i]<=4),"lower retained");check((RackLayout.retainedIndex(i,a[i],true)>=0)==(i>=5),"upper retained");}}}

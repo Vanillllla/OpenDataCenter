@@ -4,32 +4,43 @@ import java.util.Arrays;
 
 /** Slots store catalog indices. Multiple accelerators on one card share its electrical load. */
 public final class ServerSpec {
-    static final int BOARD=0, CPU=1, RAM=2, SATA=10, NVME=22, PCIE=24, PSU=31, CPU2=35, COUNT=36;
+    static final int BOARD=0, CPU=1, RAM=2, SATA=10, NVME=22, PCIE=24, PSU=31, CPU2=35, LEGACY_COUNT=36,
+        CPU_COOLER=36, GPU_COOLER=38, FAN=45, COUNT=53;
     static final int READY=0, NO_BOARD=1, NO_CPU=2, NO_RAM=3, NO_DISK=4, INVALID=5, CAPACITY=6, NO_PSU=7;
     static boolean chassis(int u) { return u==1 || u==2 || u==4; }
-    static int chassisPcie(int u) { return u==1?2:u==2?4:u==4?7:0; }
+    static int chassisPcie(int u) { ChassisSpec c=ChassisSpec.legacy(u);return c==null?0:c.pcieSlots; }
+    static int[] upgradeParts(int[] p){return p.length==LEGACY_COUNT?Arrays.copyOf(p,COUNT):p;}
     static int first(int slot) {
+        if(slot>=FAN)return FAN;
+        if(slot>=GPU_COOLER)return GPU_COOLER;
+        if(slot>=CPU_COOLER)return CPU_COOLER;
         if(slot<=CPU || slot==CPU2) return slot;
         if(slot<SATA) return RAM;
         if(slot<NVME) return SATA;
         if(slot<PCIE) return NVME;
         return slot<PSU?PCIE:PSU;
     }
-    static int capacity(int u,int board,int slot) {
-        if(!chassis(u)) return 0;
+    static int capacity(int u,int board,int slot){return capacity(ChassisSpec.legacy(u),board,slot);}
+    static int capacity(ChassisSpec c,int board,int slot) {
+        if(c==null||slot<0||slot>=COUNT)return 0;
         Part b=Part.at(board);
         switch(first(slot)) {
             case BOARD: return 1;
-            case PSU: return u;
+            case PSU: return c.psuSlots;
+            case FAN: return c.fanSlots;
+            case CPU_COOLER: return Math.min(c.maxSockets,b.sockets);
+            case GPU_COOLER: return c.liquid?Math.min(c.pcieSlots,b.pciSlots):0;
             case CPU: return Math.min(1,b.sockets);
             case CPU2: return Math.max(0,b.sockets-1);
             case RAM: return b.ramSlots;
             case SATA: return b.sataSlots;
             case NVME: return b.m2Slots;
-            default: return Math.min(chassisPcie(u),b.pciSlots);
+            default: return Math.min(c.pcieSlots,b.pciSlots);
         }
     }
-    static boolean fits(int u,int board,int slot) { return slot>=0 && slot<COUNT && slot-first(slot)<capacity(u,board,slot); }
+    static boolean fits(int u,int board,int slot){return fits(ChassisSpec.legacy(u),board,slot);}
+    static boolean fits(ChassisSpec c,int board,int slot) { return slot>=0 && slot<COUNT && slot-first(slot)<capacity(c,board,slot); }
+    static int coolingTarget(int slot){if(slot==CPU_COOLER)return CPU;if(slot==CPU_COOLER+1)return CPU2;if(slot>=GPU_COOLER&&slot<FAN)return PCIE+slot-GPU_COOLER;return -1;}
     static boolean compatible(int slot,Part p,Part b) {
         switch(first(slot)) {
             case BOARD: return p.kind==Part.Kind.BOARD;
@@ -38,6 +49,8 @@ public final class ServerSpec {
             case SATA: return p.kind==Part.Kind.SSD || p.kind==Part.Kind.HDD;
             case NVME: return p.kind==Part.Kind.NVME;
             case PSU: return p.kind==Part.Kind.PSU;
+            // Reserved for 0.6.3.3.
+            case CPU_COOLER: case GPU_COOLER: case FAN: return false;
             default: return p.kind==Part.Kind.NIC || p.kind==Part.Kind.GPU || p.kind==Part.Kind.PCIE;
         }
     }
@@ -57,11 +70,16 @@ public final class ServerSpec {
     static boolean coveredPcie(int[] parts,int slot) {
         int owner=pcieOwner(parts,slot);return owner>=0&&owner!=slot;
     }
-    static boolean slotAvailable(int u,int[] parts,int slot) {
-        return parts.length==COUNT&&fits(u,parts[BOARD],slot)&&!coveredPcie(parts,slot);
+    static boolean slotAvailable(int u,int[] parts,int slot){return slotAvailable(ChassisSpec.legacy(u),parts,slot);}
+    static boolean slotAvailable(ChassisSpec c,int[] parts,int slot) {
+        if(parts.length!=COUNT||!fits(c,parts[BOARD],slot)||coveredPcie(parts,slot))return false;
+        int target=coolingTarget(slot);if(target<0)return true;
+        Part p=Part.at(parts[target]);return slot<GPU_COOLER?p.kind==Part.Kind.CPU:p.kind==Part.Kind.GPU&&!coveredPcie(parts,target);
     }
-    static boolean validPcie(int u,int[] parts) {
-        int limit=PCIE+capacity(u,parts[BOARD],PCIE),end=PCIE;
+    static boolean validPcie(int u,int[] parts){return validPcie(ChassisSpec.legacy(u),parts);}
+    static boolean validPcie(ChassisSpec c,int[] parts) {
+        if(c==null||parts.length!=COUNT)return false;
+        int limit=PCIE+capacity(c,parts[BOARD],PCIE),end=PCIE;
         for(int i=PCIE;i<PSU;i++)if(parts[i]!=0){
             int w=width(Part.at(parts[i]));
             if(w==0||i<end||i+w>limit)return false;
@@ -69,24 +87,29 @@ public final class ServerSpec {
         }
         return true;
     }
-    static boolean accepts(int u,int[] parts,int slot,Part candidate) {
-        if(!slotAvailable(u,parts,slot)||!compatible(slot,candidate,Part.at(parts[BOARD])))return false;
+    static boolean accepts(int u,int[] parts,int slot,Part candidate){return accepts(ChassisSpec.legacy(u),parts,slot,candidate);}
+    static boolean accepts(ChassisSpec c,int[] parts,int slot,Part candidate) {
+        if(!slotAvailable(c,parts,slot)||!compatible(slot,candidate,Part.at(parts[BOARD])))return false;
+        if(slot==BOARD&&!c.supports(candidate))return false;
         if(slot==BOARD&&parts[BOARD]!=0&&!canRemoveBoard(parts))return false;
         if(first(slot)!=PCIE)return true;
         int end=slot+width(candidate);
-        if(end>PCIE+capacity(u,parts[BOARD],PCIE))return false;
+        if(end>PCIE+capacity(c,parts[BOARD],PCIE))return false;
         // Exclude the old card at this exact start when replacing it.
         for(int i=PCIE;i<PSU;i++)if(i!=slot&&parts[i]!=0&&i<end&&i+width(Part.at(parts[i]))>slot)return false;
         return true;
     }
-    static int state(int u,int[] p) {
-        if(!chassis(u)||p.length!=COUNT) return INVALID;
+    static int state(int u,int[] p){return state(ChassisSpec.legacy(u),p);}
+    static int state(ChassisSpec c,int[] p) {
+        if(c==null||p.length!=COUNT) return INVALID;
         if(p[BOARD]==0) return NO_BOARD;
+        if(!c.supports(Part.at(p[BOARD])))return INVALID;
         for(int i=0;i<COUNT;i++) if(p[i]!=0) {
             if(!compatible(i,Part.at(p[i]),Part.at(p[BOARD]))) return INVALID;
-            if(!fits(u,p[BOARD],i)) return CAPACITY;
+            if(!fits(c,p[BOARD],i)) return CAPACITY;
+            if(first(i)!=PCIE&&!slotAvailable(c,p,i))return CAPACITY;
         }
-        if(!validPcie(u,p)) return CAPACITY;
+        if(!validPcie(c,p)) return CAPACITY;
         if(p[CPU]==0) return NO_CPU;
         if(ramGB(p)==0) return NO_RAM;
         if(diskGB(p)==0) return NO_DISK;
@@ -180,6 +203,7 @@ public final class ServerSpec {
     }
     static boolean canRemoveBoard(int[] p) {
         for(int i=CPU;i<PSU;i++) if(p[i]!=0) return false;
+        for(int i=CPU_COOLER;i<FAN;i++)if(p[i]!=0)return false;
         return p[CPU2]==0;
     }
 }

@@ -1,0 +1,14 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "odc:items/chassis_4u"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "odc:ready": 1
+      },
+      "model": "odc:item/chassis_4u_ready"
+    }
+  ]
+}

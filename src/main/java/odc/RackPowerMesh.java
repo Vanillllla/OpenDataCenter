@@ -19,8 +19,11 @@ final class RackPowerMesh {
     static double pitch(int capacity){return index(capacity)==0?.875/4:1.875/9;}
     static double center(int capacity,int bay){return .0625+(bay+.5)*pitch(capacity);}
     static int psuMask(int units,int[] parts){
-        if(!RackLayout.validSize(units)||parts==null||parts.length!=ServerSpec.COUNT)return 0;
-        int mask=0;for(int i=0;i<units;i++)if(Part.at(parts[ServerSpec.PSU+i]).kind==Part.Kind.PSU)mask|=1<<i;return mask;
+        return psuMask(ChassisSpec.legacy(units),parts);
+    }
+    static int psuMask(ChassisSpec chassis,int[] parts){
+        if(chassis==null||parts==null||parts.length!=ServerSpec.COUNT)return 0;
+        int mask=0;for(int i=0;i<chassis.psuSlots;i++)if(Part.at(parts[ServerSpec.PSU+i]).kind==Part.Kind.PSU)mask|=1<<i;return mask;
     }
     static int wireCount(boolean isSwitch,int units,int[] parts){return isSwitch?1:Integer.bitCount(psuMask(units,parts));}
     private static double[] p(double x,double y,double z){return new double[]{x,y,z};}

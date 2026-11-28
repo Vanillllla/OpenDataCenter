@@ -9,12 +9,17 @@ public final class TaskEngine {
         final UUID id,pool;
         final int rack,net,cores,ram,disk,ramMHz;
         final int[] parts,gpu;
+        final ChassisSpec chassis;
 
         Node(UUID id,int rack,int net,int[] parts) {
             this(id,rack,net,parts,null);
         }
         Node(UUID id,int rack,int net,int[] parts,UUID pool) {
-            this.id=id;this.pool=pool; this.rack=rack; this.net=net; this.parts=parts.clone();
+            this(id,rack,net,parts,pool,null);
+        }
+        Node(UUID id,int rack,int net,int[] parts,UUID pool,ChassisSpec chassis){
+            this.id=id;this.pool=pool;this.chassis=chassis; this.rack=rack; this.net=net; this.parts=ServerSpec.upgradeParts(parts).clone();
+            parts=this.parts;
             cores=ServerSpec.cpuCores(parts); ram=ServerSpec.ramGB(parts); disk=ServerSpec.diskGB(parts);
             ramMHz=ServerSpec.ramClock(parts); gpu=ServerSpec.gpuSlots(parts);
         }
@@ -50,7 +55,7 @@ public final class TaskEngine {
         @Override public boolean equals(Object obj) {
             if(!(obj instanceof Node)) return false;
             Node other=(Node)obj;
-            return rack==other.rack && net==other.net && Objects.equals(id,other.id) && Objects.equals(pool,other.pool) && Arrays.equals(parts,other.parts);
+            return rack==other.rack && net==other.net && Objects.equals(id,other.id) && Objects.equals(pool,other.pool) && chassis==other.chassis && Arrays.equals(parts,other.parts);
         }
         @Override public int hashCode(){return Objects.hashCode(id);}
     }

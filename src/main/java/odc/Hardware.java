@@ -40,12 +40,15 @@ final class Hardware {
     static boolean transformer(Block b){return b instanceof Blocks.Transformer;}
     static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
     static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
-    static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);
+    static final java.util.Map<ChassisSpec,Item> CHASSIS=new java.util.EnumMap<>(ChassisSpec.class);
+    static {for(ChassisSpec c:ChassisSpec.values())CHASSIS.put(c,new Chassis(c));}
+    static final Item CHASSIS1=CHASSIS.get(ChassisSpec.BASIC_1),CHASSIS2=CHASSIS.get(ChassisSpec.BASIC_2),CHASSIS4=CHASSIS.get(ChassisSpec.BASIC_4);
     static final Item CHIP=item("precision_chip",""), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
     static final Item[] SWITCHES=new Item[SwitchLimits.count()+1];
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
     static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3));
     static {
+        for(ChassisSpec c:ChassisSpec.values())if(c!=ChassisSpec.legacy(c.units))ITEMS.add(CHASSIS.get(c));
         for(int i=1;i<SWITCHES.length;i++){SwitchLimits.Model m=SwitchLimits.model(i);SWITCHES[i]=item(m.id,m.ports+" ports | "+m.total+" Mb/s total\n"+m.port+" Mb/s per port\n"+m.power+" W");ITEMS.add(SWITCHES[i]);}
         for(Part model:Part.models) if(model.index>0) {
             Item component=item(model.id,String.join("\n",model.details()));
@@ -54,7 +57,8 @@ final class Hardware {
         }
     }
     private static Item item(String id,String tip){return new Component(id,tip);}
-    static int size(ItemStack s){return s.getItem() instanceof Chassis?((Chassis)s.getItem()).units:0;}
+    static ChassisSpec chassis(ItemStack s){return s.getItem() instanceof Chassis?((Chassis)s.getItem()).model:null;}
+    static int size(ItemStack s){ChassisSpec c=chassis(s);return c==null?0:c.units;}
     static int units(ItemStack s){return s.isEmpty()?0:size(s);}
     static int switchTier(ItemStack s){if(!s.isEmpty())for(int i=1;i<SWITCHES.length;i++)if(s.getItem()==SWITCHES[i])return i;return 0;}
     static int rackUnits(ItemStack s){return switchTier(s)>0?1:units(s);}
@@ -72,10 +76,10 @@ final class Hardware {
     static NonNullList<ItemStack> parts(ItemStack s){NonNullList<ItemStack> p=emptyParts();if(units(s)>0&&s.hasTagCompound())ItemStackHelper.loadAllItems(s.getTagCompound().getCompoundTag("Hardware"),p);return p;}
     static int[] tiers(List<ItemStack> p){int[] out=new int[ServerSpec.COUNT];for(int i=0;i<out.length;i++)out[i]=model(p.get(i));return out;}
     static int[] spec(ItemStack s){return tiers(parts(s));}
-    static void writeParts(ItemStack s,NonNullList<ItemStack> p){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();NBTTagCompound h=new NBTTagCompound();ItemStackHelper.saveAllItems(h,p);n.setTag("Hardware",h);s.setTagCompound(n);}
+    static void writeParts(ItemStack s,NonNullList<ItemStack> p){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();NBTTagCompound h=new NBTTagCompound();ItemStackHelper.saveAllItems(h,p);n.setTag("Hardware",h);n.setInteger("HardwareSchema",2);s.setTagCompound(n);}
     static void ensureId(ItemStack s){if(units(s)==0)return;NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("ServerId")){n.setUniqueId("ServerId",java.util.UUID.randomUUID());s.setTagCompound(n);}}
     static java.util.UUID switchId(ItemStack s){if(switchTier(s)==0)throw new IllegalArgumentException("Not a switch");NBTTagCompound n=s.hasTagCompound()?s.getTagCompound():new NBTTagCompound();if(!n.hasUniqueId("SwitchId")){n.setUniqueId("SwitchId",java.util.UUID.randomUUID());s.setTagCompound(n);}return n.getUniqueId("SwitchId");}
-    static int state(ItemStack s){return ServerSpec.state(units(s),spec(s));}
+    static int state(ItemStack s){return ServerSpec.state(chassis(s),spec(s));}
     static int gpus(ItemStack s){return ServerSpec.gpuTotal(spec(s));}
     static int vram(ItemStack s){return ServerSpec.vram(spec(s));}
     static int nic(ItemStack s){return ServerSpec.nic(spec(s));}
@@ -86,8 +90,8 @@ final class Hardware {
         @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){if(!tip.isEmpty())java.util.Collections.addAll(tips,tip.split("\n"));Part model=MODELS.get(this);if(model!=null&&model.onboardNicMbps()>0)tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.board.onboard_nic",model.onboardNicMbps()));}
     }
     private static final class Chassis extends Component {
-        final int units;
-        Chassis(String id,int u){super(id,u+"U | "+u+" PSU | "+ServerSpec.chassisPcie(u)+" PCIe");units=u;setMaxStackSize(1);addPropertyOverride(new ResourceLocation(ODC.ID,"ready"),(stack,world,entity)->state(stack)==ServerSpec.READY?1:0);}
+        final ChassisSpec model;
+        Chassis(ChassisSpec c){super(c.id,c.units+"U | "+c.psuSlots+" PSU | "+c.pcieSlots+" PCIe | "+c.fanSlots+" FAN");model=c;setMaxStackSize(1);addPropertyOverride(new ResourceLocation(ODC.ID,"ready"),(stack,world,entity)->state(stack)==ServerSpec.READY?1:0);}
         @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){super.addInformation(s,w,tips,flag);int[] p=spec(s);tips.add(net.minecraft.client.resources.I18n.format("gui.odc.boot."+state(s)));tips.add(ServerSpec.cpuCores(p)+" cores | "+gpus(s)+" GPU");tips.add(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB disk | "+vram(s)+" GB VRAM");tips.add(ServerSpec.psu(p)+" W PSU | "+ServerSpec.nic(p)+" Mb/s NIC");if(state(s)==ServerSpec.READY){int idle=ServerSpec.idleInputWatts(p);tips.add(net.minecraft.client.resources.I18n.format(idle<0?"tooltip.odc.psu.overload":"tooltip.odc.server.idle",Math.max(0,idle)));}Part board=Part.at(p[ServerSpec.BOARD]);
             for(ItemStack part:parts(s)) if(!part.isEmpty()) {
                 Part device=MODELS.get(part.getItem());

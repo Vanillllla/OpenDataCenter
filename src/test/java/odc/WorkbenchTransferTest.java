@@ -163,6 +163,18 @@ public final class WorkbenchTransferTest {
         check(menu.getSlot(pci+1).isEnabled()&&!menu.fits(ServerSpec.PCIE+1),"legacy item visible but insertion blocked");
         player.inventory.setItemStack(ItemStack.EMPTY);click(menu,pci+1,0);cursor(player,nic,1,"legacy obstruction recoverable");
         check(!menu.getSlot(pci+1).isEnabled(),"legacy repair restores lock");
+        // New models share height but have independent constraints and stable item ids.
+        ItemStack compact=new ItemStack(Hardware.CHASSIS.get(ChassisSpec.COMPACT_2));
+        Hardware.ensureId(compact);UUID compactId=compact.getTagCompound().getUniqueId("ServerId");
+        bench.setInventorySlotContents(0,compact);
+        check(bench.chassis()==2&&bench.chassisModel()==ChassisSpec.COMPACT_2,"model independent of rack height");
+        menu.parts.setInventorySlotContents(ServerSpec.BOARD,new ItemStack(largeBoard));
+        check(menu.parts.getStackInSlot(ServerSpec.BOARD).isEmpty(),"compact rejects dual board");
+        menu.parts.setInventorySlotContents(ServerSpec.BOARD,new ItemStack(board));
+        check(menu.parts.getStackInSlot(ServerSpec.BOARD).getItem()==board&&!menu.fits(ServerSpec.PSU+1),"model-specific PSU limit");
+        ItemStack restored=new ItemStack(bench.slots.get(0).writeToNBT(new net.minecraft.nbt.NBTTagCompound()));
+        check(Hardware.chassis(restored)==ChassisSpec.COMPACT_2&&restored.getTagCompound().getUniqueId("ServerId").equals(compactId),"model and UUID NBT");
+        check(Hardware.parts(restored).size()==ServerSpec.COUNT&&Hardware.spec(restored)[ServerSpec.BOARD]==Hardware.spec(bench.slots.get(0))[ServerSpec.BOARD],"extended slots stored");
         // Render state is a pure function of the stored chassis, including after NBT reload.
         odc.Blocks.Workbench block=(odc.Blocks.Workbench)Hardware.WORKBENCH;
         Item[] cases={Hardware.CHASSIS1,Hardware.CHASSIS2,Hardware.CHASSIS4};

@@ -88,7 +88,7 @@ public final class Client {
             panel(66,160,168,78,0xff84939a);
             for(net.minecraft.inventory.Slot slot:menu.inventorySlots) slot(slot.xPos,slot.yPos);
             int[] spec=Hardware.spec(menu.getSlot(0).getStack());
-            for(int i=0;i<ServerSpec.COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassis(),spec,i)) {
+            for(int i=0;i<ServerSpec.LEGACY_COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassisModel(),spec,i)) {
                 int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);
                 panel(x,y,16,16,0xff536065);
                 panel(x+4,y+7,8,2,0xff717a7b);
@@ -109,9 +109,9 @@ public final class Client {
                 label("CPU 1 / 2",103,29,TEXT);label("DIMM",12,66,TEXT);label("PCI Express",12,101,TEXT);
                 label("M.2",219,35,TEXT);label("SATA",180,54,TEXT);label("PSU",261,116,TEXT);
                 int[] spec=Hardware.spec(menu.getSlot(0).getStack());
-                int state=ServerSpec.state(menu.chassis(),spec);
+                int state=ServerSpec.state(menu.chassisModel(),spec);
                 clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),11,137,280,state==0?GREEN:AMBER);
-                clipped(ServerSpec.ramGB(spec)+" GB RAM   "+ServerSpec.occupiedPcie(spec)+"/"+ServerSpec.capacity(menu.chassis(),spec[0],ServerSpec.PCIE)+" PCIe   "+ServerSpec.drawWatts(spec)+"/"+ServerSpec.psu(spec)+" W",11,148,280,TEXT);
+                clipped(ServerSpec.ramGB(spec)+" GB RAM   "+ServerSpec.occupiedPcie(spec)+"/"+ServerSpec.capacity(menu.chassisModel(),spec[0],ServerSpec.PCIE)+" PCIe   "+ServerSpec.drawWatts(spec)+"/"+ServerSpec.psu(spec)+" W",11,148,280,TEXT);
             }
             else if(menu.type==Menus.CONTROL){clipped((d[1]==1?"ONLINE":"OFFLINE")+" | "+amount(d[0])+" NTC | "+d[8]+" H/s | "+d[2]+" W",12,27,276,d[1]==1?GREEN:RED);clipped("WAN "+d[5]+" | LAN "+d[6]+" | "+d[7]+" Mb/s | "+d[4]+" SRV",12,37,276,MUTED);for(int i=0;i<5;i++){int k=20+i*8;if(d[k]==0)continue;clipped(d[k+1]+","+d[k+2]+","+d[k+3]+" / U"+d[k+4],12,51+i*16,112,TEXT);clipped(tr("status."+d[k+6])+" "+d[k+7],125,51+i*16,77,MUTED);}label((d[10]+1)+"/"+Math.max(1,d[11]),219,133,TEXT);clipped(amount(d[9])+" NTC/s",130,133,61,GREEN);}
             else if(menu.type==Menus.MARKET){label(tr("wallet",amount(d[0])),12,35,GREEN);label(d[1]==1?tr("market_hint"):tr("offline"),12,49,MUTED);}

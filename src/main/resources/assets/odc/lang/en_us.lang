@@ -69,9 +69,9 @@ gui.odc.task.2=Bank
 gui.odc.task.3=AI
 gui.odc.unlinked=No controller
 gui.odc.wallet=Wallet: %s NTC
-item.odc.chassis_1u.name=Server Chassis 1U
-item.odc.chassis_2u.name=Server Chassis 2U
-item.odc.chassis_4u.name=Server Chassis 4U
+item.odc.chassis_1u.name=Server Chassis 1U Basic
+item.odc.chassis_2u.name=Server Chassis 2U Basic
+item.odc.chassis_4u.name=Server Chassis 4U Basic
 item.odc.ethernet_patch.name=LAN Cable T1 (100 Mbps)
 item.odc.precision_chip.name=Precision Chip
 item.odc.switch_basic.name=Rack Switch 4P / 200 Mb/s
@@ -416,3 +416,15 @@ gui.odc.battery.incomplete=Load entire grid to restore
 gui.odc.transformer.tripped=Grid tripped - insufficient power
 gui.odc.transformer.incomplete=Load entire grid to restore
 gui.odc.transformer.funded=Demand funded
+
+item.odc.chassis_1u_compact.name=Server Chassis 1U Compact
+
+item.odc.chassis_1u_compute.name=Server Chassis 1U Compute
+
+item.odc.chassis_2u_compact.name=Server Chassis 2U Compact
+
+item.odc.chassis_2u_compute.name=Server Chassis 2U Compute
+
+item.odc.chassis_4u_storage.name=Server Chassis 4U Storage
+
+item.odc.chassis_4u_gpu.name=Server Chassis 4U GPU

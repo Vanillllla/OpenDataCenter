@@ -38,7 +38,7 @@ public final class Menus {
             if(!client&&(one.isEmpty()?!canRemove(i):!isItemValidForSlot(i,one)))return;
             p.set(i,one);bench.write(p);}
         @Override public int getInventoryStackLimit(){return 1;}
-        @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassis(),Hardware.spec(bench.slots.get(0)),i,part);}
+        @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassisModel(),Hardware.spec(bench.slots.get(0)),i,part);}
     }
     static final class Target {final Tiles.Rack rack;final int bay;final ItemStack item;Target(Tiles.Rack r,int b){rack=r;bay=b;item=r.slots.get(b);}}
     public static final class Menu extends Container {
@@ -52,13 +52,13 @@ public final class Menus {
                 // must never replace the chassis NBT during an in-flight GUI click.
                 if(p.world.isRemote){assembly=new Tiles.Workbench();assembly.setInventorySlotContents(0,actual.slots.get(0).copy());}
                 else{assembly=actual;actual.editor=this;}
-                Tiles.Workbench a=assembly;parts=new Parts(a,p.world.isRemote);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
+                Tiles.Workbench a=assembly;parts=new Parts(a,p.world.isRemote);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.LEGACY_COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return parts.isItemValidForSlot(j,s);}
                     @Override public boolean isEnabled(){return getHasStack()||fits(j);}
                     // Legacy conflicting items remain visible and extractable, never insertable.
                     @Override public boolean canTakeStack(EntityPlayer p){return getHasStack()&&parts.canRemove(j);}
-                });}machineSlots=1+ServerSpec.COUNT;
+                });}machineSlots=1+ServerSpec.LEGACY_COUNT;
             }else{assembly=null;parts=null;if(id==RACK){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<9;i++){final int j=i;addSlotToContainer(new Slot(r,i,rackX(i),rackY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return r.isItemValidForSlot(j,s);}
@@ -88,7 +88,8 @@ public final class Menus {
             return 112;
         }
         int chassis(){return assembly==null?0:assembly.chassis();}
-        boolean fits(int i){return type==WORKBENCH&&ServerSpec.slotAvailable(chassis(),Hardware.spec(assembly.slots.get(0)),i);}
+        ChassisSpec chassisModel(){return assembly==null?null:assembly.chassisModel();}
+        boolean fits(int i){return type==WORKBENCH&&ServerSpec.slotAvailable(chassisModel(),Hardware.spec(assembly.slots.get(0)),i);}
         @Override public void onContainerClosed(EntityPlayer p){super.onContainerClosed(p);if(type==WORKBENCH&&!p.world.isRemote&&((Tiles.Workbench)tile).editor==this)((Tiles.Workbench)tile).editor=null;}
         @Override public boolean canInteractWith(EntityPlayer p){return tile.getWorld()==p.world&&p.world.getTileEntity(tile.getPos())==tile&&p.getDistanceSq(tile.getPos().getX()+.5,tile.getPos().getY()+.5,tile.getPos().getZ()+.5)<=64&&tile.allows(p)&&(type!=RACK||((Tiles.Rack)tile).role!=-1&&((Tiles.Rack)tile).doorAllowsAccess()&&((Tiles.Rack)tile).revision==revision)&&(type!=WORKBENCH||p.world.isRemote||((Tiles.Workbench)tile).editor==this);}
         @Override public ItemStack slotClick(int slot,int drag,ClickType click,EntityPlayer p){if(!p.world.isRemote&&!canInteractWith(p)||type==MARKET&&slot>=0&&slot<4)return ItemStack.EMPTY;

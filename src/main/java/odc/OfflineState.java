@@ -258,11 +258,11 @@ public final class OfflineState extends WorldSavedData {
             a.setTag("PowerGroups",groups);a.setTag("Positions",writePositions(s.positions));a.setTag("Consumers",writePositions(s.consumers));
             Set<BlockPos> route=new HashSet<>();for(PhysicalTopology.Pos pos:s.routing)route.add(PhysicalNetwork.block(pos));a.setTag("Routing",writePositions(route));
             NBTTagList nn=new NBTTagList();for(TaskEngine.Node node:s.nodes){
-                NBTTagCompound q=new NBTTagCompound();q.setUniqueId("Id",node.id);if(node.pool!=null)q.setUniqueId("Pool",node.pool);q.setInteger("Rack",node.rack);q.setInteger("Net",node.net);q.setIntArray("Parts",node.parts);nn.appendTag(q);
+                NBTTagCompound q=new NBTTagCompound();q.setUniqueId("Id",node.id);if(node.pool!=null)q.setUniqueId("Pool",node.pool);q.setInteger("Rack",node.rack);q.setInteger("Net",node.net);q.setIntArray("Parts",node.parts);if(node.chassis!=null)q.setString("Chassis",node.chassis.id);nn.appendTag(q);
             }
             a.setTag("Nodes",nn);ss.appendTag(a);
         }
-        n.setInteger("PowerSchema",4);n.setTag("Snapshots",ss);
+        n.setInteger("PowerSchema",5);n.setTag("Snapshots",ss);
         NBTTagList fs=new NBTTagList();for(Map.Entry<UUID,Integer> f:faults.entrySet()){
             NBTTagCompound a=new NBTTagCompound();a.setUniqueId("Id",f.getKey());a.setInteger("Reason",f.getValue());fs.appendTag(a);
         }
@@ -275,7 +275,7 @@ public final class OfflineState extends WorldSavedData {
         Set<BlockPos> result=new HashSet<>();for(int i=0;i<list.tagCount();i++)result.add(BlockPos.fromLong(list.getCompoundTagAt(i).getLong("P")));return result;
     }
     @Override public void readFromNBT(NBTTagCompound n){
-        snapshots.clear();NBTTagList ss=n.getInteger("PowerSchema")==4?n.getTagList("Snapshots",10):new NBTTagList();
+        snapshots.clear();NBTTagList ss=n.getInteger("PowerSchema")==5?n.getTagList("Snapshots",10):new NBTTagList();
         for(int i=0;i<ss.tagCount();i++){
             NBTTagCompound a=ss.getCompoundTagAt(i);if(!a.hasUniqueId("Anchor")||!a.hasUniqueId("Owner"))continue;
             Snapshot s=new Snapshot();s.anchor=a.getUniqueId("Anchor");s.owner=a.getUniqueId("Owner");
@@ -300,10 +300,10 @@ public final class OfflineState extends WorldSavedData {
             for(BlockPos p:readPositions(a.getTagList("Routing",10)))if(s.positions.contains(p))s.routing.add(PhysicalNetwork.pos(p));
             NBTTagList nn=a.getTagList("Nodes",10);Set<UUID> ids=new HashSet<>();
             for(int j=0;j<nn.tagCount();j++){
-                NBTTagCompound q=nn.getCompoundTagAt(j);int rack=q.getInteger("Rack");int[] parts=q.getIntArray("Parts");
-                if(parts.length!=ServerSpec.COUNT||!q.hasUniqueId("Id")||rack<0||rack>=s.caps.length||!ids.add(q.getUniqueId("Id"))){valid=false;break;}
+                NBTTagCompound q=nn.getCompoundTagAt(j);int rack=q.getInteger("Rack");int[] parts=q.getIntArray("Parts");ChassisSpec chassis=ChassisSpec.byId(q.getString("Chassis"));
+                if(parts.length!=ServerSpec.COUNT||chassis==null||ServerSpec.state(chassis,parts)!=ServerSpec.READY||!q.hasUniqueId("Id")||rack<0||rack>=s.caps.length||!ids.add(q.getUniqueId("Id"))){valid=false;break;}
                 if(ODC.requireEnergy&&(s.gridByRack[rack]<0||s.gridByRack[rack]>=s.groups.size())){valid=false;break;}
-                s.nodes.add(new TaskEngine.Node(q.getUniqueId("Id"),rack,q.getInteger("Net"),parts,q.hasUniqueId("Pool")?q.getUniqueId("Pool"):PoolResources.id(s.owner,PoolResources.DEFAULT)));
+                s.nodes.add(new TaskEngine.Node(q.getUniqueId("Id"),rack,q.getInteger("Net"),parts,q.hasUniqueId("Pool")?q.getUniqueId("Pool"):PoolResources.id(s.owner,PoolResources.DEFAULT),chassis));
             }
             if(valid&&!s.nodes.isEmpty()&&snapshots.values().stream().noneMatch(old->!Collections.disjoint(old.positions,s.positions)))snapshots.put(s.anchor,s);
         }

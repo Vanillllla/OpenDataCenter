@@ -124,6 +124,7 @@ public final class Tiles {
         public Workbench(){super(1);}
         @Override void changed(){if(world!=null)super.changed();}
         int chassis(){return Hardware.units(slots.get(0));}
+        ChassisSpec chassisModel(){return Hardware.chassis(slots.get(0));}
         NonNullList<ItemStack> parts(){return Hardware.parts(slots.get(0));}
         @Override public boolean isItemValidForSlot(int i,ItemStack s){return i==0&&Hardware.units(s)>0;}
         @Override public void setInventorySlotContents(int i,ItemStack s){if(world!=null&&!world.isRemote)Hardware.ensureId(s);super.setInventorySlotContents(i,s);}

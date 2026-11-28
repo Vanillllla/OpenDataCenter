@@ -69,9 +69,9 @@ gui.odc.task.2=Банк
 gui.odc.task.3=ИИ
 gui.odc.unlinked=Нет контроллера
 gui.odc.wallet=Баланс: %s NTC
-item.odc.chassis_1u.name=Корпус сервера 1U
-item.odc.chassis_2u.name=Корпус сервера 2U
-item.odc.chassis_4u.name=Корпус сервера 4U
+item.odc.chassis_1u.name=Корпус сервера 1U Базовый
+item.odc.chassis_2u.name=Корпус сервера 2U Базовый
+item.odc.chassis_4u.name=Корпус сервера 4U Базовый
 item.odc.ethernet_patch.name=LAN-кабель T1 (100 Мбит/с)
 item.odc.precision_chip.name=Прецизионный чип
 item.odc.switch_basic.name=Стоечный коммутатор 4 порта / 200 Мбит/с
@@ -416,3 +416,15 @@ gui.odc.battery.incomplete=Загрузите всю сеть для сброс�
 gui.odc.transformer.tripped=Авария сети — нехватка мощности
 gui.odc.transformer.incomplete=Загрузите всю сеть для сброса
 gui.odc.transformer.funded=Запрос энергии обеспечен
+
+item.odc.chassis_1u_compact.name=Корпус сервера 1U Компакт
+
+item.odc.chassis_1u_compute.name=Корпус сервера 1U Вычислительный
+
+item.odc.chassis_2u_compact.name=Корпус сервера 2U Компакт
+
+item.odc.chassis_2u_compute.name=Корпус сервера 2U Вычислительный
+
+item.odc.chassis_4u_storage.name=Корпус сервера 4U Хранилище
+
+item.odc.chassis_4u_gpu.name=Корпус сервера 4U GPU

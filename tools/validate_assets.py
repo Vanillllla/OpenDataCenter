@@ -15,6 +15,8 @@ items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','s
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
+chassis_catalog=(root.parents[4]/'src/main/java/odc/ChassisSpec.java').read_text(encoding='utf8')
+items.update(re.findall(r'^    [A-Z_0-9]+\("(chassis_[a-z0-9_]+)"',chassis_catalog,re.M))
 check(set(p.stem for p in (root/'models/item').glob('*.json')) == blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
 for f in root.rglob('*.png'):
     b=f.read_bytes();check(b[:8]==b'\x89PNG\r\n\x1a\n',f'PNG header {f.name}');w,h=struct.unpack('>II',b[16:24]);check(w in (16,32,64) and h%w==0 and h<=64,f'texture resolution {f.name}');

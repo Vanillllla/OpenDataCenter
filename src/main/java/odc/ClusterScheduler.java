@@ -54,7 +54,7 @@ public final class ClusterScheduler {
         List<TaskEngine.Node> nodes=new ArrayList<>();List<Ref> refs=new ArrayList<>();Set<UUID> seen=new HashSet<>();int[] caps=new int[racks.size()];
         for(int ri=0;ri<racks.size();ri++){Tiles.Rack r=racks.get(ri);int st=r.switchTier();caps[ri]=r.switchOnline?Hardware.switchMbps(st):0;
             for(int b=0;b<r.capacity();b++)if(r.isServer(b)){if((r.enabledMask&(1<<b))==0){r.status[b]=r.fault[b];continue;}ItemStack s=r.slots.get(b);if(Hardware.state(s)!=ServerSpec.READY){r.status[b]=ComputeEngine.INCOMPLETE;continue;}UUID id=serverId(s);if(!seen.add(id)){r.status[b]=ComputeEngine.INCOMPATIBLE;continue;}if(!r.networkConnected(b)){d.networkState(r,b,false);continue;}int[] p=Hardware.spec(s);int net=online&&r.switchOnline?r.patchLimit(b):0;
-                d.networkState(r,b,net>0&&PhysicalNetwork.hasWanRoute(w,id));nodes.add(new TaskEngine.Node(id,ri,net,p,d.poolId(owner,id)));refs.add(new Ref(r,b));}}
+                d.networkState(r,b,net>0&&PhysicalNetwork.hasWanRoute(w,id));nodes.add(new TaskEngine.Node(id,ri,net,p,d.poolId(owner,id),Hardware.chassis(s)));refs.add(new Ref(r,b));}}
         Set<Integer> excluded=new HashSet<>();TaskEngine.Plan plan;
         while(true){plan=d.plan(anchor,nodes,jobs,caps,online?Integer.MAX_VALUE:0,excluded,networkBlocked);boolean repeat=false;for(int i:plan.overload)if(excluded.add(i)){Ref f=refs.get(i);trip(f.rack,f.bay,11,d);repeat=true;}if(repeat)continue;
             PowerEngine.Preview budget=new PowerEngine.Preview();

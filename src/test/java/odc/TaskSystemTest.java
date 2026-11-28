@@ -18,8 +18,8 @@ public class TaskSystemTest {
         p[ServerSpec.SATA]=part("Susung Enterprise 8");p[ServerSpec.NVME]=part("Susung 1200 Titan");
         p[ServerSpec.PSU]=p[ServerSpec.PSU+1]=part("SuperMacro 1500 Titanium");
         p[ServerSpec.PCIE]=part("NoVideo Teslo M10");
-        p[ServerSpec.PCIE+1]=p[ServerSpec.PCIE+2]=part("NoVideo Teslo P4");
-        p[ServerSpec.PCIE+3]=part("Melonox Connect 100");
+        p[ServerSpec.PCIE+2]=p[ServerSpec.PCIE+3]=part("NoVideo Teslo P4");
+        p[ServerSpec.PCIE+4]=part("Melonox Connect 100");
         check(ServerSpec.cpuCores(p)==88 && ServerSpec.state(4,p)==0,"dual CPU");
         TaskEngine.Node multi=node(p);check(allocate(1,multi).units==6 && allocate(15,multi).units==0,"independent GPU memory");
         check(allocate(10,multi,node(p)).units==2*allocate(10,multi).units,"distributed score");
@@ -28,7 +28,7 @@ public class TaskSystemTest {
         check(plan.tasks.get(1).units+plan.tasks.get(2).units==6,"exclusive reservation");
         p[0]=part("GigaBite SP6 Titan");p[1]=part("AMDead Epyx 9654");p[ServerSpec.CPU2]=0;
         p[ServerSpec.RAM]=part("Susung Enterprise 128");p[ServerSpec.RAM+1]=0;
-        p[ServerSpec.PCIE]=part("NoVideo H200X");p[ServerSpec.PCIE+1]=p[ServerSpec.PCIE+2]=0;
+        p[ServerSpec.PCIE]=part("NoVideo H200X");p[ServerSpec.PCIE+1]=p[ServerSpec.PCIE+2]=p[ServerSpec.PCIE+3]=0;
         check(allocate(15,node(p)).units==1,"AI server");
     }
     static TaskData.Job accept(TaskData d,int rule,long now){
