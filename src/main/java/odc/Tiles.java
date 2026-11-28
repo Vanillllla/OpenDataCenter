@@ -18,14 +18,20 @@ import java.util.*;
 public final class Tiles {
     public static abstract class Owned extends TileEntity {
         UUID owner;
-        @Override public void onLoad(){super.onLoad();Network.invalidate(world);PhysicalNetwork.changed(world,pos);}
+        // Render-only, synchronized through the existing tile update packet, never persisted.
+        int powerLamp=GridProtection.LAMP_OFF;
+        void setPowerLamp(int lamp){
+            if(powerLamp==lamp)return;powerLamp=lamp;
+            if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,2);}
+        }
+        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote)powerLamp=GridProtection.LAMP_OFF;Network.invalidate(world);PhysicalNetwork.changed(world,pos);}
         @Override public void invalidate(){super.invalidate();Network.invalidate(world);}
         void setOwner(UUID id){owner=id;markDirty();}
         boolean allows(EntityPlayer p){return owner==null||owner.equals(p.getUniqueID())||p.capabilities.isCreativeMode;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);owner=n.hasUniqueId("Owner")?n.getUniqueId("Owner"):null;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);owner=n.hasUniqueId("Owner")?n.getUniqueId("Owner"):null;powerLamp=Math.max(0,Math.min(2,n.getInteger("PowerLamp")));}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);if(owner!=null)n.setUniqueId("Owner",owner);return n;}
         void changed(){markDirty();if(world!=null&&!world.isRemote){PhysicalNetwork.changed(world,pos);net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,3);}}
-        @Override public NBTTagCompound getUpdateTag(){return writeToNBT(new NBTTagCompound());}
+        @Override public NBTTagCompound getUpdateTag(){NBTTagCompound n=writeToNBT(new NBTTagCompound());if(this instanceof Rack||this instanceof Transformer)n.setInteger("PowerLamp",powerLamp);return n;}
         @Override public SPacketUpdateTileEntity getUpdatePacket(){return new SPacketUpdateTileEntity(pos,0,getUpdateTag());}
         @Override public void onDataPacket(NetworkManager net,SPacketUpdateTileEntity pkt){readFromNBT(pkt.getNbtCompound());if(world!=null)world.markBlockRangeForRenderUpdate(pos,this instanceof Computer?pos.up():this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER?pos.up(2):pos);}
     }

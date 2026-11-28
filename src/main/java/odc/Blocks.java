@@ -76,12 +76,15 @@ final class Blocks {
         @Override int gui(){return type==1?1:type==2?2:type==3?Menus.BATTERY:-1;}
     }
     static final class Transformer extends Oriented {
+        static final PropertyInteger INDICATOR=PropertyInteger.create("indicator",0,3);
         final int tier;
-        Transformer(int tier){super("transformer_t"+tier);this.tier=tier;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false));}
-        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,ACTIVE);}
+        Transformer(int tier){super("transformer_t"+tier);this.tier=tier;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(INDICATOR,0));}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,INDICATOR);}
         @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Transformer();}
         @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){
-            TileEntity t=w.getTileEntity(p);return s.withProperty(ACTIVE,t instanceof Tiles.Transformer&&((Tiles.Transformer)t).enabled);
+            TileEntity t=w.getTileEntity(p);int model=0;
+            if(t instanceof Tiles.Transformer){Tiles.Transformer transformer=(Tiles.Transformer)t;model=GridProtection.transformerModel(transformer.enabled,transformer.powerLamp);}
+            return s.withProperty(INDICATOR,model);
         }
         @Override int gui(){return Menus.TRANSFORMER;}
     }

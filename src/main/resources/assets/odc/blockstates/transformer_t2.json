@@ -1,35 +1,67 @@
 {
   "variants": {
-    "active=false,facing=north": {
+    "facing=north,indicator=0": {
       "model": "odc:transformer_t2_off",
       "y": 0
     },
-    "active=false,facing=east": {
+    "facing=north,indicator=1": {
+      "model": "odc:transformer_t2_armed",
+      "y": 0
+    },
+    "facing=north,indicator=2": {
+      "model": "odc:transformer_t2_on",
+      "y": 0
+    },
+    "facing=north,indicator=3": {
+      "model": "odc:transformer_t2_tripped",
+      "y": 0
+    },
+    "facing=east,indicator=0": {
       "model": "odc:transformer_t2_off",
       "y": 90
     },
-    "active=false,facing=south": {
+    "facing=east,indicator=1": {
+      "model": "odc:transformer_t2_armed",
+      "y": 90
+    },
+    "facing=east,indicator=2": {
+      "model": "odc:transformer_t2_on",
+      "y": 90
+    },
+    "facing=east,indicator=3": {
+      "model": "odc:transformer_t2_tripped",
+      "y": 90
+    },
+    "facing=south,indicator=0": {
       "model": "odc:transformer_t2_off",
       "y": 180
     },
-    "active=false,facing=west": {
+    "facing=south,indicator=1": {
+      "model": "odc:transformer_t2_armed",
+      "y": 180
+    },
+    "facing=south,indicator=2": {
+      "model": "odc:transformer_t2_on",
+      "y": 180
+    },
+    "facing=south,indicator=3": {
+      "model": "odc:transformer_t2_tripped",
+      "y": 180
+    },
+    "facing=west,indicator=0": {
       "model": "odc:transformer_t2_off",
       "y": 270
     },
-    "active=true,facing=north": {
-      "model": "odc:transformer_t2_on",
-      "y": 0
+    "facing=west,indicator=1": {
+      "model": "odc:transformer_t2_armed",
+      "y": 270
     },
-    "active=true,facing=east": {
+    "facing=west,indicator=2": {
       "model": "odc:transformer_t2_on",
-      "y": 90
+      "y": 270
     },
-    "active=true,facing=south": {
-      "model": "odc:transformer_t2_on",
-      "y": 180
-    },
-    "active=true,facing=west": {
-      "model": "odc:transformer_t2_on",
+    "facing=west,indicator=3": {
+      "model": "odc:transformer_t2_tripped",
       "y": 270
     }
   }

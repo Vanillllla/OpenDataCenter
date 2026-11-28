@@ -29,6 +29,12 @@ public final class GridProtectionTest {
         PowerEngine.Budget budget=new PowerEngine.Budget(100,20);
         check(budget.use(30)&&budget.use(70)&&!budget.use(1),"cumulative demand triggers trip");
         check(!GridProtection.sufficient(0,1),"missing source");
+        check(GridProtection.lamp(GridProtection.ON,true)==GridProtection.LAMP_GREEN,"confirmed power green");
+        check(GridProtection.lamp(GridProtection.ON,false)==GridProtection.LAMP_OFF,"unconfirmed input dark");
+        check(GridProtection.lamp(GridProtection.OFF,true)==GridProtection.LAMP_OFF,"manual off dark");
+        check(GridProtection.lamp(GridProtection.TRIPPED,false)==GridProtection.LAMP_RED&&GridProtection.lamp(GridProtection.TRIPPED,true)==GridProtection.LAMP_RED,"trip red overrides supply");
+        check(GridProtection.transformerModel(false,GridProtection.LAMP_OFF)==0&&GridProtection.transformerModel(true,GridProtection.LAMP_OFF)==1,"armed dark retains handle");
+        check(GridProtection.transformerModel(true,GridProtection.LAMP_GREEN)==2&&GridProtection.transformerModel(false,GridProtection.LAMP_RED)==3,"powered and tripped models");
         System.out.println("GridProtection: "+checks+" checks passed");
     }
 }

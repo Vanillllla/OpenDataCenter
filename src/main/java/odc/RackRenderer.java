@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Atlas-batched module mesh: one opaque draw, plus one glass draw if needed. */
 final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
-    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","rack_frame","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh","pdu_rail","pdu_socket","power_plug","power_lead","psu_rear","psu_blank","server_rear","switch_rear"};
+    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","rack_frame","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh","pdu_rail","pdu_socket","power_plug","power_lead","psu_rear","psu_blank","server_rear","switch_rear","power_lamp_off","power_lamp_green","power_lamp_red"};
     private BufferBuilder buffer;
     private TextureMap atlas;
     private void begin(){buffer=Tessellator.getInstance().getBuffer();buffer.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX_COLOR);}
@@ -73,6 +73,8 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
             double height=rack.role==1?2:1,pitch=rack.role==1?1.875/9:.875/4;
             begin();
             powerFaces(RackPowerMesh.rail(rack.capacity()));
+            String lamp=rack.powerLamp==GridProtection.LAMP_RED?"power_lamp_red":rack.powerLamp==GridProtection.LAMP_GREEN?"power_lamp_green":"power_lamp_off";
+            quad(lamp,255,v(.875,height-.123,.986),v(.845,height-.123,.986),v(.845,height-.093,.986),v(.875,height-.093,.986));
             for(int i=0;i<rack.capacity();i++){
                 ItemStack item=rack.slots.get(i);int units=Hardware.rackUnits(item);if(units==0)continue;
                 double bottom=.0625+i*pitch+.012,top=.0625+(i+units)*pitch-.012,h=top-bottom;

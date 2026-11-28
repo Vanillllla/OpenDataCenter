@@ -5,6 +5,9 @@ import java.util.*;
  * strongest state, and only explicit reset clears a connected component. */
 final class GridProtection {
     static final int ON=0, OFF=1, TRIPPED=2;
+    static final int LAMP_OFF=0,LAMP_GREEN=1,LAMP_RED=2;
+    static int lamp(int state,boolean powered){return state==TRIPPED?LAMP_RED:state==ON&&powered?LAMP_GREEN:LAMP_OFF;}
+    static int transformerModel(boolean enabled,int lamp){return lamp==LAMP_RED?3:!enabled?0:lamp==LAMP_GREEN?2:1;}
     private final Map<Long,Integer> cells=new HashMap<>();
     int state(Collection<Long> footprint){
         int state=ON;for(long cell:footprint)state=Math.max(state,cells.getOrDefault(cell,ON));return state;

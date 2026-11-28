@@ -108,6 +108,7 @@ final class PowerGrid {
             state=Math.max(state,reason);confirmed=false;paidWatts=0;cancel(world,positions);PowerState.get(world).set(footprint,state);
             for(Source s:sources)s.gridState(state);
             budget=new PowerEngine.Budget(0,PowerEngine.TICKS_PER_SECOND);
+            publishIndicators();
             TaskData data=TaskData.get(world);
             for(TileEntity tile:consumers){
                 OfflineState.invalidateAt(world,tile.getPos());
@@ -129,6 +130,16 @@ final class PowerGrid {
                 }
             }
         }
+        void publishIndicators(){
+            boolean powered=funded()&&fundedWatts()>0;
+            int lamp=GridProtection.lamp(state,powered);
+            for(TileEntity tile:consumers)if(tile instanceof Tiles.Rack)((Tiles.Rack)tile).setPowerLamp(lamp);
+            for(Source source:sources)if(source instanceof Tiles.Transformer){
+                Tiles.Transformer t=(Tiles.Transformer)source;
+                // A closed switch/nameplate alone does not prove external supply.
+                t.setPowerLamp(GridProtection.lamp(state,powered&&(t.lastHE>0||t.lastFE>0)));
+            }
+        }
         boolean toggle(){
             if(state==GridProtection.ON){shutdown(GridProtection.OFF);return true;}
             if(!complete)return false; // do not clear an unknown portion of a saved grid
@@ -136,7 +147,7 @@ final class PowerGrid {
             PowerState.get(world).set(positions,GridProtection.ON);
             for(Source s:sources)s.gridState(GridProtection.ON);
             for(BlockPos p:positions)OfflineState.invalidateAt(world,p);
-            reset();return true;
+            reset();publishIndicators();return true;
         }
     }
     static final class Topology {
@@ -193,7 +204,11 @@ final class PowerGrid {
     static void finish(World w){
         Map<Set<BlockPos>,ExternalWindow> next=new HashMap<>();
         for(Domain d:topology(w).domains){ExternalWindow window=d.finish();if(window!=null)next.put(new HashSet<>(d.positions),window);}
-        windows.put(w,next);topology(w).settling=true;
+        windows.put(w,next);Topology current=topology(w);current.settling=true;
+        for(Domain d:current.domains)d.publishIndicators();
+        // A failed/oversized topology has no verified power. Clear stale render state.
+        for(TileEntity tile:w.loadedTileEntityList)if((tile instanceof Tiles.Rack||tile instanceof Tiles.Transformer)&&!current.byPos.containsKey(tile.getPos()))
+            ((Tiles.Owned)tile).setPowerLamp(GridProtection.LAMP_OFF);
     }
     static Domain domain(World w,BlockPos p){
         if(!w.isBlockLoaded(p))return null;

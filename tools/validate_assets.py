@@ -56,7 +56,7 @@ for name in ('data_cable','power_cable','power_relay','fiber_cable'):
         m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
         for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
             if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
-for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal','network_terminal_t2','network_terminal_t3','transformer_t1','transformer_t2','transformer_t3'):
+for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal','network_terminal_t2','network_terminal_t3'):
     data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
 tower=read(root/'blockstates/telecom_tower.json')['variants']
 check(set(tower)=={f'active={a},facing={f},part={p}' for a in ('true','false') for f in ('north','east','south','west') for p in range(3)},'tower state coverage')
@@ -144,3 +144,17 @@ for name in ('rack','rack_glass'):
 for name in ('pdu_rail','pdu_socket','power_plug','power_lead','psu_rear','psu_blank','server_rear','switch_rear'):
     tex_ref('odc:blocks/'+name)
 print('PASS: open rack backs and PDU assets')
+
+for tier in range(1,4):
+    name=f'transformer_t{tier}'
+    variants=read(root/'blockstates'/f'{name}.json')['variants']
+    check(set(variants)=={f'facing={f},indicator={i}' for f in ('north','east','south','west') for i in range(4)},'transformer indicator coverage')
+    states=('off','armed','on','tripped')
+    colors=('off','off','green','red')
+    for i,state in enumerate(states):
+        model=read(root/'models/block'/f'{name}_{state}.json')
+        check(model['textures']['lamp']==f'odc:blocks/power_lamp_{colors[i]}','transformer lamp texture')
+        for direction in ('north','east','south','west'):
+            check(variants[f'facing={direction},indicator={i}']['model']==f'odc:{name}_{state}','transformer model selection')
+for color in ('off','green','red'):tex_ref('odc:blocks/power_lamp_'+color)
+print('PASS: three-state power indicator assets')

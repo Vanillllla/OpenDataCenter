@@ -8,7 +8,7 @@
     "porcelain": "odc:blocks/transformer_porcelain",
     "copper": "odc:blocks/transformer_copper",
     "panel": "odc:blocks/transformer_panel",
-    "lamp": "odc:blocks/transformer_off"
+    "lamp": "odc:blocks/power_lamp_off"
   },
   "elements": [
     {
