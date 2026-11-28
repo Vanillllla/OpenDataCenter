@@ -84,7 +84,7 @@ public final class Tiles {
         }
         UUID id=UUID.randomUUID();
         public Rack(){super(9);}
-        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote&&role!=-1)PersistentThermal.reconcile(OfflineState.get(world),this);}
+        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;if(role!=-1)PersistentThermal.reconcile(OfflineState.get(world),this);}}
         int capacity(){return role==1?9:4;}
         Rack master(){if(role!=-1)return this;if(world==null||!world.isBlockLoaded(pos.down()))return null;TileEntity t=world.getTileEntity(pos.down());return t instanceof Rack&&((Rack)t).role==1?(Rack)t:null;}
         int[] layout(){int[] a=new int[capacity()];for(int i=0;i<a.length;i++)a[i]=Hardware.rackUnits(slots.get(i));return a;}
@@ -120,7 +120,6 @@ public final class Tiles {
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){if(world!=null&&!world.isRemote)for(int i=0;i<capacity();i++)if(isServer(i))ThermalRuntime.checkpoint(this,i);super.writeToNBT(n);n.setInteger("Role",role);n.setBoolean("Manifold",manifold);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);role=n.getInteger("Role");manifold=role!=-1&&n.getBoolean("Manifold");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
         @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return glassRack()&&role!=-1?new net.minecraft.util.math.AxisAlignedBB(pos.add(-1,0,-1),pos.add(2,role==1?2:1,2)):new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
-        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }
     /** The only persistent inventory is the chassis. Parts are read/written inside its NBT. */
     public static final class Workbench extends InventoryTile {
