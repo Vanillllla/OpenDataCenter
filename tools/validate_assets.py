@@ -10,7 +10,7 @@ def check(ok,msg):
     if not ok: raise AssertionError(msg)
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
-blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower'}
+blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower','transformer_t1','transformer_t2','transformer_t3'}
 items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','switch_2p_100','switch_2p_500','switch_2p_1000','switch_2p_10000','switch_4p_1000','switch_4p_10000','switch_8p_10000','switch_8p_50000','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
@@ -56,7 +56,7 @@ for name in ('data_cable','power_cable','power_relay','fiber_cable'):
         m=read(root/'models/block'/(data[key]['model'][4:]+'.json'))
         for face,axis,side in [('down',1,0),('up',1,16),('north',2,0),('south',2,16),('west',0,0),('east',0,16)]:
             if bits[props.index(face)]=='true':check(not any(face in e['faces'] and e['from' if side==0 else 'to'][axis]==side for e in m['elements']),f'no cap at connected end {name}:{key}:{face}')
-for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal','network_terminal_t2','network_terminal_t3'):
+for name in ('computer','creative_battery','radio_station','satellite_station','network_terminal','network_terminal_t2','network_terminal_t3','transformer_t1','transformer_t2','transformer_t3'):
     data=read(root/'blockstates'/f'{name}.json')['variants'];expected={f'active={a},facing={f}'+(f',upper={u}' if name=='computer' else '') for a in ('true','false') for f in ('north','east','south','west') for u in ('false','true')};check(set(data)==expected,f'machine states {name}')
 tower=read(root/'blockstates/telecom_tower.json')['variants']
 check(set(tower)=={f'active={a},facing={f},part={p}' for a in ('true','false') for f in ('north','east','south','west') for p in range(3)},'tower state coverage')
@@ -119,3 +119,12 @@ for name in sorted(i for i in items if i.startswith('switch_')):
     check(model.get('display',{}).get('gui',{}).get('scale')==[0.8,0.8,0.8],f'compact switch inventory icon {name}')
 check(all('tooltip.odc.board.onboard_nic' in lang for lang in langs),'onboard NIC tooltip translations')
 print(f'PASS: {checks} resource checks; {len(blocks)} block types; {len(items)} item types; {len(recipes)} recipes; {sum(1 for _ in root.rglob("*.png"))} PNG textures; 24 rack frame variants; 512 cable/relay states.')
+
+for tier in range(1,4):
+    name=f'transformer_t{tier}'
+    on=read(root/'models/block'/f'{name}_on.json');off=read(root/'models/block'/f'{name}_off.json')
+    check(len(on['elements'])==len(off['elements']) and len(on['elements'])>25,f'transformer detail {tier}')
+    check(on['textures']['lamp']!=off['textures']['lamp'],f'transformer switch states {tier}')
+    check(all(0<=v<=16 for e in on['elements'] for k in ('from','to') for v in e[k]),f'transformer bounds {tier}')
+    check(read(root/'models/item'/f'{name}.json')['parent']==f'odc:block/{name}_off',f'transformer inventory {tier}')
+print('PASS: transformer model and state checks')

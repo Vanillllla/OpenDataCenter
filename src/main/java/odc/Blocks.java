@@ -75,6 +75,16 @@ final class Blocks {
         @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){return type>=5?false:super.onBlockActivated(w,p,s,player,hand,side,x,y,z);}
         @Override int gui(){return type==1?1:type==2?2:-1;}
     }
+    static final class Transformer extends Oriented {
+        final int tier;
+        Transformer(int tier){super("transformer_t"+tier);this.tier=tier;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false));}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,ACTIVE);}
+        @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Transformer();}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){
+            TileEntity t=w.getTileEntity(p);return s.withProperty(ACTIVE,t instanceof Tiles.Transformer&&((Tiles.Transformer)t).enabled);
+        }
+        @Override int gui(){return Menus.TRANSFORMER;}
+    }
     static final class NetworkTerminal extends Oriented {
         final NetworkEquipment equipment;
         NetworkTerminal(NetworkEquipment e){super(e.id);equipment=e;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false));}
@@ -138,7 +148,7 @@ final class Blocks {
         @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,LINK[0],LINK[1],LINK[2],LINK[3],LINK[4],LINK[5],ACTIVE);}
         @Override public IBlockState getStateFromMeta(int m){return getDefaultState().withProperty(ACTIVE,relay&&(m&1)!=0);}
         @Override public int getMetaFromState(IBlockState s){return relay&&s.getValue(ACTIVE)?1:0;}
-        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){for(EnumFacing f:EnumFacing.VALUES){IBlockState neighbor=w.getBlockState(p.offset(f));Block b=neighbor.getBlock();boolean antenna=Hardware.antenna(b)&&(!(b instanceof Tower)||neighbor.getValue(PART)==0);boolean yes=fiber?(b==Hardware.FIBER_CABLE||Hardware.networkTerminal(b)||antenna):(b==Hardware.RACK||b==Hardware.RACK_GLASS||b==Hardware.COMPUTER||Hardware.networkTerminal(b)||(power?(antenna||b==Hardware.POWER_CABLE||b==Hardware.RELAY||b==Hardware.BATTERY):b==Hardware.DATA_CABLE));s=s.withProperty(LINK[f.getIndex()],yes);}return s;}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){for(EnumFacing f:EnumFacing.VALUES){IBlockState neighbor=w.getBlockState(p.offset(f));Block b=neighbor.getBlock();boolean antenna=Hardware.antenna(b)&&(!(b instanceof Tower)||neighbor.getValue(PART)==0);boolean yes=fiber?(b==Hardware.FIBER_CABLE||Hardware.networkTerminal(b)||antenna):(b==Hardware.RACK||b==Hardware.RACK_GLASS||b==Hardware.COMPUTER||Hardware.networkTerminal(b)||(power?(antenna||b==Hardware.POWER_CABLE||b==Hardware.RELAY||b==Hardware.BATTERY||Hardware.transformer(b)):b==Hardware.DATA_CABLE));s=s.withProperty(LINK[f.getIndex()],yes);}return s;}
         @Override public boolean isOpaqueCube(IBlockState s){return false;}
         @Override public boolean isFullCube(IBlockState s){return false;}
         @Override public BlockFaceShape getBlockFaceShape(IBlockAccess w,IBlockState s,BlockPos p,EnumFacing f){return BlockFaceShape.UNDEFINED;}

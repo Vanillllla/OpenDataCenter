@@ -166,6 +166,28 @@ public final class Tiles {
     }
     public static final class NetworkTerminal extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&e.terminal()?e:NetworkEquipment.TERMINAL_1;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
     public static final class Station extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&!e.terminal()?e:NetworkEquipment.RADIO;} boolean satellite(){return equipment()==NetworkEquipment.SATELLITE;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
+    public static final class Transformer extends Owned implements PowerGrid.Source {
+        boolean enabled=true;
+        int tier(){
+            if(world==null||!world.isBlockLoaded(pos))return 1;
+            net.minecraft.block.Block block=world.getBlockState(pos).getBlock();
+            return block instanceof Blocks.Transformer?((Blocks.Transformer)block).tier:1;
+        }
+        @Override public long ratedWatts(){return ODC.transformerWatts(tier());}
+        /** This stage deliberately has no external adapter. A closed switch and a
+         * nominal rating are not evidence of paid energy. */
+        @Override public long outputWatts(){return 0;}
+        long actualOutputWatts(){return 0;}
+        long actualInputUnits(){return 0;}
+        void toggle(){
+            if(world==null||world.isRemote)return;
+            enabled=!enabled;
+            OfflineState.invalidateAt(world,pos);
+            changed();
+        }
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("BreakerEnabled",enabled);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);enabled=!n.hasKey("BreakerEnabled")||n.getBoolean("BreakerEnabled");}
+    }
     public static final class Battery extends Owned implements PowerGrid.Source {
         @Override public long outputWatts(){return ODC.batteryOutput;}
     }

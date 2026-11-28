@@ -16,12 +16,23 @@ import java.util.List;
 final class Hardware {
     static final CreativeTabs TAB=new CreativeTabs("odc"){@Override public ItemStack createIcon(){return new ItemStack(CHASSIS4);}};
     static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),TOWER=new Blocks.Tower(),NETWORK_TERMINAL=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_1),NETWORK_TERMINAL_T2=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_2),NETWORK_TERMINAL_T3=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_3),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
-    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL};
+    static final Block TRANSFORMER_T1=new Blocks.Transformer(1),TRANSFORMER_T2=new Blocks.Transformer(2),TRANSFORMER_T3=new Blocks.Transformer(3);
+    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL,TRANSFORMER_T1,TRANSFORMER_T2,TRANSFORMER_T3};
     static final class NetworkTerminalItem extends ItemBlock {
         private final NetworkEquipment equipment;
         NetworkTerminalItem(Blocks.NetworkTerminal block){super(block);equipment=block.equipment;}
         @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){super.addInformation(stack,world,tips,flag);tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.network_terminal.capacity",equipment.mbps));}
     }
+    static final class TransformerItem extends ItemBlock {
+        private final int tier;
+        TransformerItem(Blocks.Transformer block){super(block);tier=block.tier;}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){
+            super.addInformation(stack,world,tips,flag);
+            tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.transformer.capacity",ODC.transformerWatts(tier)));
+            tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.transformer.pending"));
+        }
+    }
+    static boolean transformer(Block b){return b instanceof Blocks.Transformer;}
     static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
     static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
     static final Item CHASSIS1=new Chassis("chassis_1u",1), CHASSIS2=new Chassis("chassis_2u",2), CHASSIS4=new Chassis("chassis_4u",4);

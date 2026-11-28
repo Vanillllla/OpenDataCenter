@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.1-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.2-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.2.2-alpha
+
+Три промышленных трансформатора T1/T2/T3 (5/25/100 кВт, настраиваемые), 3D-модели, светлый GUI, сохраняемый локальный рубильник и основа преобразования HE/FE. Номиналы суммируются на энергосети отдельно от реально доступной мощности. Внешние адаптеры ещё не подключены: фактическая выдача трансформаторов равна нулю до 0.6.2.5. Общий рубильник — 0.6.2.4. Блоки доступны в творческом инвентаре.
 
 ### Версия 0.6.2.1-alpha
 
@@ -72,6 +76,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.2.2-alpha
+
+Three industrial transformers T1/T2/T3 (configurable 5/25/100 kW), 3D models, light GUI, persistent local breaker and HE/FE conversion primitives. Rated capacity is tracked separately from funded supply; actual output is zero until external adapters are connected in 0.6.2.5. Shared breaker follows in 0.6.2.4. Creative inventory only for now.
 
 ### Version 0.6.2.1-alpha
 

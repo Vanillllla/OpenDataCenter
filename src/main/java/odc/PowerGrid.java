@@ -10,14 +10,23 @@ import net.minecraft.world.World;
 /** Physical electrical domains, independent of LAN, ownership, and WAN.
  * All consumers share one budget per loaded component and scheduler cycle. */
 final class PowerGrid {
-    /** Future transformers implement this contract; only creative sources exist in this stage. */
-    interface Source { long outputWatts(); }
+    /** Rated capacity is informational; output is the available funded capacity.
+     * External source settlement must be integrated before returning nonzero output. */
+    interface Source {
+        long outputWatts();
+        default long ratedWatts(){return outputWatts();}
+    }
     static final class Domain {
         final Set<BlockPos> positions;
         final List<TileEntity> consumers=new ArrayList<>();
         final List<Source> sources=new ArrayList<>();
         PowerEngine.Budget budget;
         Domain(Set<BlockPos> p){positions=p;}
+        long ratedWatts(){
+            long total=0;
+            for(Source source:sources)total=PowerEngine.sum(total,Math.max(0,source.ratedWatts()));
+            return total;
+        }
         void reset(){
             long capacity=0;
             for(Source source:sources)capacity=PowerEngine.sum(capacity,Math.max(0,source.outputWatts()));
