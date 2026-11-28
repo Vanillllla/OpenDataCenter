@@ -2,7 +2,6 @@
   "parent": "block/block",
   "ambientocclusion": false,
   "textures": {
-    "rack_back": "odc:blocks/rack_back",
     "rack_frame": "odc:blocks/rack_frame",
     "rack_side": "odc:blocks/rack_side",
     "particle": "odc:blocks/rack_frame"
@@ -344,52 +343,6 @@
       "faces": {
         "south": {
           "texture": "#rack_frame",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      }
-    },
-    {
-      "from": [
-        1.5,
-        0,
-        15
-      ],
-      "to": [
-        14.5,
-        15,
-        15.0625
-      ],
-      "faces": {
-        "north": {
-          "texture": "#rack_back",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      }
-    },
-    {
-      "from": [
-        1.5,
-        0,
-        15.9375
-      ],
-      "to": [
-        14.5,
-        15,
-        16
-      ],
-      "faces": {
-        "south": {
-          "texture": "#rack_back",
           "uv": [
             0,
             0,

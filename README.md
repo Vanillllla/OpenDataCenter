@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.7-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.8-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.2.8-alpha
+
+Завершение этапа питания: открытые задние панели стоек, встроенный декоративный 0U PDU, объёмные силовые провода по установленным PSU и один провод на коммутатор. Поддержаны обычные и стеклянные 4U/9U стойки, сохранены дверцы и передние патч-корды. Восемь этапов 0.6.2 реализованы в исходниках; проверка в Minecraft и с внешними модами остаётся обязательной. См. `docs/POWER_FINALIZATION_0628.md`.
 
 ### Версия 0.6.2.7-alpha
 
@@ -74,7 +78,7 @@
 | --- | --- | --- |
 | **0.5.x** | DataOS, вычислительные пулы, задачи, журнал и сводка по кошельку | В исходниках |
 | **0.6.1.x** | Физическая и логическая сеть, расчёт полосы, интерактивная карта, интеграция WAN с задачами и новые коммутаторы | В исходниках · игровая проверка впереди |
-| **0.6.2** | Энергосети, трансформаторы, PSU, общая аварийная защита и вкладка «Питание» | В разработке |
+| **0.6.2** | Энергосети, трансформаторы, PSU, общая аварийная защита и вкладка «Питание», PDU | Реализовано в исходниках; игровые проверки впереди |
 | **0.6.3–0.6.4** | Охлаждение, перегрев и троттлинг, доработка моделей и индикаторов | Запланировано |
 | **0.7.x** | Игровые счета и организации, ноутбук с магазином, валютная биржа и баланс выживания | Запланировано |
 | **0.8.x** | Публичный API и конфигурация, интеграции с энергетическими модами и OpenComputers | Запланировано |
@@ -96,6 +100,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.2.8-alpha
+
+Power infrastructure finalization: open rack backs, decorative built-in 0U PDU, 3D power leads per installed PSU and one per switch. Standard/glass 4U and 9U racks retain front patch leads and animated doors. All eight 0.6.2 stages are implemented in source; live Minecraft and external-mod validation remain pending.
 
 ### Version 0.6.2.7-alpha
 
@@ -146,7 +154,7 @@ After a successful build, find the JAR in `build/libs/`. Place it in the `mods` 
 | --- | --- | --- |
 | **0.5.x** | DataOS, compute pools, jobs, event log, and wallet overview | In source |
 | **0.6.1.x** | Physical and logical networking, bandwidth allocation, interactive network map, WAN integration for jobs, and new switches | In source · in-game verification pending |
-| **0.6.2** | Power networks, transformers, PSU, grid-wide protection, and the Power tab | In progress |
+| **0.6.2** | Power networks, transformers, PSU, grid-wide protection, Power tab and PDU | Implemented in source; live validation pending |
 | **0.6.3–0.6.4** | Cooling, overheating and throttling, and visual refinements | Planned |
 | **0.7.x** | In-game accounts and organizations, a laptop marketplace, currency exchange, and survival balancing | Planned |
 | **0.8.x** | Public API and configuration, energy-mod integrations, and OpenComputers support | Planned |

@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.7-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.8-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";

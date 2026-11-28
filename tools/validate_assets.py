@@ -128,3 +128,19 @@ for tier in range(1,4):
     check(all(0<=v<=16 for e in on['elements'] for k in ('from','to') for v in e[k]),f'transformer bounds {tier}')
     check(read(root/'models/item'/f'{name}.json')['parent']==f'odc:block/{name}_off',f'transformer inventory {tier}')
 print('PASS: transformer model and state checks')
+
+# Rear openings and decorative PDU. World geometry is rendered from the master TE.
+for name in ('rack','rack_glass'):
+    for role in ('0','1','2','item'):
+        model=read(root/'models/block'/f'{name}_{role}.json')
+        els=model['elements']
+        check(not any(e['from'][0]<=1.5 and e['to'][0]>=14.5 and e['from'][2]>=15 and e['to'][2]<=16 and e['to'][1]-e['from'][1]>=14 for e in els),'open rear '+name+role)
+        check('rack_back' not in model['textures'],'unused rear texture '+name+role)
+        if role=='item':
+            check(sum(e['faces'].get('north',{}).get('texture')=='#pdu_rail' for e in els)==1,'one inventory PDU '+name)
+            check(sum(e['faces'].get('north',{}).get('texture')=='#pdu_socket' for e in els)==4,'four inventory sockets '+name)
+        else:
+            check(not any('pdu_rail' in x for x in model['textures']),'world PDU not duplicated '+name+role)
+for name in ('pdu_rail','pdu_socket','power_plug','power_lead','psu_rear','psu_blank','server_rear','switch_rear'):
+    tex_ref('odc:blocks/'+name)
+print('PASS: open rack backs and PDU assets')
