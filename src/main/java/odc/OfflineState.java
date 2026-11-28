@@ -43,7 +43,7 @@ public final class OfflineState extends WorldSavedData {
             for(PowerGrid.Domain grid:grids){
                 // Stage 1 virtual simulation only certifies exclusive, creative-powered grids.
                 for(TileEntity consumer:grid.consumers)if(!own.contains(consumer)){snapshots.remove(anchor);markDirty();return;}
-                for(PowerGrid.Source source:grid.sources)if(!(source instanceof Tiles.Battery)&&source.outputWatts()>0){snapshots.remove(anchor);markDirty();return;}
+                for(PowerGrid.Source source:grid.sources)if(!(source instanceof Tiles.Battery)){snapshots.remove(anchor);markDirty();return;}
                 if(!grid.complete){snapshots.remove(anchor);markDirty();return;}
                 verified.add(grid);s.grids.add(new HashSet<>(grid.positions));s.positions.addAll(grid.positions);powered.addAll(grid.consumers);
             }

@@ -14,7 +14,7 @@ final class TransformerMenu extends Container {
     final Tiles.Transformer tile;
     final EntityPlayer player;
     // tier, rating, funded output, paid input, enabled, grid funded, grid rated, HE rate, FE rate
-    final int[] data=new int[10],previous=new int[20];
+    final int[] data=new int[12],previous=new int[24];
     private TransformerMenu(EntityPlayer p,Tiles.Transformer t){player=p;tile=t;Arrays.fill(previous,-1);}
     static TransformerMenu open(EntityPlayer p,World w,BlockPos pos){
         if(!w.isBlockLoaded(pos))return null;
@@ -37,8 +37,8 @@ final class TransformerMenu extends Container {
         if(player.world.isRemote||!canInteractWith(player))return;
         PowerGrid.Domain d=PowerGrid.domain(player.world,tile.getPos());
         data[0]=tile.tier();data[1]=bounded(tile.ratedWatts());data[2]=bounded(tile.actualOutputWatts());
-        data[3]=bounded(tile.actualInputUnits());data[4]=d==null?GridProtection.OFF:d.state;
-        data[5]=d==null?0:bounded(d.budget.capacityWatts);data[6]=d==null?0:bounded(d.ratedWatts());
+        data[3]=bounded(tile.lastHE);data[10]=bounded(tile.lastFE);data[11]=d!=null&&d.funded()?1:0;data[4]=d==null?GridProtection.OFF:d.state;
+        data[5]=d==null?0:bounded(d.fundedWatts());data[6]=d==null?0:bounded(d.ratedWatts());
         data[9]=d!=null&&d.complete?1:0;data[7]=ODC.conversionRate(TransformerCore.Input.HE);data[8]=ODC.conversionRate(TransformerCore.Input.FE);
         for(int i=0;i<data.length;i++)for(int part=0;part<2;part++){
             int id=i*2+part,value=(data[i]>>>(part*16))&65535;

@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.6.2.4-alpha'
+version = '0.6.2.5-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -157,3 +157,18 @@ task verifyGridProtection(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.GridProtectionTest'
 }
 check.dependsOn verifyGridProtection
+
+// Minimal ABI declarations only for javac; the actual HBM mod supplies them at runtime.
+sourceSets.main.java.srcDir 'src/compileOnlyHbm/java'
+jar {
+    exclude 'api/hbm/**', 'com/hbm/**'
+    doLast {
+        if (!zipTree(archivePath).matching { include 'api/hbm/**', 'com/hbm/**' }.isEmpty())
+            throw new GradleException('HBM compile-only declarations leaked into mod jar')
+    }
+}
+task verifyExternalWindow(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.ExternalWindowTest'
+}
+check.dependsOn verifyExternalWindow

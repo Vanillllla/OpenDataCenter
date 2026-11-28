@@ -26,6 +26,8 @@ final class PowerGrid {
         Set<BlockPos> footprint;
         int state;
         boolean complete;
+        long creativeWatts,paidWatts;
+        boolean external,confirmed;
         Domain(World world,Set<BlockPos> p){this.world=world;positions=p;footprint=p;}
         long ratedWatts(){
             long total=0;
@@ -41,9 +43,40 @@ final class PowerGrid {
             saved.set(footprint,state);
             if(complete)saved.remember(positions);
             for(Source source:sources)source.gridState(state);
-            long capacity=0;
-            if(state==GridProtection.ON)for(Source source:sources)capacity=PowerEngine.sum(capacity,Math.max(0,source.outputWatts()));
+            long capacity=0;creativeWatts=0;external=false;paidWatts=0;confirmed=false;
+            if(state==GridProtection.ON)for(Source source:sources){
+                if(source instanceof Tiles.Transformer){external=true;capacity=PowerEngine.sum(capacity,source.ratedWatts());}
+                else{long watts=Math.max(0,source.outputWatts());creativeWatts=PowerEngine.sum(creativeWatts,watts);capacity=PowerEngine.sum(capacity,watts);}
+            }
             budget=new PowerEngine.Budget(capacity,PowerEngine.TICKS_PER_SECOND);
+            confirmed=!external||!ODC.requireEnergy;
+        }
+        long fundedWatts(){return state==GridProtection.ON?PowerEngine.sum(creativeWatts,paidWatts):0;}
+        boolean funded(){return state==GridProtection.ON&&confirmed;}
+        void prepare(ExternalWindow old){
+            for(Source source:sources)if(source instanceof Tiles.Transformer)((Tiles.Transformer)source).closeWindow(old);
+            if(old!=null){
+                paidWatts=old.paidWatts();
+                if(state==GridProtection.ON&&ODC.requireEnergy&&!old.sufficient())shutdown(GridProtection.TRIPPED);
+            }
+        }
+        ExternalWindow finish(){
+            if(state!=GridProtection.ON||!external||!ODC.requireEnergy)return null;
+            long demand=budget.usedUnits()/PowerEngine.TICKS_PER_SECOND;
+            long needed=Math.max(0,demand-creativeWatts);
+            confirmed=needed<=paidWatts;
+            // No previous receipt can be reused; the next window is a fresh demand.
+            ExternalWindow next=new ExternalWindow(needed);
+            for(Source source:sources)if(source instanceof Tiles.Transformer){Tiles.Transformer t=(Tiles.Transformer)source;next.add(t,t.ratedWatts());t.openWindow(next);}
+            if(!confirmed){
+                // Provisional planning is not usable power. Do not disable server intent;
+                // the first receipt window must complete before any workload is credited.
+                for(TileEntity tile:consumers){
+                    if(tile instanceof Tiles.Powered)((Tiles.Powered)tile).setPowered(false);
+                    if(tile instanceof Tiles.Rack){Tiles.Rack r=(Tiles.Rack)tile;r.poweredMask=r.runningMask=0;r.switchOnline=false;r.lastPower=0;Arrays.fill(r.powerUsed,0);Arrays.fill(r.cpuUsed,0);Arrays.fill(r.gpuUsed,0);Arrays.fill(r.ramUsed,0);Arrays.fill(r.diskUsed,0);Arrays.fill(r.netUsed,0);}
+                }
+            }
+            return next;
         }
         boolean use(int watts){
             if(watts<0)return false;
@@ -60,7 +93,7 @@ final class PowerGrid {
         }
         private void applyOff(int reason){
             boolean transition=state==GridProtection.ON;
-            state=Math.max(state,reason);PowerState.get(world).set(footprint,state);
+            state=Math.max(state,reason);confirmed=false;paidWatts=0;cancel(world,positions);PowerState.get(world).set(footprint,state);
             for(Source s:sources)s.gridState(state);
             budget=new PowerEngine.Budget(0,PowerEngine.TICKS_PER_SECOND);
             TaskData data=TaskData.get(world);
@@ -106,13 +139,35 @@ final class PowerGrid {
         PowerEngine.Budget budget(){Domain d=domain();return d==null?null:d.budget;}
         boolean fed(){Domain d=domain();return d!=null&&d.state==GridProtection.ON&&(!ODC.requireEnergy||d.budget.capacityWatts>0);}
         boolean useWatts(int watts){Domain d=domain();return d!=null&&d.use(watts);}
+        boolean funded(){Domain d=domain();return d!=null&&d.funded();}
         boolean closed(){Domain d=domain();return d!=null&&d.state==GridProtection.ON;}
         void tripGrid(){Domain d=domain();if(d!=null)d.shutdown(GridProtection.TRIPPED);}
-        int availableWatts(){PowerEngine.Budget b=budget();return !closed()?0:!ODC.requireEnergy?Integer.MAX_VALUE:b==null?0:(int)Math.min(Integer.MAX_VALUE,b.capacityWatts);}
+        int availableWatts(){PowerEngine.Budget b=budget();return !closed()?0:!ODC.requireEnergy?Integer.MAX_VALUE:b==null?0:(int)Math.min(Integer.MAX_VALUE,domain().fundedWatts());}
     }
     private PowerGrid(){}
+    private static final Map<World,Map<Set<BlockPos>,ExternalWindow>> windows=new WeakHashMap<>();
+    static void cancel(World w,Set<BlockPos> cells){
+        Map<Set<BlockPos>,ExternalWindow> active=windows.get(w);if(active==null)return;
+        active.entrySet().removeIf(e->{if(Collections.disjoint(e.getKey(),cells))return false;e.getValue().close();return true;});
+    }
+    static boolean active(World w,BlockPos p,ExternalWindow window){Map<Set<BlockPos>,ExternalWindow> map=windows.get(w);Domain d=domain(w,p);return map!=null&&d!=null&&d.state==GridProtection.ON&&map.get(d.positions)==window;}
     static void begin(World w){
-        Topology t=topology(w);for(Domain d:t.domains)d.reset();for(Domain d:t.domains){int saved=PowerState.get(w).state(d.footprint);if(saved!=GridProtection.ON)d.applyOff(saved);}
+        Map<Set<BlockPos>,ExternalWindow> previous=windows.remove(w);
+        if(previous==null)previous=Collections.emptyMap();
+        for(ExternalWindow window:previous.values())window.close();
+        Topology t=topology(w);for(Domain d:t.domains)d.reset();
+        for(Domain d:t.domains){
+            int saved=PowerState.get(w).state(d.footprint);if(saved!=GridProtection.ON)d.applyOff(saved);
+            ExternalWindow old=previous.get(d.positions);
+            // Only the same live sources and exact topology may spend this receipt.
+            if(old!=null){int count=0;boolean same=true;for(Source source:d.sources)if(source instanceof Tiles.Transformer){count++;if(!old.receipts.containsKey(source))same=false;}if(!same||count!=old.receipts.size())old=null;}
+            d.prepare(old);
+        }
+    }
+    static void finish(World w){
+        Map<Set<BlockPos>,ExternalWindow> next=new HashMap<>();
+        for(Domain d:topology(w).domains){ExternalWindow window=d.finish();if(window!=null)next.put(new HashSet<>(d.positions),window);}
+        windows.put(w,next);
     }
     static Domain domain(World w,BlockPos p){
         if(!w.isBlockLoaded(p))return null;

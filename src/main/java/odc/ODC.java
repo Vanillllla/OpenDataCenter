@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.4-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.5-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -32,8 +32,8 @@ public final class ODC {
         requireEnergy=c.getBoolean("requireEnergy","energy",true,"Require electricity for computers, racks and network devices.");
         batteryOutput=c.getInt("creativeBatteryOutput","energy",50000,1,1000000,"Maximum watts from each creative battery (0.6.2+; previous numeric setting retained).");
         for(int tier=1;tier<=3;tier++)transformerWatts[tier-1]=c.getInt("transformerT"+tier+"Watts","energy",TransformerCore.defaultWatts(tier),1,TransformerCore.MAX_WATTS,"Maximum transformer output in watts.");
-        heMilliJoules=c.getInt("heMilliJoulesPerUnit","energy",50,1,100000000,"Provisional millijoules per HE; adapter comes in 0.6.2.5.");
-        feMilliJoules=c.getInt("feMilliJoulesPerUnit","energy",50,1,100000000,"Provisional millijoules per FE; adapter comes in 0.6.2.5.");
+        heMilliJoules=c.getInt("heMilliJoulesPerUnit","energy",50,1,100000000,"Millijoules per HE (provisional game balance).");
+        feMilliJoules=c.getInt("feMilliJoulesPerUnit","energy",50,1,100000000,"Millijoules per FE (provisional game balance).");
         journalLimit=c.getInt("journalLimit","dataos",256,16,4096,"Maximum retained events per data center.");
         ContractMarket.configure(c);c.save();
         market=Market.load(e.getModConfigurationDirectory());

@@ -20,9 +20,9 @@ final class TransformerScreen extends GuiContainer {
         w.text(tr("title",d[0]),x+8,y+8,244,0xffffffff);
         w.text(tr("rating",d[1]),x+9,y+27,242,DataOSWidgets.FG);
         w.text(tr("output",d[2]),x+9,y+40,242,DataOSWidgets.FG);
-        w.text(tr("input",d[3]),x+9,y+53,242,DataOSWidgets.FG);
+        w.text(tr("input",d[3],d[10]),x+9,y+53,242,DataOSWidgets.FG);
         w.text(tr(d[4]==GridProtection.ON?"armed":d[4]==GridProtection.TRIPPED?"tripped":"off"),x+9,y+66,242,d[4]==GridProtection.ON?0xff987029:DataOSWidgets.MUTED);
-        w.text(tr("pending"),x+9,y+79,242,DataOSWidgets.MUTED);
+        w.text(tr(d[11]==1?"funded":"pending"),x+9,y+79,242,DataOSWidgets.MUTED);
         w.header(x+6,y+93,248,13);w.text(tr("grid"),x+9,y+96,242,DataOSWidgets.BLUE);
         w.text(tr("grid_funded",d[5]),x+9,y+110,242,DataOSWidgets.FG);
         w.text(tr("grid_rated",d[6]),x+9,y+123,242,DataOSWidgets.MUTED);

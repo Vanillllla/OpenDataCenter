@@ -37,6 +37,7 @@ public final class PowerState extends WorldSavedData {
     /** Physical edits invalidate old footprints; cell latches of remaining blocks survive. */
     static void changed(World w,BlockPos p,boolean replaced){
         if(w==null||w.isRemote)return;PowerState s=get(w);
+        Set<BlockPos> adjacent=new HashSet<>();adjacent.add(p);for(net.minecraft.util.EnumFacing side:net.minecraft.util.EnumFacing.VALUES)adjacent.add(p.offset(side));PowerGrid.cancel(w,adjacent);
         boolean dirty=s.known.removeIf(k->k.contains(p));
         if(replaced)dirty|=s.protection.forget(p.toLong());
         if(dirty)s.markDirty();

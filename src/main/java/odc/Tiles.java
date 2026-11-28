@@ -166,23 +166,74 @@ public final class Tiles {
     }
     public static final class NetworkTerminal extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&e.terminal()?e:NetworkEquipment.TERMINAL_1;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
     public static final class Station extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&!e.terminal()?e:NetworkEquipment.RADIO;} boolean satellite(){return equipment()==NetworkEquipment.SATELLITE;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
-    public static final class Transformer extends Owned implements PowerGrid.Source {
+    @net.minecraftforge.fml.common.Optional.Interface(iface="api.hbm.energy.IEnergyConnector",modid="hbm")
+    public static final class Transformer extends Owned implements PowerGrid.Source, net.minecraft.util.ITickable, api.hbm.energy.IEnergyConnector {
+        ExternalWindow window;
+        long lastOutput,lastHE,lastFE;
+        private boolean loaded;
+        @Override public void onLoad(){super.onLoad();loaded=true;}
+        @Override public void onChunkUnload(){loaded=false;window=null;super.onChunkUnload();}
+        @Override public void invalidate(){loaded=false;window=null;super.invalidate();}
+        public boolean isLoaded(){return loaded&&!isInvalid();}
+        private boolean accepting(){return world!=null&&!world.isRemote&&isLoaded()&&enabled&&ODC.requireEnergy&&window!=null&&PowerGrid.active(world,pos,window);}
+        private long receive(long units,TransformerCore.Input input,boolean simulate){
+            return accepting()?window.offer(this,units,ODC.conversionRate(input),input,simulate):0;
+        }
+        public long transferPower(long power){return power<=0?power:power-receive(power,TransformerCore.Input.HE,false);}
+        public long getPower(){return 0;} // no HE inventory exposed
+        public long getMaxPower(){return accepting()?receive(Long.MAX_VALUE,TransformerCore.Input.HE,true):0;}
+        public long getTransferWeight(){return getMaxPower();}
+        private final net.minecraftforge.energy.IEnergyStorage fe=new net.minecraftforge.energy.IEnergyStorage(){
+            @Override public int receiveEnergy(int max,boolean simulate){return (int)receive(max,TransformerCore.Input.FE,simulate);}
+            @Override public int extractEnergy(int max,boolean simulate){return 0;}
+            @Override public int getEnergyStored(){return 0;}
+            @Override public int getMaxEnergyStored(){return (int)Math.min(Integer.MAX_VALUE,receive(Long.MAX_VALUE,TransformerCore.Input.FE,true));}
+            @Override public boolean canExtract(){return false;}
+            @Override public boolean canReceive(){return true;}
+        };
+        @Override public boolean hasCapability(net.minecraftforge.common.capabilities.Capability<?> cap,EnumFacing side){
+            return cap==net.minecraftforge.energy.CapabilityEnergy.ENERGY||super.hasCapability(cap,side);
+        }
+        @Override public <T>T getCapability(net.minecraftforge.common.capabilities.Capability<T> cap,EnumFacing side){
+            return cap==net.minecraftforge.energy.CapabilityEnergy.ENERGY?net.minecraftforge.energy.CapabilityEnergy.ENERGY.cast(fe):super.getCapability(cap,side);
+        }
+        @Override public void update(){
+            if(world==null||world.isRemote||!loaded)return;
+            if(net.minecraftforge.fml.common.Loader.isModLoaded("hbm"))try{HbmBridge.subscribe(this);}catch(LinkageError e){/* incompatible HBM fork: FE remains available */}
+            if(!accepting())return;
+            // Also support extract-only FE stores. Push-only cables use the capability above.
+            for(EnumFacing side:EnumFacing.VALUES){
+                int request=(int)Math.min(Integer.MAX_VALUE,receive(Long.MAX_VALUE,TransformerCore.Input.FE,true));
+                if(request<=0)break;
+                BlockPos q=pos.offset(side);if(!world.isBlockLoaded(q))continue;
+                TileEntity other=world.getTileEntity(q);
+                if(other==null||other instanceof PowerGrid.Source||!other.hasCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY,side.getOpposite()))continue;
+                net.minecraftforge.energy.IEnergyStorage storage=other.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY,side.getOpposite());
+                if(storage==null||!storage.canExtract())continue;
+                int paid=storage.extractEnergy(request,false);
+                if(paid>0&&paid<=request)receive(paid,TransformerCore.Input.FE,false);
+            }
+        }
+        void openWindow(ExternalWindow next){window=next;}
+        void closeWindow(ExternalWindow old){
+            lastOutput=lastHE=lastFE=0;
+            if(old!=null){ExternalWindow.Receipt r=old.receipts.get(this);if(r!=null){lastOutput=r.mj/1000;lastHE=r.he;lastFE=r.fe;}}
+            window=null;
+        }
         boolean enabled=true;
         int breakerState=GridProtection.ON;
         private boolean legacy;
         boolean legacyOff(){return legacy&&!enabled;}
-        @Override public void gridState(int state){boolean change=breakerState!=state||enabled!=(state==GridProtection.ON)||legacy;legacy=false;breakerState=state;enabled=state==GridProtection.ON;if(change)changed();}
+        @Override public void gridState(int state){boolean change=breakerState!=state||enabled!=(state==GridProtection.ON)||legacy;legacy=false;breakerState=state;enabled=state==GridProtection.ON;if(!enabled){window=null;lastOutput=lastHE=lastFE=0;}if(change)changed();}
         int tier(){
             if(world==null||!world.isBlockLoaded(pos))return 1;
             net.minecraft.block.Block block=world.getBlockState(pos).getBlock();
             return block instanceof Blocks.Transformer?((Blocks.Transformer)block).tier:1;
         }
         @Override public long ratedWatts(){return ODC.transformerWatts(tier());}
-        /** This stage deliberately has no external adapter. A closed switch and a
-         * nominal rating are not evidence of paid energy. */
-        @Override public long outputWatts(){return 0;}
-        long actualOutputWatts(){return 0;}
-        long actualInputUnits(){return 0;}
+        @Override public long outputWatts(){return enabled?lastOutput:0;}
+        long actualOutputWatts(){return outputWatts();}
+        long actualInputUnits(){return enabled?lastHE+lastFE:0;}
         void toggle(){
             if(world==null||world.isRemote)return;
             PowerGrid.Domain grid=PowerGrid.domain(world,pos);if(grid!=null)grid.toggle();
