@@ -25,7 +25,7 @@
 
 ### Версия 0.6.3.9-alpha
 
-Финализация охлаждения и регрессионные проверки. Статус сборки: [GitHub Actions](https://github.com/Vanillllla/OpenDataCenter/actions). [Ручной чек-лист](docs/COOLING_MANUAL_CHECK.md); игровые проверки не выполнены.
+Финализация охлаждения и регрессионные проверки. Первая [успешная сборка 0.6.3.9](https://github.com/Vanillllla/OpenDataCenter/actions/runs/46144447215). Статус последующих коммитов: [GitHub Actions](https://github.com/Vanillllla/OpenDataCenter/actions). [Ручной чек-лист](docs/COOLING_MANUAL_CHECK.md); игровые проверки не выполнены.
 
 ### Версия 0.6.3.8-alpha
 
@@ -147,7 +147,7 @@
 
 ### Version 0.6.3.9-alpha
 
-Cooling finalization and regression checks. See [CI](https://github.com/Vanillllla/OpenDataCenter/actions) and [manual test checklist](docs/COOLING_MANUAL_CHECK.md); Minecraft playtests are pending.
+Cooling finalization and regression checks. First [successful 0.6.3.9 build](https://github.com/Vanillllla/OpenDataCenter/actions/runs/46144447215). See [CI](https://github.com/Vanillllla/OpenDataCenter/actions) and [manual test checklist](docs/COOLING_MANUAL_CHECK.md); Minecraft playtests are pending.
 
 ### Version 0.6.3.8-alpha
 

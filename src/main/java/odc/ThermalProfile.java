@@ -6,6 +6,7 @@ package odc;
 final class ThermalProfile {
     final ChassisSpec chassis;
     private final int[] models;
+    private final boolean[] compatibleCooling=new boolean[ServerSpec.COUNT-ServerSpec.CPU_COOLER];
     final double airConductance, airHeatCapacity, internalHeatCapacity;
     final int coolingElectricalWatts, internalLimitC, liquidRatedWatts;
     ThermalProfile(ChassisSpec chassis,int[] parts){
@@ -15,7 +16,8 @@ final class ThermalProfile {
         double air=2.0,inside=100;int electrical=0,limit=0,liquid=0;
         for(int slot=0;slot<models.length;slot++){
             Part p=part(slot);
-            if(slot>=ServerSpec.CPU_COOLER&&installedCooling(slot)){
+            if(slot>=ServerSpec.CPU_COOLER&&p.kind!=Part.Kind.EMPTY&&ServerSpec.accepts(chassis,models,slot,p)){
+                compatibleCooling[slot-ServerSpec.CPU_COOLER]=true;
                 if(p.kind==Part.Kind.FAN)air+=p.conductance;
                 electrical+=p.watts;if(p.liquidCooling())liquid+=p.coolingWatts;
             }
@@ -27,7 +29,7 @@ final class ThermalProfile {
         coolingElectricalWatts=electrical;internalLimitC=limit;liquidRatedWatts=liquid;
     }
     Part part(int slot){return Part.at(models[slot]);}
-    private boolean installedCooling(int slot){Part p=part(slot);return p.kind!=Part.Kind.EMPTY&&ServerSpec.accepts(chassis,models,slot,p);}
+    private boolean installedCooling(int slot){return slot>=ServerSpec.CPU_COOLER&&slot<ServerSpec.COUNT&&compatibleCooling[slot-ServerSpec.CPU_COOLER];}
     Part cooler(int componentSlot){int slot=ServerSpec.linkedCoolingSlot(componentSlot);return slot>=0&&installedCooling(slot)?part(slot):Part.at(0);}
     int criticalC(int slot){return part(slot).criticalC;}
     double heatCapacity(int slot){return part(slot).heatCapacity;}
