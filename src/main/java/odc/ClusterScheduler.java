@@ -29,7 +29,7 @@ public final class ClusterScheduler {
         PhysicalNetwork.refreshRouting(w);BandwidthEngine.Result network=PhysicalNetwork.bandwidth(w);
         List<Runnable> settlement=new ArrayList<>();List<EventSystem.Topology> observed=new ArrayList<>();loaded.sort(Network.ORDER);for(Network.Domain domain:Network.domains(w,loaded)){Map<UUID,List<Tiles.Owned>> owners=new LinkedHashMap<>();for(Tiles.Owned t:domain.devices)if(t.owner!=null&&!paused.contains(t.getPos()))owners.computeIfAbsent(t.owner,k->new ArrayList<>()).add(t);for(Map.Entry<UUID,List<Tiles.Owned>> o:owners.entrySet()){Set<UUID> ids=new HashSet<>();for(Tiles.Owned t:o.getValue()){UUID scope=EventSystem.scope(t);if(scope!=null)ids.add(scope);}if(!ids.isEmpty())observed.add(new EventSystem.Topology(o.getKey(),ids,domain.positions));run(w,d,offline,domain.positions,o.getKey(),o.getValue(),network,settlement);}}EventSystem.observe(w,d,observed);
         // Disconnected racks still consume idle energy; no job can run without controller.
-        for(Tiles.Rack r:racks){for(int b=0;b<r.capacity();b++)if(r.isServer(b)&&(r.enabledMask&(1<<b))!=0&&(r.poweredMask&(1<<b))==0&&r.status[b]==0){powerIdle(r,b,d,r.networkConnected(b)?ComputeEngine.NO_CONTROLLER:ComputeEngine.NO_NETWORK);}}offline.plan(w,d,settlement);PowerGrid.finish(w);PhysicalNetwork.refreshRouting(w);for(Runnable commit:settlement)commit.run();for(Tiles.Rack r:racks){int now=r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0);if(now!=old.get(r))r.changed();}PowerMonitor.record(w);PowerTickets.sync(w,offline,d);d.finishCycle();
+        for(Tiles.Rack r:racks){for(int b=0;b<r.capacity();b++)if(r.isServer(b)&&(r.enabledMask&(1<<b))!=0&&(r.poweredMask&(1<<b))==0&&r.status[b]==0){powerIdle(r,b,d,r.networkConnected(b)?ComputeEngine.NO_CONTROLLER:ComputeEngine.NO_NETWORK);}}offline.plan(w,d,settlement);PowerGrid.finish(w);for(Tiles.Rack r:racks)ThermalRuntime.step(r,w.getTotalWorldTime());PhysicalNetwork.refreshRouting(w);for(Runnable commit:settlement)commit.run();for(Tiles.Rack r:racks){int now=r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0);if(now!=old.get(r))r.changed();}PowerMonitor.record(w);PowerTickets.sync(w,offline,d);d.finishCycle();
     }
     private static void pause(TileEntity tile){
         if(tile instanceof Tiles.Powered)((Tiles.Powered)tile).pauseForSnapshot();
@@ -39,9 +39,9 @@ public final class ClusterScheduler {
     private static void powerIdle(Tiles.Rack r,int b,TaskData d,int status){
         ItemStack stack=r.slots.get(b);
         if(Hardware.state(stack)!=ServerSpec.READY){r.status[b]=ComputeEngine.INCOMPLETE;return;}
-        int idle=Hardware.idle(stack);
+        int idle=ThermalRuntime.idleWatts(r,b);
         if(idle<0){trip(r,b,ComputeEngine.PSU_OVERLOAD,d);return;}
-        if(!r.energy.useWatts(idle)){trip(r,b,ComputeEngine.NO_POWER,d);return;}
+        if(!ThermalRuntime.reserve(r,b,idle,null)){trip(r,b,ComputeEngine.NO_POWER,d);return;}
         r.poweredMask|=1<<b;r.lastPower+=idle;r.powerUsed[b]=idle;r.status[b]=status;
     }
     static void trip(Tiles.Rack r,int b,int reason,TaskData d){trip(r,b,reason,d,true);}
@@ -68,7 +68,7 @@ public final class ClusterScheduler {
             if(repeat){online=cs.stream().anyMatch(Tiles.Computer::operational);for(int ri=0;ri<racks.size();ri++)caps[ri]=racks.get(ri).switchOnline?Hardware.switchMbps(racks.get(ri).switchTier()):0;}
             if(!repeat)break;}
         // All allocations committed only after power reservation was validated.
-        boolean paid=true;for(int i=0;i<nodes.size();i++)if(!excluded.contains(i)){Ref f=refs.get(i);Tiles.Rack r=f.rack;int b=f.bay;if((r.enabledMask&(1<<b))==0||!r.energy.useWatts(plan.power[i])){if((r.enabledMask&(1<<b))!=0)trip(r,b,6,d);paid=false;continue;}r.poweredMask|=1<<b;r.lastPower+=plan.power[i];r.cpuUsed[b]=plan.cpu[i];r.diskUsed[b]=plan.disk[i];r.gpuUsed[b]=plan.gpu[i];r.ramUsed[b]=plan.ram[i];BandwidthEngine.Usage nu=network.devices.get(nodes.get(i).id);r.netUsed[b]=nu==null?0:NetworkAdmission.floor(nu.served);r.powerUsed[b]=plan.power[i];r.status[b]=!online?ComputeEngine.NO_CONTROLLER:!r.switchOnline||r.portOf(b)<0||!PhysicalNetwork.hasWanRoute(w,nodes.get(i).id)?ComputeEngine.NO_NETWORK:ComputeEngine.IDLE;}
+        boolean paid=true;for(int i=0;i<nodes.size();i++)if(!excluded.contains(i)){Ref f=refs.get(i);Tiles.Rack r=f.rack;int b=f.bay;if((r.enabledMask&(1<<b))==0||!ThermalRuntime.reserve(r,b,plan.power[i],plan.dcWatts[i])){if((r.enabledMask&(1<<b))!=0)trip(r,b,6,d);paid=false;continue;}r.poweredMask|=1<<b;r.lastPower+=plan.power[i];r.cpuUsed[b]=plan.cpu[i];r.diskUsed[b]=plan.disk[i];r.gpuUsed[b]=plan.gpu[i];r.ramUsed[b]=plan.ram[i];BandwidthEngine.Usage nu=network.devices.get(nodes.get(i).id);r.netUsed[b]=nu==null?0:NetworkAdmission.floor(nu.served);r.powerUsed[b]=plan.power[i];r.status[b]=!online?ComputeEngine.NO_CONTROLLER:!r.switchOnline||r.portOf(b)<0||!PhysicalNetwork.hasWanRoute(w,nodes.get(i).id)?ComputeEngine.NO_NETWORK:ComputeEngine.IDLE;}
         // A disconnected server may remain powered, but must never enter a compute pool.
         for(Tiles.Rack r:racks)for(int b=0;b<r.capacity();b++)if(r.isServer(b)&&!r.networkConnected(b)&&(r.enabledMask&(1<<b))!=0&&(r.poweredMask&(1<<b))==0&&r.status[b]==0){
             powerIdle(r,b,d,ComputeEngine.NO_NETWORK);

@@ -59,6 +59,7 @@ public final class Tiles {
     }
     public static final class Rack extends InventoryTile {
         final PowerGrid.Port energy=new PowerGrid.Port(this);
+        final ThermalRuntime.Entry[] thermal=new ThermalRuntime.Entry[9];
         final int[] ports=new int[8], cableTiers=new int[8];
         final UUID[] cableIds=new UUID[8]; // 0 empty, otherwise bay+1
         final java.util.Map<Integer,java.util.List<Integer>> activeJobs=new java.util.HashMap<>();
@@ -98,7 +99,7 @@ public final class Tiles {
         void clearPort(int port,EntityPlayer player){if(port<0||port>=8||ports[port]==0)return;int tier=LanPorts.remove(ports,cableTiers,port);cableIds[port]=null;LanCables.refund(world,pos,player,tier);}
         void clearPorts(){for(int p=0;p<8;p++)clearPort(p,null);}
         void removeUplinks(ItemStack sw){if(world!=null&&!world.isRemote&&Hardware.switchTier(sw)>0)PhysicalNetwork.removeUplinks(world,pos,Hardware.switchId(sw));}
-        void detach(int i){if(world==null||world.isRemote)return;if(!slots.get(i).isEmpty())EventSystem.rack(this,i,Level.INFO,Category.HARDWARE,"equipment_removed","Removed "+slots.get(i).getDisplayName());if(isServer(i)){TaskData d=TaskData.get(world);UUID id=ClusterScheduler.serverId(slots.get(i));d.serverStopped(id,false);d.networkState.remove(id);}OfflineState.invalidateAt(world,pos);if(Hardware.switchTier(slots.get(i))>0){clearPorts();removeUplinks(slots.get(i));}else clearPort(portOf(i),null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
+        void detach(int i){if(world==null||world.isRemote)return;thermal[i]=null;if(!slots.get(i).isEmpty())EventSystem.rack(this,i,Level.INFO,Category.HARDWARE,"equipment_removed","Removed "+slots.get(i).getDisplayName());if(isServer(i)){TaskData d=TaskData.get(world);UUID id=ClusterScheduler.serverId(slots.get(i));d.serverStopped(id,false);d.networkState.remove(id);}OfflineState.invalidateAt(world,pos);if(Hardware.switchTier(slots.get(i))>0){clearPorts();removeUplinks(slots.get(i));}else clearPort(portOf(i),null);int bit=~(1<<i);enabledMask&=bit;miningMask&=bit;poweredMask&=bit;runningMask&=bit;remainder[i]=0;work[i]=0;status[i]=0;fault[i]=0;cpuUsed[i]=diskUsed[i]=gpuUsed[i]=ramUsed[i]=netUsed[i]=powerUsed[i]=0;activeJobs.remove(i);}
         @Override public void setInventorySlotContents(int i,ItemStack s){
             if(world!=null&&!world.isRemote&&!s.isEmpty()&&!ItemStack.areItemStacksEqual(slots.get(i),s)&&!isItemValidForSlot(i,s))return;
             boolean changedItem=!ItemStack.areItemStacksEqual(slots.get(i),s);if(changedItem)detach(i);if(world!=null&&!world.isRemote)Hardware.ensureId(s);if(world!=null&&!world.isRemote&&Hardware.switchTier(s)>0)Hardware.switchId(s);super.setInventorySlotContents(i,s);if(changedItem&&!s.isEmpty())EventSystem.rack(this,i,Level.SUCCESS,Category.HARDWARE,"equipment_installed","Installed "+s.getDisplayName());

@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.3.3-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.3.4-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -24,6 +24,7 @@ public final class ODC {
     static int transformerWatts(int tier){return transformerWatts[TransformerCore.tierIndex(tier)];}
     static int conversionRate(TransformerCore.Input input){return input==TransformerCore.Input.HE?heMilliJoules:feMilliJoules;}
     static int powerFluctuationPercent=10;
+    static double ambientTemperature=25;
     static int persistentSourceChunks=64;
     static int journalLimit=256;
     static boolean requireEnergy=true;
@@ -38,6 +39,7 @@ public final class ODC {
         feMilliJoules=c.getInt("feMilliJoulesPerUnit","energy",50,1,100000000,"Millijoules per FE (provisional game balance).");
         powerFluctuationPercent=c.getInt("powerFluctuationPercent","energy",10,0,100,"Random symmetric power variation per electrical grid every 20 ticks, in percent; 0 disables it.");
         persistentSourceChunks=c.getInt("persistentSourceChunks","energy",64,0,1024,"Maximum source/connection chunks forced per dimension; 0 disables ODC chunk loading.");
+        ambientTemperature=c.getFloat("ambientTemperature","cooling",25,0,100,"Ambient air temperature in Celsius.");
         journalLimit=c.getInt("journalLimit","dataos",256,16,4096,"Maximum retained events per data center.");
         ContractMarket.configure(c);c.save();
         market=Market.load(e.getModConfigurationDirectory());

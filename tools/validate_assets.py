@@ -13,7 +13,7 @@ for f in root.rglob('*.mcmeta'):read(f)
 blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower','transformer_t1','transformer_t2','transformer_t3'}
 items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','switch_2p_100','switch_2p_500','switch_2p_1000','switch_2p_10000','switch_4p_1000','switch_4p_10000','switch_8p_10000','switch_8p_50000','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
-for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive|fan|cooler)\((?:Kind\.([A-Z]+), )?"([^"]+)"',catalog,re.M):
+for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive|fan|cooler)\((?:Kind\.([A-Z_]+), )?"([^"]+)"',catalog,re.M):
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
 chassis_catalog=(root.parents[4]/'src/main/java/odc/ChassisSpec.java').read_text(encoding='utf8')
 items.update(re.findall(r'^    [A-Z_0-9]+\("(chassis_[a-z0-9_]+)"',chassis_catalog,re.M))

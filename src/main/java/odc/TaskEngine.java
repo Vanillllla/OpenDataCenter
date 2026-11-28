@@ -105,8 +105,10 @@ public final class TaskEngine {
     static final class Plan {
         final Map<Integer,Result> tasks=new LinkedHashMap<>();
         final int[] cpu,gpu,ram,disk,net,power;
+        // Nominal DC breakdown produced in the same pass as power[]. Cached with plan.
+        final int[][] dcWatts;
         BitSet[] usedCores;int[][] freeSpace,freeIO; final Set<Integer> overload=new HashSet<>();
-        Plan(int n) {cpu=new int[n]; gpu=new int[n]; ram=new int[n]; disk=new int[n]; net=new int[n]; power=new int[n];}
+        Plan(int n) {cpu=new int[n]; gpu=new int[n]; ram=new int[n]; disk=new int[n]; net=new int[n]; power=new int[n];dcWatts=new int[n][ServerSpec.COUNT];}
     }
     // Whole units per second for the existing terminal. Accounting retains the full fixed-point rate.
     static int display(long rate) {return (int)Math.min(Integer.MAX_VALUE,rate/SCALE);}
@@ -222,7 +224,7 @@ public final class TaskEngine {
         }
         for(int i=0;i<nodes.size();i++) if(!excluded.contains(i)) {
             Node node=nodes.get(i);
-            int watts=node.watts(plan.usedCores[i],plan.gpu[i]);
+            int watts=node.watts(plan.usedCores[i],plan.gpu[i],plan.dcWatts[i]);
             int input=node.inputWatts(watts);
             if(input<0)plan.overload.add(i);
             else plan.power[i]=input;
