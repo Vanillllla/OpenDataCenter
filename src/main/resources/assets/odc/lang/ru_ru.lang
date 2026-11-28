@@ -428,3 +428,44 @@ item.odc.chassis_2u_compute.name=Корпус сервера 2U Вычислит
 item.odc.chassis_4u_storage.name=Корпус сервера 4U Хранилище
 
 item.odc.chassis_4u_gpu.name=Корпус сервера 4U GPU
+
+item.odc.fan_breeze_40.name=Корпусной вентилятор Breeze 40
+
+item.odc.fan_breeze_60.name=Корпусной вентилятор Breeze 60
+
+item.odc.fan_breeze_turbo.name=Корпусной вентилятор Breeze Turbo
+
+item.odc.cpu_cooler_passive_mini.name=Пассивный радиатор Passive Mini
+
+item.odc.cpu_cooler_passive_copper.name=Пассивный радиатор Passive Copper
+
+item.odc.cpu_cooler_passive_titan.name=Пассивный радиатор Passive Titan
+
+item.odc.cpu_cooler_flat_80.name=Плоский кулер Flat 80
+
+item.odc.cpu_cooler_flat_150.name=Плоский кулер Flat 150
+
+item.odc.cpu_cooler_flat_turbo.name=Плоский кулер Flat Turbo
+
+item.odc.cpu_cooler_tower_120.name=Башенный кулер Tower 120
+
+item.odc.cpu_cooler_tower_dual.name=Башенный кулер Tower Dual
+
+item.odc.cpu_cooler_tower_titan.name=Башенный кулер Tower Titan
+
+item.odc.cpu_cooler_hydro_cpu_150.name=Водоблок CPU Hydro CPU 150
+
+item.odc.cpu_cooler_hydro_cpu_300.name=Водоблок CPU Hydro CPU 300
+
+item.odc.cpu_cooler_hydro_cpu_500.name=Водоблок CPU Hydro CPU 500
+
+item.odc.gpu_cooler_hydro_gpu_200.name=Водоблок GPU Hydro GPU 200
+
+item.odc.gpu_cooler_hydro_gpu_400.name=Водоблок GPU Hydro GPU 400
+
+item.odc.gpu_cooler_hydro_gpu_800.name=Водоблок GPU Hydro GPU 800
+
+tooltip.odc.thermal.limit=Критическая температура: %d °C
+gui.odc.gpu_cooling=Водоблоки GPU
+gui.odc.cpu_cooling=Кулеры CPU
+gui.odc.fans=Вентиляторы корпуса

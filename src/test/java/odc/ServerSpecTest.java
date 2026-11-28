@@ -93,6 +93,26 @@ public final class ServerSpecTest {
         check(ServerSpec.slotAvailable(ChassisSpec.GPU_4,cooling,ServerSpec.GPU_COOLER)&&!ServerSpec.slotAvailable(ChassisSpec.GPU_4,cooling,ServerSpec.GPU_COOLER+1),"one GPU cooling position per card");
         check(!ServerSpec.slotAvailable(ChassisSpec.STORAGE_4,cooling,ServerSpec.GPU_COOLER),"non-liquid chassis");
         check(ServerSpec.coolingTarget(ServerSpec.CPU_COOLER+1)==ServerSpec.CPU2,"second CPU cooling target");
+        int fan=model("Breeze 60"),tower=model("Tower Dual"),passive=model("Passive Copper"),water=model("Hydro GPU 400"),cpuWater=model("Hydro CPU 300");
+        int[] therm=minimal();therm[ServerSpec.PCIE]=model("NoVideo GTX 750");
+        check(ServerSpec.accepts(ChassisSpec.BASIC_1,therm,ServerSpec.CPU_COOLER,Part.at(passive)),"passive fits");
+        check(!ServerSpec.accepts(ChassisSpec.BASIC_1,therm,ServerSpec.CPU_COOLER,Part.at(tower)),"tower too tall");
+        check(!ServerSpec.accepts(ChassisSpec.BASIC_1,therm,ServerSpec.CPU_COOLER,Part.at(cpuWater)),"liquid CPU requires liquid case");
+        check(!ServerSpec.accepts(ChassisSpec.BASIC_1,therm,ServerSpec.GPU_COOLER,Part.at(water)),"liquid GPU requires liquid case");
+        check(ServerSpec.accepts(ChassisSpec.GPU_4,therm,ServerSpec.CPU_COOLER,Part.at(tower)),"tower fits 4U");
+        check(!ServerSpec.accepts(ChassisSpec.GPU_4,therm,ServerSpec.CPU_COOLER+1,Part.at(tower)),"CPU2 absent");
+        check(!ServerSpec.accepts(ChassisSpec.BASIC_1,therm,ServerSpec.FAN+4,Part.at(fan)),"fan limit");
+        int before=ServerSpec.drawWatts(therm);therm[ServerSpec.CPU_COOLER]=tower;therm[ServerSpec.GPU_COOLER]=water;therm[ServerSpec.FAN]=fan;
+        check(ServerSpec.state(ChassisSpec.GPU_4,therm)==ServerSpec.READY,"cooled assembly ready");
+        check(ServerSpec.drawWatts(therm)==before+15,"active cooling watts counted");
+        TaskEngine.Node node=new TaskEngine.Node(null,0,0,therm);int[] bySlot=new int[ServerSpec.COUNT];BitSet active=new BitSet();active.set(0,node.cores);
+        check(node.watts(active,1,bySlot)==ServerSpec.drawWatts(therm)&&Arrays.stream(bySlot).sum()==ServerSpec.drawWatts(therm),"per-slot power matches planner");
+        check(bySlot[ServerSpec.FAN]==6&&bySlot[ServerSpec.CPU_COOLER]==9&&bySlot[ServerSpec.GPU_COOLER]==0,"fan/cooler DC loads");
+        ThermalProfile profile=ServerSpec.thermalProfile(ChassisSpec.GPU_4,therm);
+        check(profile.airConductance==6&&profile.coolingElectricalWatts==15&&profile.liquid(ServerSpec.PCIE)&&!profile.liquid(ServerSpec.CPU),"thermal profile");
+        check(profile.criticalC(ServerSpec.CPU)==100&&profile.criticalC(ServerSpec.FAN)==0&&profile.internalLimitC==60,"individual electronic limits");
+        check(profile.liquidRatedWatts==400&&!profile.requiresCaseAirflow(ServerSpec.PCIE),"GPU sink");
+        for(Part part:Part.models)if(part.kind!=Part.Kind.EMPTY){boolean coolingKind=part.kind==Part.Kind.FAN||part.kind==Part.Kind.CPU_COOLER||part.kind==Part.Kind.GPU_COOLER;check(part.electronic()!=coolingKind,"thermal failure eligibility "+part.name);}
         Random r=new Random(37);
         int layouts=0;int[] sizes={0,1,2,4};for(int key=0;key<(1<<18);key++){int[] a=new int[9];boolean[] busy=new boolean[9];boolean valid=true;for(int i=0;i<9;i++){a[i]=sizes[(key>>(i*2))&3];if(i+a[i]>9){valid=false;break;}for(int k=i;k<i+a[i];k++){if(busy[k])valid=false;busy[k]=true;}}if(!valid)continue;layouts++;
             for(int i=0;i<9;i++){check((RackLayout.startAt(a,i)>=0)==busy[i],"9U occupied");for(int u:new int[]{1,2,4}){boolean expect=i+u<=9;for(int j=0;j<9;j++)if(j!=i&&a[j]>0&&j<i+u&&i<j+a[j])expect=false;check(expect==RackLayout.canInsert(a,i,u),"9U collision");}if(a[i]>0){check((RackLayout.retainedIndex(i,a[i],false)>=0)==(i+a[i]<=4),"lower retained");check((RackLayout.retainedIndex(i,a[i],true)>=0)==(i>=5),"upper retained");}}}

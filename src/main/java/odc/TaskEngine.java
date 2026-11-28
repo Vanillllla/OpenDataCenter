@@ -28,23 +28,28 @@ public final class TaskEngine {
             return core<primary.cores?primary.mhz:Part.at(parts[ServerSpec.CPU2]).mhz;
         }
         int watts(int activeCores,int gpuMask){BitSet cores=new BitSet();cores.set(0,activeCores);return watts(cores,gpuMask);}
-        int watts(BitSet allocated,int gpuMask) {
+        int watts(BitSet allocated,int gpuMask){return watts(allocated,gpuMask,null);}
+        /** Optional reusable per-slot DC power output; the sum equals the existing planner result. */
+        int watts(BitSet allocated,int gpuMask,int[] bySlot) {
+            if(bySlot!=null){if(bySlot.length<parts.length)throw new IllegalArgumentException("slot power length");Arrays.fill(bySlot,0);}
             int watts=0, firstGPU=0;
             for(int i=0;i<parts.length;i++) {
                 Part model=Part.at(parts[i]);
+                int device=0;
                 switch(model.kind) {
                     case PSU: break;
                     case CPU:
                         int offset=i==ServerSpec.CPU?0:Part.at(parts[ServerSpec.CPU]).cores;int used=allocated.get(offset,offset+model.cores).cardinality();
-                        watts+=deviceWatts(model.watts,Math.min(model.cores,used),model.cores);
+                        device=deviceWatts(model.watts,Math.min(model.cores,used),model.cores);
                         break;
                     case GPU:
                         int mask=(1<<model.chips)-1;
-                        watts+=deviceWatts(model.watts,Integer.bitCount((gpuMask>>>firstGPU)&mask),model.chips);
+                        device=deviceWatts(model.watts,Integer.bitCount((gpuMask>>>firstGPU)&mask),model.chips);
                         firstGPU+=model.chips;
                         break;
-                    default: watts+=model.watts;
+                    default: device=model.watts;
                 }
+                watts+=device;if(bySlot!=null)bySlot[i]=device;
             }
             return watts;
         }

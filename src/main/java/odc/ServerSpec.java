@@ -41,6 +41,7 @@ public final class ServerSpec {
     static boolean fits(int u,int board,int slot){return fits(ChassisSpec.legacy(u),board,slot);}
     static boolean fits(ChassisSpec c,int board,int slot) { return slot>=0 && slot<COUNT && slot-first(slot)<capacity(c,board,slot); }
     static int coolingTarget(int slot){if(slot==CPU_COOLER)return CPU;if(slot==CPU_COOLER+1)return CPU2;if(slot>=GPU_COOLER&&slot<FAN)return PCIE+slot-GPU_COOLER;return -1;}
+    static int linkedCoolingSlot(int slot){if(slot==CPU)return CPU_COOLER;if(slot==CPU2)return CPU_COOLER+1;if(slot>=PCIE&&slot<PSU)return GPU_COOLER+slot-PCIE;return -1;}
     static boolean compatible(int slot,Part p,Part b) {
         switch(first(slot)) {
             case BOARD: return p.kind==Part.Kind.BOARD;
@@ -49,8 +50,9 @@ public final class ServerSpec {
             case SATA: return p.kind==Part.Kind.SSD || p.kind==Part.Kind.HDD;
             case NVME: return p.kind==Part.Kind.NVME;
             case PSU: return p.kind==Part.Kind.PSU;
-            // Reserved for 0.6.3.3.
-            case CPU_COOLER: case GPU_COOLER: case FAN: return false;
+            case CPU_COOLER: return p.kind==Part.Kind.CPU_COOLER;
+            case GPU_COOLER: return p.kind==Part.Kind.GPU_COOLER;
+            case FAN: return p.kind==Part.Kind.FAN;
             default: return p.kind==Part.Kind.NIC || p.kind==Part.Kind.GPU || p.kind==Part.Kind.PCIE;
         }
     }
@@ -91,6 +93,7 @@ public final class ServerSpec {
     static boolean accepts(ChassisSpec c,int[] parts,int slot,Part candidate) {
         if(!slotAvailable(c,parts,slot)||!compatible(slot,candidate,Part.at(parts[BOARD])))return false;
         if(slot==BOARD&&!c.supports(candidate))return false;
+        if(candidate.cooling!=null&&!c.supports(candidate.cooling))return false;
         if(slot==BOARD&&parts[BOARD]!=0&&!canRemoveBoard(parts))return false;
         if(first(slot)!=PCIE)return true;
         int end=slot+width(candidate);
@@ -105,7 +108,9 @@ public final class ServerSpec {
         if(p[BOARD]==0) return NO_BOARD;
         if(!c.supports(Part.at(p[BOARD])))return INVALID;
         for(int i=0;i<COUNT;i++) if(p[i]!=0) {
-            if(!compatible(i,Part.at(p[i]),Part.at(p[BOARD]))) return INVALID;
+            Part part=Part.at(p[i]);
+            if(!compatible(i,part,Part.at(p[BOARD]))) return INVALID;
+            if(part.cooling!=null&&!c.supports(part.cooling))return INVALID;
             if(!fits(c,p[BOARD],i)) return CAPACITY;
             if(first(i)!=PCIE&&!slotAvailable(c,p,i))return CAPACITY;
         }
@@ -171,8 +176,8 @@ public final class ServerSpec {
         return watts;
     }
     static int drawWatts(int[] p) {
-        int watts=Part.at(p[CPU2]).watts;
-        for(int i=0;i<PSU;i++) watts+=Part.at(p[i]).watts;
+        int watts=0;
+        for(int i=0;i<p.length;i++){Part part=Part.at(p[i]);if(part.kind!=Part.Kind.PSU)watts+=part.watts;}
         return watts;
     }
     /** Each PSU carries the same fraction of its own rating (no redundancy).
@@ -193,6 +198,7 @@ public final class ServerSpec {
         long numerator=weighted*loadWatts, divisor=denominator*capacity;
         return (int)(numerator/divisor+(numerator%divisor==0?0:1));
     }
+    static ThermalProfile thermalProfile(ChassisSpec c,int[] parts){return new ThermalProfile(c,parts);}
     static int maxInputWatts(int[] p){return inputWatts(p,drawWatts(p));}
     static int idleInputWatts(int[] p){return inputWatts(p,new TaskEngine.Node(null,0,0,p).watts(0,0));}
     static int nic(int[] p) {

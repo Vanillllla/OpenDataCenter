@@ -49,7 +49,7 @@ public final class Client {
     static String tr(String key,Object... args){return I18n.format("gui.odc."+key,args);}
     public static final class Screen extends GuiContainer {
         final Menus.Menu menu;final int TEXT=0xffe2e5e5,MUTED=0xffa5adb0,GREEN=0xff8cdda4,AMBER=0xffe5bf76,RED=0xffeb9888;
-        Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=Menus.H;}
+        Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=Menus.H+(m.type==Menus.WORKBENCH?62:0);}
         @Override public void initGui(){super.initGui();int type=menu.type;
             if(type==Menus.RACK){for(int i=0;i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i);button(10+i,x+49,y-1,32,18,"On");button(30+i,x+83,y-1,43,18,"Link");}for(int i=0;i<8;i++)button(50+i,12+i*34,138,32,17,"P"+(i+1));}
             if(type==Menus.CONTROL){button(102,184,6,48,18,tr("refresh"));button(2,234,6,57,18,tr("market"));button(1,10,128,56,18,tr("start_all"));button(3,68,128,56,18,tr("stop_all"));button(100,192,128,23,18,"<");button(101,268,128,23,18,">");for(int i=0;i<5;i++){button(20+i,205,47+i*16,42,15,"Mine");button(30+i,249,47+i*16,41,15,"On");}}
@@ -85,10 +85,11 @@ public final class Client {
             for(int i=0;i<8;i++) panel(248+i*5,34,2,11,0xff36474e);
             for(int y:new int[]{26,59,106,128}) panel(173,y,119,1,0xff819098);
             panel(5,134,290,24,0xff263b44);
-            panel(66,160,168,78,0xff84939a);
+            panel(5,159,290,60,0xff263b44);
+            panel(66,222,168,78,0xff84939a);
             for(net.minecraft.inventory.Slot slot:menu.inventorySlots) slot(slot.xPos,slot.yPos);
             int[] spec=Hardware.spec(menu.getSlot(0).getStack());
-            for(int i=0;i<ServerSpec.LEGACY_COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassisModel(),spec,i)) {
+            for(int i=0;i<ServerSpec.COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassisModel(),spec,i)) {
                 int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);
                 panel(x,y,16,16,0xff536065);
                 panel(x+4,y+7,8,2,0xff717a7b);
@@ -108,6 +109,7 @@ public final class Client {
                 clipped(tr("chassis"),10,29,41,TEXT);clipped(tr("board"),53,29,45,TEXT);
                 label("CPU 1 / 2",103,29,TEXT);label("DIMM",12,66,TEXT);label("PCI Express",12,101,TEXT);
                 label("M.2",219,35,TEXT);label("SATA",180,54,TEXT);label("PSU",261,116,TEXT);
+                label(tr("gpu_cooling"),12,160,TEXT);label(tr("cpu_cooling"),12,190,TEXT);label(tr("fans"),100,190,TEXT);
                 int[] spec=Hardware.spec(menu.getSlot(0).getStack());
                 int state=ServerSpec.state(menu.chassisModel(),spec);
                 clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),11,137,280,state==0?GREEN:AMBER);

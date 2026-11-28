@@ -175,6 +175,33 @@ public final class WorkbenchTransferTest {
         ItemStack restored=new ItemStack(bench.slots.get(0).writeToNBT(new net.minecraft.nbt.NBTTagCompound()));
         check(Hardware.chassis(restored)==ChassisSpec.COMPACT_2&&restored.getTagCompound().getUniqueId("ServerId").equals(compactId),"model and UUID NBT");
         check(Hardware.parts(restored).size()==ServerSpec.COUNT&&Hardware.spec(restored)[ServerSpec.BOARD]==Hardware.spec(bench.slots.get(0))[ServerSpec.BOARD],"extended slots stored");
+        // Linked cooling follows the CPU/GPU into inventory without loss.
+        player.inventory.clear();player.inventory.setItemStack(ItemStack.EMPTY);
+        bench.setInventorySlotContents(0,new ItemStack(Hardware.CHASSIS4));
+        Item cpu=model("InTroll Zeon 2696 v4"),water=model("Hydro GPU 400"),tower=model("Tower Dual"),fan=model("Breeze 60");
+        menu.parts.setInventorySlotContents(ServerSpec.BOARD,new ItemStack(largeBoard));
+        menu.parts.setInventorySlotContents(ServerSpec.CPU,new ItemStack(cpu));
+        menu.parts.setInventorySlotContents(ServerSpec.CPU2,new ItemStack(cpu));
+        menu.parts.setInventorySlotContents(ServerSpec.CPU_COOLER,new ItemStack(tower));
+        menu.parts.setInventorySlotContents(ServerSpec.CPU_COOLER+1,new ItemStack(tower));
+        menu.parts.setInventorySlotContents(ServerSpec.PCIE,new ItemStack(gpu));
+        menu.parts.setInventorySlotContents(ServerSpec.GPU_COOLER,new ItemStack(water));
+        menu.parts.setInventorySlotContents(ServerSpec.GPU_COOLER+1,new ItemStack(water));
+        check(menu.parts.getStackInSlot(ServerSpec.GPU_COOLER+1).isEmpty(),"GPU follower cannot have waterblock");
+        menu.parts.setInventorySlotContents(ServerSpec.FAN,new ItemStack(fan));
+        check(inChassis(bench.slots.get(0),water)==1&&inChassis(bench.slots.get(0),tower)==2&&inChassis(bench.slots.get(0),fan)==1,"cooling installed");
+        for(int i=bag;i<menu.inventorySlots.size();i++)menu.getSlot(i).putStack(new ItemStack(Items.APPLE,64));
+        click(menu,pci,0);check(player.inventory.getItemStack().isEmpty()&&inChassis(bench.slots.get(0),water)==1,"full bag blocks linked removal");
+        menu.getSlot(bag).putStack(ItemStack.EMPTY);
+        move(menu,pci);check(inChassis(bench.slots.get(0),water)==1&&inChassis(bench.slots.get(0),gpu)==1,"shift requires room for both");
+        click(menu,pci,0);cursor(player,gpu,1,"GPU to cursor");
+        check(menu.getSlot(bag).getStack().getItem()==water&&inChassis(bench.slots.get(0),water)==0,"waterblock returned");
+        player.inventory.setItemStack(ItemStack.EMPTY);
+        menu.getSlot(bag+1).putStack(ItemStack.EMPTY);menu.getSlot(bag+2).putStack(ItemStack.EMPTY);
+        move(menu,1+ServerSpec.CPU);check(inChassis(bench.slots.get(0),tower)==1&&inChassis(bench.slots.get(0),cpu)==1,"shift removes only linked CPU cooler");
+        player.inventory.clear();player.inventory.setItemStack(new ItemStack(model("InTroll Zeon 2680 v4")));
+        click(menu,1+ServerSpec.CPU2,0);cursor(player,cpu,1,"CPU replacement returns old CPU");
+        check(inChassis(bench.slots.get(0),tower)==0&&player.inventory.mainInventory.stream().anyMatch(s->s.getItem()==tower),"replacement returns linked cooler");
         // Render state is a pure function of the stored chassis, including after NBT reload.
         odc.Blocks.Workbench block=(odc.Blocks.Workbench)Hardware.WORKBENCH;
         Item[] cases={Hardware.CHASSIS1,Hardware.CHASSIS2,Hardware.CHASSIS4};

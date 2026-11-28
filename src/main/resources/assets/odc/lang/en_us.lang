@@ -428,3 +428,44 @@ item.odc.chassis_2u_compute.name=Server Chassis 2U Compute
 item.odc.chassis_4u_storage.name=Server Chassis 4U Storage
 
 item.odc.chassis_4u_gpu.name=Server Chassis 4U GPU
+
+item.odc.fan_breeze_40.name=Case fan Breeze 40
+
+item.odc.fan_breeze_60.name=Case fan Breeze 60
+
+item.odc.fan_breeze_turbo.name=Case fan Breeze Turbo
+
+item.odc.cpu_cooler_passive_mini.name=Passive heatsink Passive Mini
+
+item.odc.cpu_cooler_passive_copper.name=Passive heatsink Passive Copper
+
+item.odc.cpu_cooler_passive_titan.name=Passive heatsink Passive Titan
+
+item.odc.cpu_cooler_flat_80.name=Low-profile cooler Flat 80
+
+item.odc.cpu_cooler_flat_150.name=Low-profile cooler Flat 150
+
+item.odc.cpu_cooler_flat_turbo.name=Low-profile cooler Flat Turbo
+
+item.odc.cpu_cooler_tower_120.name=Tower cooler Tower 120
+
+item.odc.cpu_cooler_tower_dual.name=Tower cooler Tower Dual
+
+item.odc.cpu_cooler_tower_titan.name=Tower cooler Tower Titan
+
+item.odc.cpu_cooler_hydro_cpu_150.name=CPU waterblock Hydro CPU 150
+
+item.odc.cpu_cooler_hydro_cpu_300.name=CPU waterblock Hydro CPU 300
+
+item.odc.cpu_cooler_hydro_cpu_500.name=CPU waterblock Hydro CPU 500
+
+item.odc.gpu_cooler_hydro_gpu_200.name=GPU waterblock Hydro GPU 200
+
+item.odc.gpu_cooler_hydro_gpu_400.name=GPU waterblock Hydro GPU 400
+
+item.odc.gpu_cooler_hydro_gpu_800.name=GPU waterblock Hydro GPU 800
+
+tooltip.odc.thermal.limit=Critical temperature: %d °C
+gui.odc.gpu_cooling=GPU waterblocks
+gui.odc.cpu_cooling=CPU coolers
+gui.odc.fans=Case fans
