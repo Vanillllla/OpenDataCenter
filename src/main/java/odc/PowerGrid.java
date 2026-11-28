@@ -280,7 +280,7 @@ final class PowerGrid {
                     if(!sourcePositions.add(spec.pos)){valid=false;break;}
                     if(!w.isBlockLoaded(spec.pos)){
                         if(spec.external){valid=false;break;}
-                        d.sources.add(new SavedCreative(spec.watts));continue;
+                        d.sources.add(new SavedCreative(spec.pos,spec.watts));continue;
                     }
                     TileEntity tile=endpoint(w,spec.pos);
                     if(spec.external?!(tile instanceof Tiles.Transformer):!(tile instanceof Tiles.Battery)){valid=false;break;}
@@ -295,8 +295,8 @@ final class PowerGrid {
             }
         }
     }
-    private static final class SavedCreative implements Source {
-        final long watts;SavedCreative(long watts){this.watts=watts;}
+    static final class SavedCreative implements Source {
+        final BlockPos pos;final long watts;SavedCreative(BlockPos pos,long watts){this.pos=pos;this.watts=watts;}
         @Override public long outputWatts(){return watts;}
     }
 }

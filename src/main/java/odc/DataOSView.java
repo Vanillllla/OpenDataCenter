@@ -33,7 +33,7 @@ final class DataOSView {
     static List<PoolResources.Device> catalog(Tiles.Owned tile,TaskData d,UUID pool){List<PoolResources.Device> result=new ArrayList<>();for(Menus.Target t:servers(tile)){UUID id=ClusterScheduler.serverId(t.item);if(pool==null||d.poolId(tile.owner,id).equals(pool))result.addAll(PoolResources.catalog(id,Hardware.spec(t.item)));}return result;}
     static NBTTagCompound snapshot(PanelMenu menu){
         Tiles.Computer c=(Tiles.Computer)menu.tile;TaskData data=TaskData.get(c.getWorld());if(menu.tab==2)return menu.console.snapshot(menu,data);
-        NBTTagCompound out=new NBTTagCompound();out.setBoolean("Online",c.online);out.setInteger("Tab",menu.tab);if(menu.tab==7){EventSystem.snapshot(menu,data,out);return out;}
+        NBTTagCompound out=new NBTTagCompound();out.setBoolean("Online",c.online);out.setInteger("Tab",menu.tab);if(menu.tab==7){EventSystem.snapshot(menu,data,out);return out;}if(menu.tab==5)return PowerMonitor.snapshot(menu,out);
         List<Menus.Target> servers=servers(c);List<TaskData.Job> jobs=jobs(c,data);DashboardView dashboard=new DashboardView(c,data,servers,jobs);
         UUID pool=null;if(menu.tab==3){out.setTag("Pools",poolRows(dashboard.pools));if(!TaskConsole.NONE.equals(menu.resourcePool)&&!dashboard.pools.containsValue(menu.resourcePool))menu.resourcePool=TaskConsole.NONE;out.setUniqueId("Pool",menu.resourcePool);if(!TaskConsole.NONE.equals(menu.resourcePool))pool=menu.resourcePool;out.setString("PoolName",pool==null?"":poolName(c,data,pool));}
         dashboard.statistics(out,pool);if(menu.tab==0||menu.tab==6)dashboard.finances(out);if(menu.tab==0)dashboard.recent(out);
@@ -62,6 +62,7 @@ final class DataOSView {
     }
     static boolean action(PanelMenu m,UUID id,int action,int value,String text){
         if(m.type!=0||!m.canOperate(m.player))return false;TaskData d=TaskData.get(m.player.world);
+        if(action==12&&m.tab==5)return PowerMonitor.select(m,id,value);
         if(action==11&&(m.tab==0||m.tab==6||m.tab==7)){for(EventJournal.Entry e:d.recentEvents(m.tile,d.journal.limit()))if(e.id.equals(id)){m.setTab(7);m.detailEvent=id;return true;}return false;}
         if(action==10&&m.tab==7){if(TaskConsole.NONE.equals(id)){m.detailEvent=id;return true;}for(EventJournal.Entry e:d.recentEvents(m.tile,d.journal.limit()))if(e.id.equals(id)){m.detailEvent=id;return true;}return false;}
         if(action==8&&(TaskConsole.NONE.equals(id)||hasPool(m.tile,d,id))){m.setTab(3);m.resourcePool=id;m.scrollRow=0;return true;}

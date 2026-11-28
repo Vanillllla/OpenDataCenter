@@ -23,6 +23,7 @@ public final class OfflineState extends WorldSavedData {
         Set<BlockPos> cells=new HashSet<>();
         List<SourceSpec> sources=new ArrayList<>();
         long fixed;
+        long[] fixedCategories=new long[PowerStats.SIZE];
         boolean controller;
     }
     static final class Snapshot {
@@ -124,6 +125,8 @@ public final class OfflineState extends WorldSavedData {
             for(int ri=0;ri<racks.size();ri++)if(racks.get(ri).energy.domain()==grid){s.gridByRack[ri]=g;planned+=s.budget[ri];}
             Group group=s.groups.get(g);
             group.fixed=Math.max(0,grid.budget.usedUnits()/PowerEngine.TICKS_PER_SECOND-planned);
+            group.fixedCategories=PowerMonitor.categories(grid);group.fixedCategories[PowerStats.SERVER]=Math.max(0,group.fixedCategories[PowerStats.SERVER]-planned);
+            long categorized=PowerStats.total(group.fixedCategories);if(categorized<=group.fixed)group.fixedCategories[PowerStats.OTHER]+=group.fixed-categorized;else{Arrays.fill(group.fixedCategories,0);group.fixedCategories[PowerStats.OTHER]=group.fixed;}
             for(TileEntity consumer:grid.consumers)if(consumer instanceof Tiles.Computer&&((Tiles.Computer)consumer).operational())group.controller=true;
         }
         if(!ODC.requireEnergy)Arrays.fill(s.budget,Integer.MAX_VALUE);
@@ -246,7 +249,7 @@ public final class OfflineState extends WorldSavedData {
             a.setIntArray("Caps",s.caps);a.setIntArray("Budget",s.budget);a.setIntArray("GridByRack",s.gridByRack);
             NBTTagList groups=new NBTTagList();
             for(Group g:s.groups){
-                NBTTagCompound z=new NBTTagCompound();z.setBoolean("Controller",g.controller);z.setLong("Fixed",g.fixed);z.setTag("Cells",writePositions(g.cells));
+                NBTTagCompound z=new NBTTagCompound();z.setBoolean("Controller",g.controller);z.setLong("Fixed",g.fixed);for(int c=0;c<PowerStats.SIZE;c++)z.setLong("FixedC"+c,g.fixedCategories[c]);z.setTag("Cells",writePositions(g.cells));
                 NBTTagList sources=new NBTTagList();for(SourceSpec spec:g.sources){
                     NBTTagCompound q=new NBTTagCompound();q.setLong("Pos",spec.pos.toLong());q.setBoolean("External",spec.external);q.setLong("Watts",spec.watts);q.setTag("Inputs",writePositions(spec.inputs));sources.appendTag(q);
                 }
@@ -283,7 +286,7 @@ public final class OfflineState extends WorldSavedData {
             boolean valid=true;Set<BlockPos> claimed=new HashSet<>();
             NBTTagList groups=a.getTagList("PowerGroups",10);
             for(int j=0;j<groups.tagCount();j++){
-                NBTTagCompound z=groups.getCompoundTagAt(j);Group g=new Group();g.controller=z.getBoolean("Controller");g.fixed=z.getLong("Fixed");g.cells=readPositions(z.getTagList("Cells",10));
+                NBTTagCompound z=groups.getCompoundTagAt(j);Group g=new Group();g.controller=z.getBoolean("Controller");g.fixed=z.getLong("Fixed");for(int c=0;c<PowerStats.SIZE;c++)g.fixedCategories[c]=Math.max(0,z.getLong("FixedC"+c));if(PowerStats.total(g.fixedCategories)!=g.fixed){Arrays.fill(g.fixedCategories,0);g.fixedCategories[PowerStats.OTHER]=Math.max(0,g.fixed);}g.cells=readPositions(z.getTagList("Cells",10));
                 if(g.fixed<0||g.cells.isEmpty()||!s.positions.containsAll(g.cells)||!Collections.disjoint(claimed,g.cells)){valid=false;break;}claimed.addAll(g.cells);
                 NBTTagList sources=z.getTagList("Sources",10);Set<BlockPos> unique=new HashSet<>();
                 for(int k=0;k<sources.tagCount();k++){

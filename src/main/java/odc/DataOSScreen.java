@@ -12,7 +12,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Light DataOS shell with virtualized, vertically scrolling tables. Coordinates are logical pixels. */
 final class DataOSScreen extends GuiContainer {
-    private static final int W=474, ROW=20, TOP=48, HEADER=20, OVERVIEW_FIXED=463, SERVER_TOP=TOP+22, RESOURCE_FIXED=225, WALLET_FIXED=112;
+    private static final int W=474, ROW=20, TOP=48, HEADER=20, OVERVIEW_FIXED=463, SERVER_TOP=TOP+22, RESOURCE_FIXED=225, WALLET_FIXED=112, POWER_FIXED=286, POWER_ROW=30;
     private static final int FG=0xff26323d, MUTED=0xff65717e, BLUE=0xff245790, WHITE=0xfffafbfc, EDGE=0xff9faebb, ALT=0xffedf2f7;
     private static final int[] COL={0,84,109,157,189,246,300,343,401,450};
     private final PanelMenu menu;private boolean wasPowered;
@@ -35,10 +35,10 @@ final class DataOSScreen extends GuiContainer {
     private EventJournal.Query eventQuery(){return new EventJournal.Query(eventSearch,eventCategory,eventLevel,eventOldest);}
     private void requestNow(){requested=-1;request();}
     private int count(){return ready()?data().getInteger("Count"):0;}
-    private int content(){return tab==0?OVERVIEW_FIXED+HEADER+count()*ROW:(tab==1||tab==7)?count()*ROW:tab==3?RESOURCE_FIXED+count()*ROW:tab==6?WALLET_FIXED+count()*ROW:0;}
+    private int content(){return tab==0?OVERVIEW_FIXED+HEADER+count()*ROW:(tab==1||tab==7)?count()*ROW:tab==3?RESOURCE_FIXED+count()*ROW:tab==6?WALLET_FIXED+count()*ROW:tab==5?POWER_FIXED+Math.max(1,count())*POWER_ROW:0;}
     private int visibleHeight(){return viewHeight-((tab==1||tab==7)?HEADER+22:0);}
     private int maxScroll(){return Math.max(0,content()-visibleHeight());}
-    private void request(){if(!menu.terminalPowered())return;int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):tab==3?Math.max(0,(scroll-RESOURCE_FIXED)/ROW):tab==6?Math.max(0,(scroll-WALLET_FIXED)/ROW):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),0,0,null,tab==1?query().encode():tab==7?eventQuery().encode():""));}
+    private void request(){if(!menu.terminalPowered())return;int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):tab==3?Math.max(0,(scroll-RESOURCE_FIXED)/ROW):tab==6?Math.max(0,(scroll-WALLET_FIXED)/ROW):tab==5?Math.max(0,(scroll-POWER_FIXED)/POWER_ROW):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),0,0,null,tab==1?query().encode():tab==7?eventQuery().encode():""));}
     private void send(int action,int value,UUID id){RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),action,value,id));}
     private void setScroll(int value){scroll=Math.max(0,Math.min(maxScroll(),value));tabScroll[tab]=scroll;request();}
     private void changeTab(int next){if(next==tab||pending)return;focus=0;poolPicker=-1;popup=-1;confirm=-1;tabScroll[tab]=scroll;tab=next;scroll=tabScroll[tab];requestNow();}
@@ -78,8 +78,8 @@ final class DataOSScreen extends GuiContainer {
         rect(5,TOP,W-10,viewHeight,WHITE);rect(5,TOP,W-10,1,EDGE);rect(5,TOP+viewHeight-1,W-10,1,EDGE);
         if(tab==0&&ready()){scissor(6,TOP+1,452,viewHeight-2);overview(TOP-scroll);GL11.glDisable(GL11.GL_SCISSOR_TEST);}
         else if(tab==1){serverControls();serverHeader(SERVER_TOP);scissor(6,SERVER_TOP+HEADER,452,viewHeight-HEADER-23);int first=scroll/ROW;for(int i=first;i<count()&&SERVER_TOP+HEADER+i*ROW-scroll<TOP+viewHeight;i++){int yy=SERVER_TOP+HEADER+i*ROW-scroll;serverRow(i,yy,x,y);}GL11.glDisable(GL11.GL_SCISSOR_TEST);if(!ready())text(tr("Loading...","Загрузка..."),12,SERVER_TOP+HEADER+8,420,MUTED);}
-        else if(tab==5&&ready()){powerPanel();}else if(tab==6&&ready()){scissor(6,TOP+1,452,viewHeight-2);walletPanel(TOP-scroll);GL11.glDisable(GL11.GL_SCISSOR_TEST);}else if(tab==7){logPanel();}else if(tab==2 && data().getInteger("Tab")==2){taskPanel();}else if(tab==3&&data().getInteger("Tab")==3){resourcePanel();}else{text(tr("Loading...","Загрузка..."),14,TOP+15,430,MUTED);}
-        if(tab==0||tab==1||tab==3||tab==6||tab==7)scrollbar();if(tab==7&&eventDetail!=null)eventWindow();if(tab==1&&serverDetail!=null)serverWindow();if(poolPicker>=0)poolWindow();if(popup>=0)drawPopup();if(tab==2&&confirm>=0&&!pending&&!data().getBoolean("Assign"))confirmWindow();GlStateManager.popMatrix();drawnScroll=scroll;drawnTaskScroll=taskScroll;drawnDetailScroll=detailScroll;drawnServerScroll=serverScroll;
+        else if(tab==5&&ready()){scissor(6,TOP+1,452,viewHeight-2);powerPanel();GL11.glDisable(GL11.GL_SCISSOR_TEST);}else if(tab==6&&ready()){scissor(6,TOP+1,452,viewHeight-2);walletPanel(TOP-scroll);GL11.glDisable(GL11.GL_SCISSOR_TEST);}else if(tab==7){logPanel();}else if(tab==2 && data().getInteger("Tab")==2){taskPanel();}else if(tab==3&&data().getInteger("Tab")==3){resourcePanel();}else{text(tr("Loading...","Загрузка..."),14,TOP+15,430,MUTED);}
+        if(tab==0||tab==1||tab==3||tab==5||tab==6||tab==7)scrollbar();if(tab==7&&eventDetail!=null)eventWindow();if(tab==1&&serverDetail!=null)serverWindow();if(poolPicker>=0)poolWindow();if(popup>=0)drawPopup();if(tab==2&&confirm>=0&&!pending&&!data().getBoolean("Assign"))confirmWindow();GlStateManager.popMatrix();drawnScroll=scroll;drawnTaskScroll=taskScroll;drawnDetailScroll=detailScroll;drawnServerScroll=serverScroll;
         if(tab==1&&serverDetail==null&&popup<0&&poolPicker<0&&y>=SERVER_TOP+HEADER&&y<TOP+viewHeight&&x>=6&&x<456){NBTTagCompound r=row((y-SERVER_TOP-HEADER+scroll)/ROW);if(r!=null){List<String> tip=new ArrayList<>();if(x<6+COL[1])tip.add(r.getString("Name"));else if(x>=6+COL[7]&&x<6+COL[8])tip.add(r.getString("Pool"));else if(x>=6+COL[6]&&x<6+COL[7]&&r.getIntArray("Jobs").length>0){tip.add(tr("Running task IDs","ID запущенных задач"));String a=ids(r);while(a.length()>0){int n=Math.min(a.length(),55);tip.add(a.substring(0,n));a=a.substring(n);}}else if(x>=6+COL[8])tip.add(r.getBoolean("Editable")?powerLabel(r.getBoolean("Powered")?1:r.getBoolean("Enabled")?3:2):tr("Read-only","Только просмотр"));if(!tip.isEmpty())drawHoveringText(tip,mx,my);}}
         if((tab==0||tab==3)&&ready()&&poolPicker<0&&popup<0&&x>=11&&x<451&&y>=TOP&&y<TOP+viewHeight){int local=y-TOP+scroll-(tab==0?115:45);if(local>=0&&local<7*17){int k=local/17;NBTTagCompound d=data();List<String> tip=Arrays.asList(resourceLabels()[k],tr("Total: ","Всего: ")+d.getLong("T"+k),tr("Reserved: ","Зарезервировано: ")+d.getLong("U"+k),tr("Reserved on unavailable hosts: ","Резервы на недоступных серверах: ")+d.getLong("H"+k),tr("Free: ","Свободно: ")+d.getLong("F"+k),tr("Unavailable (unreserved): ","Недоступно (без резерва): ")+d.getLong("D"+k));drawHoveringText(tip,mx,my);}}
         if(tab==6&&ready()&&x>=11&&x<451&&y>=TOP&&y<TOP+viewHeight&&y-TOP+scroll>=WALLET_FIXED){NBTTagCompound e=row((y-TOP+scroll-WALLET_FIXED)/ROW);if(e!=null){List<String> tip=new ArrayList<>();tip.add(eventMessage(e));if(e.hasKey("JobType"))tip.add(e.getString("Label")+" / "+title(e.getInteger("JobType")));if(e.hasKey("Company"))tip.add(e.getString("Company"));if("debt".equals(e.getString("Code")))tip.add(tr("Debt incurred; not a wallet debit.","Начислен долг, не списание с кошелька."));if(e.getString("Message").contains("Debt repaid"))tip.add(tr("Earnings used to repay debt, not credited.","Доход направлен на погашение долга, не зачислен."));drawHoveringText(tip,mx,my);}}
@@ -125,7 +125,89 @@ final class DataOSScreen extends GuiContainer {
         section(tr("Active and paused tasks","Активные и приостановленные задачи"),y+OVERVIEW_FIXED);int base=y+OVERVIEW_FIXED+HEADER;int first=Math.max(0,(TOP-base)/ROW);for(int i=first;i<count()&&base+i*ROW<TOP+viewHeight;i++){int yy=base+i*ROW;NBTTagCompound r=row(i);widgets.row(i,11,yy,440,ROW-1,false);if(r==null)continue;text("#"+r.getInteger("Id"),16,yy+6,38,FG);text(title(r.getInteger("Type")),60,yy+6,220,BLUE);text(r.getBoolean("Enabled")?(r.getInteger("Work")>0?tr("Running","Работает"):tr("Waiting","Ожидает")):tr("Paused","Пауза"),290,yy+6,150,MUTED);}
     }
     private void walletPanel(int y){NBTTagCompound d=data();section(tr("Current wallet (read-only)","Текущий кошелёк (просмотр)"),y+5);financeSummary(d,y+25);text(tr("Recurring gross forecast; history is limited to retained events.","Валовой прогноз регулярного дохода; история ограничена журналом."),16,y+80,430,MUTED);section(tr("Recent payments, fees and penalties","Последние выплаты, комиссии и штрафы"),y+93);int base=y+WALLET_FIXED;for(int i=Math.max(0,(TOP-base)/ROW);i<count()&&base+i*ROW<TOP+viewHeight;i++){int yy=base+i*ROW;NBTTagCompound e=row(i);widgets.row(i,11,yy,440,ROW-1,false);if(e==null)continue;long amount=e.getLong("Amount");int coin=e.getInteger("Currency");String code=e.getString("Code");boolean debt="debt".equals(code)||e.getString("Message").contains("Debt repaid");text(eventTime(e.getLong("Last")),16,yy+6,58,MUTED);String message=e.getString("Message");if(e.hasKey("JobType"))message=message+" / "+title(e.getInteger("JobType"));text(message+"  >",80,yy+6,218,BLUE);String a=coin>=0&&coin<TaskData.COINS.length?(amount>0?"+":"")+money(amount)+" "+TaskData.COINS[coin]:tr("Unavailable","Нет данных");text(a,302,yy+6,144,debt?MUTED:amount<0?0xffa13b35:0xff397846);}if(count()==0)text(tr("No financial events retained","Нет финансовых событий в журнале"),16,base+5,430,MUTED);}
-    private void powerPanel(){NBTTagCompound d=data();section(tr("Power — basic monitoring","Питание — базовый мониторинг"),TOP+5);text(tr("Total consumption: ","Общее потребление: ")+num(d.getLong("PowerDraw"))+" W",16,TOP+30,430,FG);text(tr("Grid supply limit: unavailable","Предел мощности сети: нет данных"),16,TOP+48,430,MUTED);text(tr("Full power management: 0.6.2","Полное управление питанием: 0.6.2"),16,TOP+68,430,MUTED);}
+    private String watts(long n){
+        if(n<10000)return n+" W";
+        if(n<1000000)return String.format(Locale.ROOT,"%.2f kW",n/1000d);
+        if(n<1000000000)return String.format(Locale.ROOT,"%.2f MW",n/1000000d);
+        return String.format(Locale.ROOT,"%.2f GW",n/1000000000d);
+    }
+    private String gridState(int state){return state==GridProtection.TRIPPED?tr("TRIPPED","АВАРИЯ"):state==GridProtection.OFF?tr("OFF","ВЫКЛ"):tr("ON","ВКЛ");}
+    private void powerMetric(String label,String value,int x,int y,int color){
+        rect(x,y,143,34,EDGE);rect(x+1,y+1,141,32,WHITE);rect(x+1,y+1,141,12,0xffdce7f1);
+        text(label,x+5,y+3,133,BLUE);center(value,x+3,y+19,137,color);
+    }
+    private void powerPanel(){
+        NBTTagCompound d=data();int y=TOP-scroll,count=d.getInteger("GridCount"),index=d.getInteger("GridIndex");
+        if(count==0){section(tr("Electrical grids","Энергосети"),y+5);text(tr("No verified electrical grids","Нет обнаруженных энергосетей"),16,y+30,430,MUTED);return;}
+        widgets.button("<",11,y+5,24,18,false,index>0);widgets.button(">",427,y+5,24,18,false,index+1<count);
+        center(tr("Grid ","Сеть ")+(index+1)+" / "+count+"  |  "+d.getString("GridPos"),39,y+10,384,BLUE);
+        boolean bypass=d.getBoolean("Bypass"),sample=d.getBoolean("Sample"),known=sample&&d.getBoolean("Complete")&&!bypass;
+        String missing="—";long available=d.getLong("Available"),draw=d.getLong("Draw"),free=d.getLong("Free");
+        powerMetric(tr("Confirmed supply","Подтвержд. питание"),known?watts(available):missing,11,y+30,BLUE);
+        powerMetric(tr("Actual draw","Потребление"),sample?watts(draw):missing,159,y+30,0xff397846);
+        powerMetric(tr("Free confirmed","Свободно (подтв.)"),known?watts(free):missing,307,y+30,FG);
+        int state=d.getInteger("State");int statusColor=state==GridProtection.TRIPPED?0xffb13e38:state==GridProtection.OFF?MUTED:0xff397846;
+        text(gridState(state),13,y+72,76,statusColor);
+        text(tr("Installed rating: ","Номинал источников: ")+watts(d.getLong("Rated")),92,y+72,356,FG);
+        String status=bypass?tr("Power requirement disabled; no supply limit","Проверка питания отключена; лимита нет"):!d.getBoolean("Complete")?tr("Partial grid: totals are not verified","Часть сети выгружена: итог не подтверждён"):!sample?tr("Waiting for simulation sample","Ожидание данных симуляции"):state==GridProtection.TRIPPED?tr("Insufficient power — reset at a source","Нехватка питания — сброс на источнике"):state==GridProtection.OFF?tr("Grid switched off","Энергосеть выключена"):!d.getBoolean("Funded")?tr("Waiting for external energy","Ожидание внешней энергии"):tr("External supply is confirmed for received energy only","Внешняя мощность — только фактически полученная");
+        text(status,13,y+85,436,state==GridProtection.TRIPPED?statusColor:MUTED);
+        section(tr("Power history — last 10 min","История питания — последние 10 мин"),y+100);
+        drawPowerGraph(d,11,y+120,440,75);
+        rect(14,y+200,9,3,0xff397846);text(tr("Consumption","Потребление"),27,y+197,145,FG);
+        rect(181,y+200,9,3,BLUE);text(tr("Confirmed supply","Подтвержд. питание"),194,y+197,248,FG);
+        section(tr("Consumption by equipment","Потребление по оборудованию"),y+213);
+        String[] labels={tr("Servers","Серверы"),tr("Switches","Коммутаторы"),tr("Network terminals","Сетевые терминалы"),tr("Antennas / towers","Антенны / вышки"),"DataOS",tr("Other / unclassified","Прочее / не уточнено")};
+        for(int i=0;i<labels.length;i++){
+            int x=14+(i/3)*220,yy=y+234+(i%3)*12;
+            text(labels[i],x,yy,144,MUTED);text(sample?watts(d.getLong("C"+i)):missing,x+145,yy,71,FG);
+        }
+        section(tr("Sources — rating / confirmed","Источники — номинал / подтверждено"),y+270);
+        int start=y+POWER_FIXED;
+        if(count()==0)text(tr("No connected sources","Нет подключённых источников"),16,start+8,430,MUTED);
+        for(int i=Math.max(0,(TOP-start)/POWER_ROW);i<count()&&start+i*POWER_ROW<TOP+viewHeight;i++){
+            int yy=start+i*POWER_ROW;NBTTagCompound r=row(i);widgets.row(i,11,yy,440,POWER_ROW-1,false);if(r==null)continue;
+            boolean external=r.getBoolean("External");String name=external?tr("Transformer T","Трансформатор T")+r.getInteger("Tier"):tr("Creative battery","Творческая батарея");
+            text(name+(r.getBoolean("Virtual")?tr(" (saved)"," (снимок)"):""),16,yy+4,192,FG);
+            text(r.getString("Pos"),211,yy+4,134,MUTED);
+            text(gridState(r.getInteger("State")),350,yy+4,96,r.getInteger("State")==GridProtection.TRIPPED?0xffb13e38:FG);
+            text(watts(r.getLong("Rated"))+" / "+(sample?watts(r.getLong("Received")):missing),16,yy+17,192,BLUE);
+            text(external?"HE "+r.getLong("HE")+" / FE "+r.getLong("FE"):tr("Infinite creative source","Бесконечный источник"),211,yy+17,234,MUTED);
+        }
+    }
+    private void drawPowerGraph(NBTTagCompound d,int x,int y,int w,int h){
+        NBTTagList points=d.getTagList("History",10);long max=1;
+        for(int i=0;i<points.tagCount();i++){NBTTagCompound p=points.getCompoundTagAt(i);if(p.getBoolean("Known"))max=Math.max(max,Math.max(p.getLong("Available"),p.getLong("Draw")));}
+        rect(x,y,w,h,EDGE);rect(x+1,y+1,w-2,h-2,0xfff4f7fa);
+        int left=x+62,right=x+w-5,top=y+5,bottom=y+h-13;
+        for(int i=0;i<=3;i++){int yy=top+(bottom-top)*i/3;rect(left,yy,right-left+1,1,0xffdbe4ec);text(watts(max*(3-i)/3),x+4,Math.min(yy,bottom-6),55,MUTED);}
+        text("-10m",left,bottom+4,40,MUTED);text("0",right-8,bottom+4,10,MUTED);
+        if(points.tagCount()==0){center(tr("Collecting history...","Накопление истории..."),left,top+18,right-left,MUTED);return;}
+        net.minecraft.client.renderer.Tessellator tess=net.minecraft.client.renderer.Tessellator.getInstance();
+        net.minecraft.client.renderer.BufferBuilder buf=tess.getBuffer();
+        GlStateManager.disableTexture2D();
+        for(int series=0;series<2;series++){
+            String key=series==0?"Available":"Draw";int r=series==0?36:57,g=series==0?87:120,b=series==0?144:70;
+            buf.begin(GL11.GL_LINES,net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_COLOR);
+            int px=-1,py=0,age=-1;
+            for(int i=0;i<points.tagCount();i++){
+                NBTTagCompound p=points.getCompoundTagAt(i);int a=p.getInteger("Age");
+                if(!p.getBoolean("Known")||a<0||a>PowerStats.WINDOW){px=-1;continue;}
+                int xx=right-(int)((right-left)*(long)a/PowerStats.WINDOW),yy=bottom-(int)((bottom-top)*(p.getLong(key)/(double)max));
+                if(px>=0&&age-a<=PowerStats.INTERVAL*2){buf.pos(px,py,0).color(r,g,b,255).endVertex();buf.pos(xx,yy,0).color(r,g,b,255).endVertex();}
+                else{buf.pos(xx,yy,0).color(r,g,b,255).endVertex();buf.pos(Math.min(right,xx+1),yy,0).color(r,g,b,255).endVertex();}
+                px=xx;py=yy;age=a;
+            }
+            tess.draw();
+        }
+        GlStateManager.enableTexture2D();GlStateManager.color(1,1,1,1);
+    }
+    private void powerClick(int x,int y){
+        if(!ready()||y<TOP||y>=TOP+viewHeight||!data().hasUniqueId("GridKey"))return;
+        int local=y-TOP+scroll,index=data().getInteger("GridIndex"),count=data().getInteger("GridCount");
+        if(local>=5&&local<23&&((x>=11&&x<35&&index>0)||(x>=427&&x<451&&index+1<count))){
+            send(12,x<35?-1:1,data().getUniqueId("GridKey"));scroll=0;tabScroll[5]=0;requestNow();
+        }
+    }
     private void overviewClick(int x,int y){if(!ready()||scroll!=drawnScroll||!DataOSUiState.hit(x,y,11,TOP,440,viewHeight))return;int local=y-TOP+scroll;if(local>=354&&local<371&&x>=348){navOverview(7,false);return;}if(local>=374&&local<459){int i=(local-374)/17;NBTTagList recent=data().getTagList("Recent",10);if(i<recent.tagCount())navEvent(recent.getCompoundTagAt(i).getUniqueId("Key"));return;}if(local>=OVERVIEW_FIXED+HEADER){NBTTagCompound r=row((local-OVERVIEW_FIXED-HEADER)/ROW);if(r!=null)navTask(r.getUniqueId("Key"));}}
     private String powerLabel(int n){return new String[]{tr("All power states","Все состояния"),tr("Powered","Работает"),tr("Off","Выключен"),tr("Waiting for power","Нет питания")}[n];}
     private void serverControls(){widgets.field(serverSearch,tr("Name / ID...","Название / ID..."),7,TOP+3,174,16,focus==1);button((serverPool.isEmpty()?tr("All pools","Все пулы"):serverPool)+" v",184,TOP+3,133,16,false,false);button(powerLabel(powerFilter)+" v",320,TOP+3,112,16,false,false);button("X",435,TOP+3,21,16,false,false);}
@@ -427,7 +509,7 @@ final class DataOSScreen extends GuiContainer {
     private void performTaskAction(int op,UUID key){confirm=-1;if(op==2||op==3&&!detail().hasKey("Job")){poolPicker=op==3?13:2;poolScroll=0;return;}cmd(op,0,key,null);}
     private void confirmWindow(){int x=87,y=TOP+28;rect(5,TOP,W-10,viewHeight,0x55000000);widgets.modal(x,y,300,77,tr("Confirm action","Подтвердите действие"));text(ui(confirm==2?"accept":confirm==7?"pause":confirm==8?"maintenance":confirm==9?"undo":"cancel")+" — "+title(data().getInteger("SelectedType")),x+8,y+25,284,FG);if(confirm==2)text(ui("fee")+" "+decimal(detail().getLong("Fee")/1000.)+" NCoin",x+8,y+37,284,MUTED);button(tr("Confirm","Подтвердить"),x+8,y+51,138,18,false,false);button(tr("Back","Назад"),x+154,y+51,138,18,false,false);}
     private void confirmClick(int x,int y){int op=confirm;confirm=-1;int top=TOP+28;if(DataOSUiState.hit(x,y,95,top+51,138,18)&&TaskActions.has(data().getInteger("Actions"),op)&&!detail().getKeySet().isEmpty()&&data().getBoolean("Online"))performTaskAction(op,data().getUniqueId("Selected"));}
-    @Override public void handleMouseInput() throws IOException{if(!menu.terminalPowered())return;super.handleMouseInput();int wheel=Mouse.getEventDWheel();if(wheel==0)return;int step=Integer.signum(wheel)*3;if(popup>=0){popupScroll=DataOSUiState.clamp(popupScroll-step,0,Math.max(0,popupItems.size()-popupVisible()));return;}if(tab==2&&confirm>=0)return;if(poolPicker>=0){poolScroll=DataOSUiState.clamp(poolScroll-step,0,Math.max(0,poolCount()-poolVisible()));return;}if(tab==1&&serverDetail!=null){serverScroll=DataOSUiState.clamp(serverScroll-step,0,Math.max(0,serverLineCount-serverLineVisible));return;}if(tab==2){if(data().getBoolean("Assign")){editScroll=DataOSUiState.clamp(editScroll-step*EDIT_ROW,0,editorMax(editorRows()));return;}if(detailsOpen)detailScroll=Math.max(0,detailScroll-step);else taskScroll=Math.max(0,taskScroll-step);return;}if(tab==7&&eventDetail!=null)return;if(ready()&&(tab==0||tab==1||tab==3||tab==6||tab==7)){int x=lx(Mouse.getEventX()*width/mc.displayWidth),y=ly(height-Mouse.getEventY()*height/mc.displayHeight-1);if(x>=5&&x<W-5&&y>=TOP&&y<TOP+viewHeight)setScroll(scroll-step*ROW);}}
+    @Override public void handleMouseInput() throws IOException{if(!menu.terminalPowered())return;super.handleMouseInput();int wheel=Mouse.getEventDWheel();if(wheel==0)return;int step=Integer.signum(wheel)*3;if(popup>=0){popupScroll=DataOSUiState.clamp(popupScroll-step,0,Math.max(0,popupItems.size()-popupVisible()));return;}if(tab==2&&confirm>=0)return;if(poolPicker>=0){poolScroll=DataOSUiState.clamp(poolScroll-step,0,Math.max(0,poolCount()-poolVisible()));return;}if(tab==1&&serverDetail!=null){serverScroll=DataOSUiState.clamp(serverScroll-step,0,Math.max(0,serverLineCount-serverLineVisible));return;}if(tab==2){if(data().getBoolean("Assign")){editScroll=DataOSUiState.clamp(editScroll-step*EDIT_ROW,0,editorMax(editorRows()));return;}if(detailsOpen)detailScroll=Math.max(0,detailScroll-step);else taskScroll=Math.max(0,taskScroll-step);return;}if(tab==7&&eventDetail!=null)return;if(ready()&&(tab==0||tab==1||tab==3||tab==5||tab==6||tab==7)){int x=lx(Mouse.getEventX()*width/mc.displayWidth),y=ly(height-Mouse.getEventY()*height/mc.displayHeight-1);if(x>=5&&x<W-5&&y>=TOP&&y<TOP+viewHeight)setScroll(scroll-step*ROW);}}
     @Override protected void mouseClicked(int mx,int my,int b)throws IOException{if(!menu.terminalPowered())return;int x=lx(mx),y=ly(my);if(b!=0)return;
         if(popup>=0){popupClick(x,y);return;}if(poolPicker>=0){poolClick(x,y);return;}if(tab==2&&confirm>=0){confirmClick(x,y);return;}
         if(DataOSUiState.hit(x,y,92,6,74,15)&&navigation.available()){goBack();return;}
@@ -436,7 +518,8 @@ final class DataOSScreen extends GuiContainer {
         int clickedTab=DataOSUiState.tabAt(x,y);if(clickedTab>=0){changeTab(clickedTab);return;}
         if(tab==3&&ready()){if(DataOSUiState.hit(x,y,12,TOP-scroll+5,300,18)&&y>=TOP&&y<TOP+viewHeight){poolPicker=3;poolScroll=0;return;}if(scroll==drawnScroll&&x>=11&&x<451&&y>=TOP&&y<TOP+viewHeight&&y>=TOP-scroll+RESOURCE_FIXED){NBTTagCompound r=row((y-TOP+scroll-RESOURCE_FIXED)/ROW);if(r!=null){if(r.getBoolean("ServerLink"))navServer(r.getUniqueId("Key"));else navTask(r.getUniqueId("Key"));}return;}}
         if(tab==2&&ready()){taskClick(x,y);return;}
-        if((tab==0||tab==1||tab==3||tab==6||tab==7)&&x>=459&&x<=467&&y>=scrollTop()&&y<scrollTop()+visibleHeight()){dragging=true;dragOffset=y-thumbY();if(dragOffset<0||dragOffset>=thumb()){dragOffset=thumb()/2;drag(y);}return;}
+        if((tab==0||tab==1||tab==3||tab==5||tab==6||tab==7)&&x>=459&&x<=467&&y>=scrollTop()&&y<scrollTop()+visibleHeight()){dragging=true;dragOffset=y-thumbY();if(dragOffset<0||dragOffset>=thumb()){dragOffset=thumb()/2;drag(y);}return;}
+        if(tab==5){powerClick(x,y);return;}
         if(tab==0){overviewClick(x,y);return;}if(tab==6&&ready()){if(scroll==drawnScroll&&DataOSUiState.hit(x,y,11,TOP,440,viewHeight)&&y-TOP+scroll>=WALLET_FIXED){NBTTagCompound e=row((y-TOP+scroll-WALLET_FIXED)/ROW);if(e!=null)navEvent(e.getUniqueId("Key"));}return;}
         if(tab==7){logClick(x,y);return;}
         if(tab==1){if(DataOSUiState.hit(x,y,7,TOP+3,174,16)){focus=1;return;}focus=0;if(DataOSUiState.hit(x,y,184,TOP+3,133,16)){poolPicker=4;poolScroll=0;return;}if(DataOSUiState.hit(x,y,320,TOP+3,112,16)){popup=0;popupScroll=0;popupItems=Arrays.asList(powerLabel(0),powerLabel(1),powerLabel(2),powerLabel(3));return;}if(DataOSUiState.hit(x,y,435,TOP+3,21,16)){serverSearch=serverPool="";powerFilter=0;serverSort=1;serverDescending=false;queryChanged();return;}
