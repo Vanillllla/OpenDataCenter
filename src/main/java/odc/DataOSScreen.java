@@ -250,7 +250,7 @@ final class DataOSScreen extends GuiContainer {
         labels.add(tr("Internal: ","Компоненты: ")+temperature(measured?t[ServerSpec.COUNT]:-1)+" / "+(r.getInteger("InternalLimit")>0?r.getInteger("InternalLimit")+" °C":"—"));
         labels.add(tr("Case air: ","Воздух: ")+temperature(measured?t[ServerSpec.COUNT+1]:-1));
         for(int slot=ServerSpec.FAN;slot<ServerSpec.COUNT;slot++)if(p[slot]!=0)labels.add(tr("Fan ","Вентилятор ")+(slot-ServerSpec.FAN+1)+": "+Part.at(p[slot]).name);
-        labels.add(tr("Liquid: ","Жидкость: ")+(r.getBoolean("LiquidConnected")?tr("Connected","Подключено"):r.getBoolean("Manifold")?tr("Collector only / no chiller","Коллектор / нет охладителя"):tr("No collector","Нет коллектора")));
+        labels.add(tr("Liquid: ","Жидкость: ")+(r.getInteger("LiquidRated")==0?tr("No water blocks","Нет водоблоков"):r.getBoolean("LiquidConnected")?tr("Connected","Подключено"):r.getBoolean("Manifold")?tr("Collector only / no chiller","Коллектор / нет охладителя"):tr("No collector","Нет коллектора")));
         if(r.hasKey("LiquidTemperature"))labels.add(tr("Loop: ","Контур: ")+temperature(r.getInteger("LiquidTemperature"))+" | "+r.getLong("LiquidCapacity")+" W");
         labels.add(tr("Installed water blocks: ","Номинал водоблоков: ")+r.getInteger("LiquidRated")+" W");
         int fault=r.getInteger("ThermalFault"),reason=r.getInteger("ShutdownReason");
@@ -264,7 +264,7 @@ final class DataOSScreen extends GuiContainer {
         section(tr("Cooling — loaded LAN servers","Охлаждение — загруженные серверы LAN"),y+5);
         text(tr("Heat: ","Тепловая мощность: ")+d.getLong("Heat")+" W",12,y+24,220,FG);
         text(tr("Measured: ","Измерено: ")+d.getInteger("Measured")+"/"+d.getInteger("Servers"),242,y+24,210,MUTED);
-        text(tr("Mean server peak: ","Средний максимум: ")+temperature(d.getInteger("Mean")),12,y+39,220,FG);
+        text(tr("Mean temperature: ","Средняя температура: ")+temperature(d.getInteger("Mean")),12,y+39,220,FG);
         text(tr("Max: ","Макс.: ")+temperature(d.getInteger("Max")),242,y+39,210,FG);
         text(tr("Liquid capacity / used: ","Контур доступно / отвод: ")+d.getLong("Capacity")+" / "+d.getLong("Used")+" W",12,y+54,440,FG);
         text(tr("Air removed: ","Воздушный отвод: ")+d.getLong("AirUsed")+" W | "+tr("Server liquid: ","Жидкость серверов: ")+d.getLong("ServerLiquid")+" W",12,y+69,440,FG);

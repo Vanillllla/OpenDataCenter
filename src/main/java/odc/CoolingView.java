@@ -23,7 +23,7 @@ final class CoolingView {
         int[] values(boolean peak){int[] r=new int[size];for(int i=0;i<size;i++)r[i]=(peak?max:mean)[(start+i)%HISTORY];return r;}
     }
     static int milli(double t){return Double.isFinite(t)?(int)Math.round(t*1000):-1;}
-    static ThermalEngine.State state(Menus.Target t){return ThermalRuntime.state(t.rack,t.bay);}
+    static ThermalEngine.State state(Menus.Target t){ThermalRuntime.Entry e=t.rack.thermal[t.bay];return e!=null&&e.item==t.item?e.state:null;}
     static void server(NBTTagCompound row,Menus.Target t){
         ThermalEngine.State s=state(t);
         int[] temperatures=s==null?new int[0]:s.snapshot();
@@ -39,12 +39,12 @@ final class CoolingView {
         row.setInteger("LiquidRated",profile.liquidRatedWatts);
         row.setBoolean("Manifold",t.rack.manifold);
         LiquidNetwork.Contour c=LiquidNetwork.contour(t.rack.getWorld(),t.rack.getPos());
-        if(c!=null&&c.loop!=null){row.setBoolean("LiquidConnected",!c.chillers.isEmpty());row.setInteger("LiquidTemperature",milli(c.loop.temperature()));row.setLong("LiquidCapacity",Math.round(c.loop.capacity));}
+        if(c!=null&&c.loop!=null){row.setBoolean("LiquidConnected",profile.liquidRatedWatts>0&&!c.chillers.isEmpty());row.setInteger("LiquidTemperature",milli(c.loop.temperature()));row.setLong("LiquidCapacity",Math.round(c.loop.capacity));}
     }
     static NBTTagCompound snapshot(PanelMenu menu,NBTTagCompound out,List<Menus.Target> servers,TaskData data){
         long now=menu.tile.getWorld().getTotalWorldTime();
         double heat=0,air=0,liquid=0,capacity=0,used=0,sum=0,peak=0;
-        int known=0,hot=0,scope=0;
+        int known=0,nodes=0,hot=0,scope=0;
         Set<LiquidNetwork.Contour> seen=Collections.newSetFromMap(new IdentityHashMap<LiquidNetwork.Contour,Boolean>());
         List<LiquidNetwork.Contour> loops=new ArrayList<>();
         for(Menus.Target t:servers){
@@ -52,10 +52,10 @@ final class CoolingView {
             ThermalEngine.State s=state(t);
             boolean fault=HardwareDamage.fault(t.item)!=0;
             if(s!=null){
-                double maximum=Math.max(s.internal,s.air);
+                double maximum=Math.max(s.internal,s.air);sum+=s.internal+s.air;nodes+=2;
                 boolean limit=s.profile.internalLimitC>0&&s.internal>=s.profile.internalLimitC;
-                for(int slot:s.slots){double temp=s.temperature(slot);maximum=Math.max(maximum,temp);limit|=s.profile.criticalC(slot)>0&&temp>=s.profile.criticalC(slot);}
-                sum+=maximum;peak=Math.max(peak,maximum);known++;fault|=limit;
+                for(int slot:s.slots){double temp=s.temperature(slot);maximum=Math.max(maximum,temp);sum+=temp;nodes++;limit|=s.profile.criticalC(slot)>0&&temp>=s.profile.criticalC(slot);}
+                peak=Math.max(peak,maximum);known++;fault|=limit;
                 heat+=s.generatedWatts;air+=Math.max(0,s.ambientWatts);liquid+=s.liquidWatts;
             }
             if(fault)hot++;
@@ -72,10 +72,10 @@ final class CoolingView {
                 devices++;
                 if(rows.tagCount()>=ROW_LIMIT)continue;
                 NBTTagCompound r=new NBTTagCompound();r.setInteger("Loop",i+1);r.setInteger("Tier",ch.tier());BlockPos p=ch.getPos();r.setIntArray("Position",new int[]{p.getX(),p.getY(),p.getZ()});
-                r.setLong("Capacity",Math.round(ch.confirmedCooling));r.setInteger("Rated",LiquidCore.rated(ch.tier()));r.setBoolean("Powered",ch.online);rows.appendTag(r);
+                r.setLong("Capacity",Math.round(ch.confirmedCoolingTick!=Long.MIN_VALUE&&now>=ch.confirmedCoolingTick&&now-ch.confirmedCoolingTick<=20&&ch.online?ch.confirmedCooling:0));r.setInteger("Rated",LiquidCore.rated(ch.tier()));r.setBoolean("Powered",ch.online);rows.appendTag(r);
             }
         }
-        int avg=known==0?-1:milli(sum/known),max=known==0?-1:milli(peak);
+        int avg=known==0?-1:milli(sum/nodes),max=known==0?-1:milli(peak);
         if(known>0)menu.coolingHistory.sample(now,scope,avg,max);
         out.setIntArray("MeanHistory",known==0?new int[0]:menu.coolingHistory.values(false));
         out.setIntArray("MaxHistory",known==0?new int[0]:menu.coolingHistory.values(true));

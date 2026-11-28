@@ -155,7 +155,7 @@ public final class Tiles {
         @Override int idlePower(){return LiquidCore.electric(tier());}
         private PowerGrid.Domain reserved;
         private long tick=Long.MIN_VALUE,actualAC;
-        double confirmedCooling;
+        double confirmedCooling;long confirmedCoolingTick=Long.MIN_VALUE;
         @Override void refreshPower(){
             reserved=null;actualAC=0;tick=world.getTotalWorldTime();
             LiquidNetwork.Contour contour=LiquidNetwork.contour(world,pos);
@@ -169,7 +169,7 @@ public final class Tiles {
         }
         double available(long now){
             double capacity=LiquidCore.available(tier(),actualAC,tick==now&&online&&reserved!=null&&reserved.funded());
-            reserved=null;confirmedCooling=capacity;return capacity;
+            reserved=null;confirmedCooling=capacity;confirmedCoolingTick=now;return capacity;
         }
         @Override void setPowered(boolean value){
             if(!value)confirmedCooling=0;
