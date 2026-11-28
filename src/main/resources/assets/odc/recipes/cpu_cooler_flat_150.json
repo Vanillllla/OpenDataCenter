@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:gold_ingot"
+    },
+    "F": {
+      "item": "odc:fan_breeze_60"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_cooler_flat_150",
+    "count": 1
+  }
+}

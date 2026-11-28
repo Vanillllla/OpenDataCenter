@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "odc:items/gpu_novideo_teslo_p4"
+    "layer0": "odc:items/cpu_cooler_hydro_cpu_150"
   }
 }

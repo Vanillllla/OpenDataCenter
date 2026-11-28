@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IFI",
+    "PCP",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:diamond"
+    },
+    "F": {
+      "item": "odc:fan_breeze_turbo"
+    },
+    "P": {
+      "item": "odc:liquid_pipe"
+    },
+    "C": {
+      "item": "odc:liquid_chiller_t2"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "item": "odc:liquid_chiller_t3",
+    "count": 1
+  }
+}

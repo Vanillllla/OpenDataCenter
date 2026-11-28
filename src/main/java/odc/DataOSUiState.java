@@ -5,10 +5,10 @@ import java.util.*;
 /** Shared, renderer-independent DataOS table/filter and scrolling primitives. */
 final class DataOSUiState {
     // Preserve wire IDs so task, event and pool navigation need no renumbering.
-    private static final int[] TABS={0,1,2,3,5,6,7};
-    static final int TAB_LEFT=5,TAB_STEP=66;
+    private static final int[] TABS={0,1,2,3,5,4,6,7};
+    static final int TAB_LEFT=5,TAB_STEP=58;
     static int tabId(int index){return index>=0&&index<TABS.length?TABS[index]:-1;}
-    static boolean validTab(int tab){return tab>=0&&tab<8&&tab!=4;}
+    static boolean validTab(int tab){return tab>=0&&tab<8;}
     static int tabAt(int x,int y){
         int dx=x-TAB_LEFT;
         return y>=27&&y<44&&dx>=0&&dx%TAB_STEP<TAB_STEP-1?tabId(dx/TAB_STEP):-1;

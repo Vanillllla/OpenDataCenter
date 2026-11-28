@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IFI",
+    "IFI",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "F": {
+      "item": "odc:fan_breeze_40"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_cooler_tower_120",
+    "count": 1
+  }
+}

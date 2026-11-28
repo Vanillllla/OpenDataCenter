@@ -106,7 +106,7 @@ public final class Menus {
         static int partX(int i) {
             if(i>=ServerSpec.FAN)return 100+(i-ServerSpec.FAN)*18;
             if(i>=ServerSpec.GPU_COOLER)return 12+(i-ServerSpec.GPU_COOLER)*18;
-            if(i>=ServerSpec.CPU_COOLER)return 12+(i-ServerSpec.CPU_COOLER)*18;
+            if(i>=ServerSpec.CPU_COOLER)return i==ServerSpec.CPU_COOLER?104:130;
             if(i==ServerSpec.BOARD) return 54;
             if(i==ServerSpec.CPU) return 104;
             if(i==ServerSpec.CPU2) return 130;
@@ -118,10 +118,10 @@ public final class Menus {
         }
         static int partY(int i) {
             if(i>=ServerSpec.FAN)return 200;
-            if(i>=ServerSpec.GPU_COOLER)return 170;
-            if(i>=ServerSpec.CPU_COOLER)return 200;
+            if(i>=ServerSpec.GPU_COOLER)return 132;
+            if(i>=ServerSpec.CPU_COOLER)return 59;
             if(i<=ServerSpec.CPU || i==ServerSpec.CPU2) return 41;
-            if(i<ServerSpec.SATA) return 76;
+            if(i<ServerSpec.SATA) return 82;
             if(i<ServerSpec.NVME) return 65+(i-ServerSpec.SATA)/6*18;
             if(i<ServerSpec.PCIE) return 31;
             return 112;

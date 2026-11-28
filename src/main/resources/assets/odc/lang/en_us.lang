@@ -480,3 +480,13 @@ gui.odc.boot.8=Broken component installed
 gui.odc.status.12=Overheated
 gui.odc.status.13=Hardware failure
 tooltip.odc.broken=Broken — non-functional
+
+gui.odc.liquid_yes=Liquid cooling supported
+gui.odc.liquid_no=No liquid cooling
+gui.odc.slot_covered=Occupied by a multi-slot PCIe card
+gui.odc.slot_cooling_unavailable=Requires a matching component and compatible chassis
+gui.odc.slot_unavailable=Unavailable for this chassis / motherboard
+tooltip.odc.cooling.compatibility.passive=Compatible with all chassis; needs case airflow
+tooltip.odc.cooling.compatibility.flat=Compatible with all chassis
+tooltip.odc.cooling.compatibility.tower=Requires 4U chassis
+tooltip.odc.cooling.compatibility.liquid=Requires liquid-compatible chassis and working loop

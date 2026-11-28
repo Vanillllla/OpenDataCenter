@@ -1,6 +1,74 @@
 {
-  "parent": "item/generated",
+  "parent": "block/block",
   "textures": {
-    "layer0": "odc:blocks/pdu_rail"
-  }
+    "particle": "odc:blocks/coolant_supply",
+    "s": "odc:blocks/coolant_supply",
+    "r": "odc:blocks/coolant_return"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        1,
+        6
+      ],
+      "to": [
+        7,
+        15,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "#s"
+        },
+        "south": {
+          "texture": "#s"
+        },
+        "east": {
+          "texture": "#s"
+        },
+        "west": {
+          "texture": "#s"
+        },
+        "up": {
+          "texture": "#s"
+        },
+        "down": {
+          "texture": "#s"
+        }
+      }
+    },
+    {
+      "from": [
+        9,
+        1,
+        6
+      ],
+      "to": [
+        11,
+        15,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "#r"
+        },
+        "south": {
+          "texture": "#r"
+        },
+        "east": {
+          "texture": "#r"
+        },
+        "west": {
+          "texture": "#r"
+        },
+        "up": {
+          "texture": "#r"
+        },
+        "down": {
+          "texture": "#r"
+        }
+      }
+    }
+  ]
 }

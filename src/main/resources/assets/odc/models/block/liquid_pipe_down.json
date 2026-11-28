@@ -1,7 +1,7 @@
 {
   "textures": {
-    "particle": "odc:blocks/transformer_steel",
-    "metal": "odc:blocks/transformer_steel"
+    "particle": "odc:blocks/liquid_pipe_metal",
+    "metal": "odc:blocks/liquid_pipe_metal"
   },
   "elements": [
     {

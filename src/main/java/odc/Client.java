@@ -68,8 +68,8 @@ public final class Client {
             panel(0,0,xSize,ySize,0xff25313b);
             panel(2,2,xSize-4,ySize-4,0xffbac5c9);
             panel(4,4,xSize-8,18,0xff34495b);
-            panel(5,24,162,108,0xff21473d);
-            panel(7,26,158,104,0xff305849);
+            panel(5,24,162,128,0xff21473d);
+            panel(7,26,158,124,0xff305849);
             for(int i=0;i<4;i++) {
                 panel(8,61+i*2,68-i*6,1,0xff46735d);
                 panel(84+i*4,57,1,7+i*2,0xff46735d);
@@ -84,8 +84,8 @@ public final class Client {
             panel(292,25,2,106,0xff3e4952);
             for(int i=0;i<8;i++) panel(248+i*5,34,2,11,0xff36474e);
             for(int y:new int[]{26,59,106,128}) panel(173,y,119,1,0xff819098);
-            panel(5,134,290,24,0xff263b44);
-            panel(5,159,290,60,0xff263b44);
+            panel(5,157,290,31,0xff263b44);
+            panel(5,189,290,30,0xff263b44);
             panel(66,222,168,78,0xff84939a);
             for(net.minecraft.inventory.Slot slot:menu.inventorySlots) slot(slot.xPos,slot.yPos);
             int[] spec=Hardware.spec(menu.getSlot(0).getStack());
@@ -95,6 +95,8 @@ public final class Client {
                 panel(x+4,y+7,8,2,0xff717a7b);
                 if(ServerSpec.coveredPcie(spec,i))panel(x+2,y+2,12,2,0xff91999b);
             }
+            Part held=Hardware.MODELS.get(mc.player.inventory.getItemStack().getItem());
+            if(held!=null)for(int i=0;i<ServerSpec.COUNT;i++)if(menu.fits(i)&&!ServerSpec.accepts(menu.chassisModel(),spec,i,held)){int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);panel(x,y,16,16,0x667f3131);}
         }
         @Override protected void drawGuiContainerBackgroundLayer(float f,int mx,int my){if(menu.type==Menus.WORKBENCH){assemblyBackground();return;}panel(0,0,xSize,ySize,0xff111719);panel(1,1,xSize-2,ySize-2,0xff717a7e);panel(3,3,xSize-6,ySize-6,0xff2c353a);panel(4,4,xSize-8,21,0xff1d282e);panel(5,27,xSize-10,129,0xff222c31);panel(5,158,xSize-10,78,0xff354047);
             for(net.minecraft.inventory.Slot s:menu.inventorySlots)if(s.isEnabled())slot(s.xPos,s.yPos);
@@ -107,18 +109,20 @@ public final class Client {
             if(menu.type==Menus.RACK){label(d[2]+" / "+d[1]+" W | "+tr("switch")+": "+(d[4]==1?"ON":"OFF"),12,27,MUTED);for(int i=0;i<d[0]&&i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i),start=d[10+i]-1;ItemStack s=menu.getSlot(i).getStack();label((i+1)+"U",x+19,y+3,MUTED);if(Hardware.units(s)>0)label((d[7]&(1<<i))!=0?"●":"·",x+39,y+3,(d[8]&(1<<i))!=0?GREEN:MUTED);else if(Hardware.switchTier(s)>0)clipped("SW "+SwitchLimits.label(Hardware.switchTier(s)),x+43,y+3,76,d[4]==1?GREEN:MUTED);else if(start>=0)clipped("↑ "+(start+1)+"U",x+45,y+3,70,MUTED);}if(d[3]==0)label(tr("no_switch"),12,141,AMBER);else clipped(tr("port_hint"),156,122,133,MUTED);}
             else if(menu.type==Menus.WORKBENCH){
                 clipped(tr("chassis"),10,29,41,TEXT);clipped(tr("board"),53,29,45,TEXT);
-                label("CPU 1 / 2",103,29,TEXT);label("DIMM",12,66,TEXT);label("PCI Express",12,101,TEXT);
+                label("CPU 1 / 2",103,29,TEXT);label("DIMM",12,72,TEXT);label("PCI Express",12,101,TEXT);
                 label("M.2",219,35,TEXT);label("SATA",180,54,TEXT);label("PSU",261,116,TEXT);
-                label(tr("gpu_cooling"),12,160,TEXT);label(tr("cpu_cooling"),12,190,TEXT);label(tr("fans"),100,190,TEXT);
+                clipped(tr("cpu_cooling"),54,61,47,TEXT);clipped(tr("gpu_cooling"),12,149,150,0xff263b44);label(tr("fans"),100,190,TEXT);
                 int[] spec=Hardware.spec(menu.getSlot(0).getStack());
                 int state=Hardware.state(menu.getSlot(0).getStack());
-                clipped(menu.chassis()==0?tr("choose_chassis"):tr("boot."+state),11,137,280,state==0?GREEN:AMBER);
-                clipped(ServerSpec.ramGB(spec)+" GB RAM   "+ServerSpec.occupiedPcie(spec)+"/"+ServerSpec.capacity(menu.chassisModel(),spec[0],ServerSpec.PCIE)+" PCIe   "+ServerSpec.drawWatts(spec)+"/"+ServerSpec.psu(spec)+" W",11,148,280,TEXT);
+                clipped(menu.chassis()==0?tr("choose_chassis"):menu.getSlot(0).getStack().getDisplayName()+" | "+tr("boot."+state),11,159,280,state==0?GREEN:AMBER);
+                clipped(ServerSpec.ramGB(spec)+" GB RAM   "+ServerSpec.occupiedPcie(spec)+"/"+ServerSpec.capacity(menu.chassisModel(),spec[0],ServerSpec.PCIE)+" PCIe   "+ServerSpec.drawWatts(spec)+"/"+ServerSpec.psu(spec)+" W",11,169,280,TEXT);
+                ChassisSpec c=menu.chassisModel();if(c!=null)clipped("PSU: "+c.psuSlots+" | FAN: "+c.fanSlots+" | "+(c.liquid?tr("liquid_yes"):tr("liquid_no")),11,179,280,TEXT);
+                for(int i=0;i<ServerSpec.COUNT;i++)if(HardwareDamage.broken(menu.getSlot(i+1).getStack()))label("!",Menus.Menu.partX(i)+11,Menus.Menu.partY(i),0xffff4444);
             }
             else if(menu.type==Menus.CONTROL){clipped((d[1]==1?"ONLINE":"OFFLINE")+" | "+amount(d[0])+" NTC | "+d[8]+" H/s | "+d[2]+" W",12,27,276,d[1]==1?GREEN:RED);clipped("WAN "+d[5]+" | LAN "+d[6]+" | "+d[7]+" Mb/s | "+d[4]+" SRV",12,37,276,MUTED);for(int i=0;i<5;i++){int k=20+i*8;if(d[k]==0)continue;clipped(d[k+1]+","+d[k+2]+","+d[k+3]+" / U"+d[k+4],12,51+i*16,112,TEXT);clipped(tr("status."+d[k+6])+" "+d[k+7],125,51+i*16,77,MUTED);}label((d[10]+1)+"/"+Math.max(1,d[11]),219,133,TEXT);clipped(amount(d[9])+" NTC/s",130,133,61,GREEN);}
             else if(menu.type==Menus.MARKET){label(tr("wallet",amount(d[0])),12,35,GREEN);label(d[1]==1?tr("market_hint"):tr("offline"),12,49,MUTED);}
             else {label(d[0]==1?tr("online"):tr("offline"),12,35,d[0]==1?GREEN:RED);label(d[1]+" Mb/s WAN | "+d[3]+" W",12,51,TEXT);label("Grid: "+d[2]+" W",12,66,MUTED);}
         }
-        @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);renderHoveredToolTip(x,y);}
+        @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);renderHoveredToolTip(x,y);if(menu.type==Menus.WORKBENCH&&mc.player.inventory.getItemStack().isEmpty())for(int i=0;i<ServerSpec.COUNT;i++){int xx=guiLeft+Menus.Menu.partX(i),yy=guiTop+Menus.Menu.partY(i);if(x>=xx&&x<xx+16&&y>=yy&&y<yy+16&&!menu.getSlot(i+1).getHasStack()&&!menu.fits(i)){int[] p=Hardware.spec(menu.getSlot(0).getStack());String key=ServerSpec.coveredPcie(p,i)?"slot_covered":ServerSpec.coolingTarget(i)>=0?"slot_cooling_unavailable":"slot_unavailable";drawHoveringText(java.util.Collections.singletonList(tr(key)),x,y);break;}}}
     }
 }

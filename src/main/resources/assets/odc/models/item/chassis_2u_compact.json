@@ -1,14 +1,50 @@
 {
-  "parent": "item/generated",
+  "parent": "block/block",
   "textures": {
-    "layer0": "odc:items/chassis_2u"
+    "particle": "odc:blocks/module_side",
+    "side": "odc:blocks/module_side",
+    "front": "odc:blocks/chassis_2u_compact_front"
   },
+  "elements": [
+    {
+      "from": [
+        1,
+        1,
+        2
+      ],
+      "to": [
+        15,
+        8,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#front"
+        },
+        "south": {
+          "texture": "#side"
+        },
+        "east": {
+          "texture": "#side"
+        },
+        "west": {
+          "texture": "#side"
+        },
+        "up": {
+          "texture": "#side"
+        },
+        "down": {
+          "texture": "#side"
+        }
+      }
+    }
+  ],
   "overrides": [
     {
       "predicate": {
         "odc:ready": 1
       },
-      "model": "odc:item/chassis_2u_ready"
+      "model": "odc:item/chassis_2u_compact_ready"
     }
   ]
 }

@@ -155,6 +155,7 @@ public final class Tiles {
         @Override int idlePower(){return LiquidCore.electric(tier());}
         private PowerGrid.Domain reserved;
         private long tick=Long.MIN_VALUE,actualAC;
+        double confirmedCooling;
         @Override void refreshPower(){
             reserved=null;actualAC=0;tick=world.getTotalWorldTime();
             LiquidNetwork.Contour contour=LiquidNetwork.contour(world,pos);
@@ -168,9 +169,10 @@ public final class Tiles {
         }
         double available(long now){
             double capacity=LiquidCore.available(tier(),actualAC,tick==now&&online&&reserved!=null&&reserved.funded());
-            reserved=null;return capacity;
+            reserved=null;confirmedCooling=capacity;return capacity;
         }
         @Override void setPowered(boolean value){
+            if(!value)confirmedCooling=0;
             // Cooling devices are not LAN endpoints; no network rediscovery on
             // every transition. The existing grid still clears them on failure.
             if(online!=value){online=value;markDirty();if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,2);}}

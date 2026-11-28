@@ -480,3 +480,13 @@ gui.odc.boot.8=Установлен сломанный компонент
 gui.odc.status.12=Перегрев
 gui.odc.status.13=Поломка комплектующих
 tooltip.odc.broken=Сломан — не функционирует
+
+gui.odc.liquid_yes=Поддерживает жидкостное охлаждение
+gui.odc.liquid_no=Без жидкостного охлаждения
+gui.odc.slot_covered=Занято многослотовой платой PCIe
+gui.odc.slot_cooling_unavailable=Нужны соответствующий компонент и совместимый корпус
+gui.odc.slot_unavailable=Недоступно для этого корпуса или платы
+tooltip.odc.cooling.compatibility.passive=Все корпуса; нужен поток воздуха
+tooltip.odc.cooling.compatibility.flat=Все корпуса
+tooltip.odc.cooling.compatibility.tower=Только корпуса 4U
+tooltip.odc.cooling.compatibility.liquid=Нужен жидкостный корпус и рабочий контур

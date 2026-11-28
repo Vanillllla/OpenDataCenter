@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "odc:items/gpu_novideo_rtx_3080"
+    "layer0": "odc:items/gpu_cooler_hydro_gpu_400"
   }
 }

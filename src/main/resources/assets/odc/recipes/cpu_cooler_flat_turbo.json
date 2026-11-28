@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:diamond"
+    },
+    "F": {
+      "item": "odc:fan_breeze_turbo"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_cooler_flat_turbo",
+    "count": 1
+  }
+}

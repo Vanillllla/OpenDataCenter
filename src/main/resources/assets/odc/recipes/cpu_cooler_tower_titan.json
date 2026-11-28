@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IFI",
+    "IFI",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:diamond"
+    },
+    "F": {
+      "item": "odc:fan_breeze_turbo"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_cooler_tower_titan",
+    "count": 1
+  }
+}

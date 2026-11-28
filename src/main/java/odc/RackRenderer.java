@@ -13,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 
 /** Atlas-batched module mesh: one opaque draw, plus one glass draw if needed. */
 final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
-    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","rack_frame","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh","pdu_rail","pdu_socket","power_plug","power_lead","psu_rear","psu_blank","server_rear","switch_rear","power_lamp_off","power_lamp_green","power_lamp_red"};
+    static final String[] SPRITES={"server_1_ready","server_1_empty","server_2_ready","server_2_empty","server_4_ready","server_4_empty","switch_panel_1","switch_panel_2","switch_panel_2port","led_on","led_off","led_activity","rack_window","rack_frame","module_side","patch_cable_mesh","patch_cable_mesh_t1","patch_cable_mesh_t3","patch_plug_mesh","pdu_rail","pdu_socket","power_plug","power_lead","psu_rear","psu_blank","server_rear","switch_rear","power_lamp_off","power_lamp_green","power_lamp_red","coolant_supply","coolant_return","chassis_1u_compact_front","chassis_1u_compute_front","chassis_2u_compact_front","chassis_2u_compute_front","chassis_4u_storage_front","chassis_4u_gpu_front"};
     private BufferBuilder buffer;
     private TextureMap atlas;
     private void begin(){buffer=Tessellator.getInstance().getBuffer();buffer.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX_COLOR);}
@@ -45,6 +45,7 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
     private void powerFaces(RackPowerMesh.Face[] faces){
         for(RackPowerMesh.Face face:faces){double[][] q=face.vertices;quad(RackPowerMesh.TEXTURES[face.material],face.shade,q[0],q[1],q[2],q[3]);}
     }
+    private void coolingFaces(RackPowerMesh.Face[] faces){for(RackPowerMesh.Face face:faces){double[][] q=face.vertices;quad(face.material==0?"coolant_supply":"coolant_return",face.shade,q[0],q[1],q[2],q[3]);}}
     private void renderDoor(Tiles.Rack rack,double height,float partial){
         double l=RackLayout.Door.LEFT,r=RackLayout.Door.RIGHT,b=RackLayout.Door.BOTTOM,t=height-b,z=RackLayout.Door.Z,th=RackLayout.Door.THICK/2,edge=.026;
         GlStateManager.pushMatrix();
@@ -74,7 +75,7 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
             begin();
             powerFaces(RackPowerMesh.rail(rack.capacity()));
             // Temporary rear 0U rail; final paired hoses/materials in 0.6.3.8.
-            if(rack.manifold)solidBox(.105,.065,.925,.175,height-.065,.985);
+            if(rack.manifold)coolingFaces(RackCoolingMesh.rail(rack.capacity()));
             String lamp=rack.powerLamp==GridProtection.LAMP_RED?"power_lamp_red":rack.powerLamp==GridProtection.LAMP_GREEN?"power_lamp_green":"power_lamp_off";
             quad(lamp,255,v(.875,height-.123,.986),v(.845,height-.123,.986),v(.845,height-.093,.986),v(.875,height-.093,.986));
             for(int i=0;i<rack.capacity();i++){
@@ -102,10 +103,11 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
                 }else{
                     rear("server_rear",.125,bottom,.875,top,RackPowerMesh.BACK);
                     int[] spec=Hardware.spec(item);ChassisSpec chassis=Hardware.chassis(item);int psu=RackPowerMesh.psuMask(chassis,spec);
+                    if(rack.manifold&&RackCoolingMesh.connected(chassis,spec))coolingFaces(RackCoolingMesh.hoses(rack.capacity(),i,units));
                     for(int slot=0;slot<chassis.psuSlots&&i+slot<rack.capacity();slot++)powerFaces(RackPowerMesh.lane(rack.capacity(),i+slot,(psu&(1<<slot))!=0));
                     boolean on=(rack.poweredMask&(1<<i))!=0,run=(rack.runningMask&(1<<i))!=0;
-                    front("server_"+units+"_"+(Hardware.state(item)==ServerSpec.READY?"ready":"empty"),.125,bottom,.875,top,.15);
-                    front(on?"led_on":"led_off",.804,top-h*.27,.850,top-h*.10,.148);
+                    front(chassis!=ChassisSpec.legacy(units)?chassis.id+"_front":"server_"+units+"_"+(Hardware.state(item)==ServerSpec.READY?"ready":"empty"),.125,bottom,.875,top,.15);
+                    front(HardwareDamage.fault(item)!=0||Hardware.state(item)==ServerSpec.BROKEN?"power_lamp_red":on?"led_on":"led_off",.804,top-h*.27,.850,top-h*.10,.148);
                     front(run?"led_activity":"led_off",.750,top-h*.27,.786,top-h*.10,.148);
                 }
             }

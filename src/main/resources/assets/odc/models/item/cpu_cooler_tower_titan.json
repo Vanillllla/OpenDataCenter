@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "odc:items/cpu_introll_zeon_2696_v4"
+    "layer0": "odc:items/cpu_cooler_tower_titan"
   }
 }

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "IPI",
+    "IPI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "odc:liquid_pipe"
+    }
+  },
+  "result": {
+    "item": "odc:liquid_manifold",
+    "count": 1
+  }
+}

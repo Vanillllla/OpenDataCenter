@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "P P",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "odc:liquid_pipe"
+    }
+  },
+  "result": {
+    "item": "odc:cpu_cooler_hydro_cpu_150",
+    "count": 1
+  }
+}

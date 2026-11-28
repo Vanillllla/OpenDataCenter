@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "P P",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:gold_ingot"
+    },
+    "P": {
+      "item": "odc:liquid_pipe"
+    }
+  },
+  "result": {
+    "item": "odc:gpu_cooler_hydro_gpu_400",
+    "count": 1
+  }
+}

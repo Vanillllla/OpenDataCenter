@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IEI",
+    " C ",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "E": {
+      "item": "minecraft:gold_ingot"
+    },
+    "C": {
+      "item": "odc:chassis_2u"
+    }
+  },
+  "result": {
+    "item": "odc:chassis_2u_compute",
+    "count": 1
+  }
+}
