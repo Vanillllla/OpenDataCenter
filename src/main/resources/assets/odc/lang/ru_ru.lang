@@ -406,3 +406,5 @@ gui.odc.transformer.grid_rated=Установленная мощность: %d �
 gui.odc.transformer.rates=HE: %d / FE: %d мДж за ед.
 gui.odc.transformer.switch_off=Выключить рубильник
 gui.odc.transformer.switch_on=Включить рубильник
+tooltip.odc.server.idle=Потребление в простое: %d Вт
+tooltip.odc.psu.overload=Недостаточная выходная мощность PSU

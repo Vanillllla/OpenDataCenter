@@ -1,0 +1,7 @@
+# Hardware power — 0.6.2.3
+
+All power values use watts. For component demand P and installed PSU output ratings C_i with efficiencies eta_i, each PSU supplies P*C_i/sum(C_i). Grid input is ceil(sum(P*C_i/(sum(C_i)*eta_i))). No redundancy or per-load efficiency curves. If P exceeds sum(C_i), or no PSU is installed, the calculation returns -1 and the scheduler marks PSU overload; this check is separate from grid budget rejection. CPU/GPU keep the existing rounded 10–100% linear allocation model; other component ratings are unchanged. Both the reference and fixed-resource planners, disconnected idle paths and virtual simulation use input watts. Old snapshots are invalidated on schema change, but faults are kept.
+
+Preliminary PSU efficiencies: VX500 80%, VX650 80%, RM750 Gold 90%, RM1000 Gold 90%, 1200 Platinum 92%, 1500 Titanium 94%. Network equipment constant watts: DataOS 30, terminals T1/T2/T3 20/50/100, radio 150, satellite 500, tower 1500. Switch watts by ID: basic 15, pro 30, 2p_100 10, 2p_500 12, 2p_1000 15, 2p_10000 30, 4p_1000 25, 4p_10000 50, 8p_10000 80, 8p_50000 150. These are game-balance defaults, not measured real products.
+
+Manual checks: single PSU, mixed PSU, idle disconnected server, full CPU/GPU, PSU overload with sufficient grid, grid deficit with sufficient PSU, zero draw after shutdown, network device constant draw, UI/tooltip values. No thermal or network-wide protection changes in this stage.

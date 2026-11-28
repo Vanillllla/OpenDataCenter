@@ -406,3 +406,5 @@ gui.odc.transformer.grid_rated=Installed rated capacity: %d W
 gui.odc.transformer.rates=HE: %d / FE: %d mJ per unit
 gui.odc.transformer.switch_off=Switch OFF
 gui.odc.transformer.switch_on=Switch ON
+tooltip.odc.server.idle=Idle grid input: %d W
+tooltip.odc.psu.overload=PSU output capacity exceeded

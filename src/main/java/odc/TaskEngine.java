@@ -46,11 +46,7 @@ public final class TaskEngine {
         private static int deviceWatts(int rated,int used,int capacity) {
             return (rated*(capacity+9*used)+10*capacity-1)/(10*capacity);
         }
-        int fe(int watts) {
-            int capacity=ServerSpec.psu(parts),draw=0;
-            for(int slot=ServerSpec.PSU;slot<ServerSpec.CPU2;slot++) draw+=Part.at(parts[slot]).fe;
-            return capacity==0?0:(int)(((long)watts*draw+capacity-1)/capacity);
-        }
+        int inputWatts(int componentWatts){return ServerSpec.inputWatts(parts,componentWatts);}
         @Override public boolean equals(Object obj) {
             if(!(obj instanceof Node)) return false;
             Node other=(Node)obj;
@@ -217,8 +213,9 @@ public final class TaskEngine {
         for(int i=0;i<nodes.size();i++) if(!excluded.contains(i)) {
             Node node=nodes.get(i);
             int watts=node.watts(plan.usedCores[i],plan.gpu[i]);
-            if(watts>ServerSpec.psu(node.parts)) plan.overload.add(i);
-            plan.power[i]=watts;
+            int input=node.inputWatts(watts);
+            if(input<0)plan.overload.add(i);
+            else plan.power[i]=input;
         }
         plan.freeSpace=space;plan.freeIO=io;return plan;
     }

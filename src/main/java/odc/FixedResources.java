@@ -97,7 +97,7 @@ final class FixedResources {
             Ledger jobLedger=new Ledger(nodes,caps,wan,excluded,jobs,t);jobLedger.routedNetwork=networkBlocked!=null;Evaluation e=evaluate(t,jobLedger);if(!e.error.isEmpty())continue;
             r=e.result;p.tasks.put(t.id,r);for(TaskEngine.Slice s:r.slices){runningCores[s.node].or(s.cores);runningGpu[s.node]|=s.mask;}
         }
-        for(int i=0;i<nodes.size();i++)if(!excluded.contains(i)){TaskEngine.Node n=nodes.get(i);int watts=n.watts(runningCores[i],runningGpu[i]);if(watts>ServerSpec.psu(n.parts))p.overload.add(i);p.power[i]=watts;}
+        for(int i=0;i<nodes.size();i++)if(!excluded.contains(i)){TaskEngine.Node n=nodes.get(i);int watts=n.watts(runningCores[i],runningGpu[i]);int input=n.inputWatts(watts);if(input<0)p.overload.add(i);else p.power[i]=input;}
         return p;
     }
 }

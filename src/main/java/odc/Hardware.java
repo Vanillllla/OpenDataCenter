@@ -21,7 +21,7 @@ final class Hardware {
     static final class NetworkTerminalItem extends ItemBlock {
         private final NetworkEquipment equipment;
         NetworkTerminalItem(Blocks.NetworkTerminal block){super(block);equipment=block.equipment;}
-        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){super.addInformation(stack,world,tips,flag);tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.network_terminal.capacity",equipment.mbps));}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){super.addInformation(stack,world,tips,flag);tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.network_terminal.capacity",equipment.mbps));tips.add(equipment.watts+" W");}
     }
     static final class TransformerItem extends ItemBlock {
         private final int tier;
@@ -32,6 +32,11 @@ final class Hardware {
             tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.transformer.pending"));
         }
     }
+    static final class PoweredItem extends ItemBlock {
+        private final int watts;
+        PoweredItem(Block block,int watts){super(block);this.watts=watts;}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){super.addInformation(stack,world,tips,flag);tips.add(watts+" W");}
+    }
     static boolean transformer(Block b){return b instanceof Blocks.Transformer;}
     static boolean networkTerminal(Block b){return b instanceof Blocks.NetworkTerminal;}
     static boolean antenna(Block b){return b==STATION||b==SATELLITE||b==TOWER;}
@@ -41,7 +46,7 @@ final class Hardware {
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
     static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3));
     static {
-        for(int i=1;i<SWITCHES.length;i++){SwitchLimits.Model m=SwitchLimits.model(i);SWITCHES[i]=item(m.id,m.ports+" ports | "+m.total+" Mb/s total\n"+m.port+" Mb/s per port");ITEMS.add(SWITCHES[i]);}
+        for(int i=1;i<SWITCHES.length;i++){SwitchLimits.Model m=SwitchLimits.model(i);SWITCHES[i]=item(m.id,m.ports+" ports | "+m.total+" Mb/s total\n"+m.port+" Mb/s per port\n"+m.power+" W");ITEMS.add(SWITCHES[i]);}
         for(Part model:Part.models) if(model.index>0) {
             Item component=item(model.id,String.join("\n",model.details()));
             MODELS.put(component,model);
@@ -74,7 +79,7 @@ final class Hardware {
     static int gpus(ItemStack s){return ServerSpec.gpuTotal(spec(s));}
     static int vram(ItemStack s){return ServerSpec.vram(spec(s));}
     static int nic(ItemStack s){return ServerSpec.nic(spec(s));}
-    static int idle(ItemStack s){int[] p=spec(s);TaskEngine.Node node=new TaskEngine.Node(null,0,0,p);return node.watts(0,0);}
+    static int idle(ItemStack s){int[] p=spec(s);return ServerSpec.idleInputWatts(p);}
     private static class Component extends Item {
         final String tip;
         Component(String id,String tip){this.tip=tip;setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setCreativeTab(TAB);}
@@ -83,7 +88,7 @@ final class Hardware {
     private static final class Chassis extends Component {
         final int units;
         Chassis(String id,int u){super(id,u+"U | "+u+" PSU | "+ServerSpec.chassisPcie(u)+" PCIe");units=u;setMaxStackSize(1);addPropertyOverride(new ResourceLocation(ODC.ID,"ready"),(stack,world,entity)->state(stack)==ServerSpec.READY?1:0);}
-        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){super.addInformation(s,w,tips,flag);int[] p=spec(s);tips.add(net.minecraft.client.resources.I18n.format("gui.odc.boot."+state(s)));tips.add(ServerSpec.cpuCores(p)+" cores | "+gpus(s)+" GPU");tips.add(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB disk | "+vram(s)+" GB VRAM");tips.add(ServerSpec.psu(p)+" W PSU | "+ServerSpec.nic(p)+" Mb/s NIC");Part board=Part.at(p[ServerSpec.BOARD]);
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack s,@Nullable World w,List<String> tips,ITooltipFlag flag){super.addInformation(s,w,tips,flag);int[] p=spec(s);tips.add(net.minecraft.client.resources.I18n.format("gui.odc.boot."+state(s)));tips.add(ServerSpec.cpuCores(p)+" cores | "+gpus(s)+" GPU");tips.add(ServerSpec.ramGB(p)+" GB RAM | "+ServerSpec.diskGB(p)+" GB disk | "+vram(s)+" GB VRAM");tips.add(ServerSpec.psu(p)+" W PSU | "+ServerSpec.nic(p)+" Mb/s NIC");if(state(s)==ServerSpec.READY){int idle=ServerSpec.idleInputWatts(p);tips.add(net.minecraft.client.resources.I18n.format(idle<0?"tooltip.odc.psu.overload":"tooltip.odc.server.idle",Math.max(0,idle)));}Part board=Part.at(p[ServerSpec.BOARD]);
             for(ItemStack part:parts(s)) if(!part.isEmpty()) {
                 Part device=MODELS.get(part.getItem());
                 String link=device!=null && (device.kind==Part.Kind.GPU || device.kind==Part.Kind.NIC) && board.pci>0

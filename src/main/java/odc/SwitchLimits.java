@@ -7,16 +7,16 @@ final class SwitchLimits {
         Model(String id,int ports,int total,int port,int power){this.id=id;this.ports=ports;this.total=total;this.port=port;this.power=power;}
     }
     private static final Model[] MODELS={null,
-        new Model("switch_basic",4,200,100,8),
-        new Model("switch_pro",8,1000,1000,20),
-        new Model("switch_2p_100",2,100,100,8),
-        new Model("switch_2p_500",2,500,1000,8),
-        new Model("switch_2p_1000",2,1000,1000,8),
-        new Model("switch_2p_10000",2,10000,10000,8),
-        new Model("switch_4p_1000",4,1000,1000,8),
-        new Model("switch_4p_10000",4,10000,10000,8),
-        new Model("switch_8p_10000",8,10000,10000,20),
-        new Model("switch_8p_50000",8,50000,10000,20),
+        new Model("switch_basic",4,200,100,15),
+        new Model("switch_pro",8,1000,1000,30),
+        new Model("switch_2p_100",2,100,100,10),
+        new Model("switch_2p_500",2,500,1000,12),
+        new Model("switch_2p_1000",2,1000,1000,15),
+        new Model("switch_2p_10000",2,10000,10000,30),
+        new Model("switch_4p_1000",4,1000,1000,25),
+        new Model("switch_4p_10000",4,10000,10000,50),
+        new Model("switch_8p_10000",8,10000,10000,80),
+        new Model("switch_8p_50000",8,50000,10000,150),
     };
     static int count(){return MODELS.length-1;}
     static Model model(int tier){return tier>0&&tier<MODELS.length?MODELS[tier]:null;}

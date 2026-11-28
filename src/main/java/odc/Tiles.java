@@ -99,7 +99,7 @@ public final class Tiles {
         }
         @Override public ItemStack decrStackSize(int i,int count){if(count>0)detach(i);return super.decrStackSize(i,count);}
         @Override public ItemStack removeStackFromSlot(int i){detach(i);return super.removeStackFromSlot(i);}
-        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)!=0 && TaskData.get(world).maintenance(ClusterScheduler.serverId(slots.get(bay)),false)>0)return false;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(bay)),true);poweredMask&=~bit;runningMask&=~bit;}EventSystem.rack(this,bay,Level.INFO,Category.POWER,(enabledMask&bit)!=0?"server_on":"server_off",(enabledMask&bit)!=0?"Server enabled":"Server disabled");changed();return true;}
+        boolean toggle(int bay){if(!isServer(bay))return false;int bit=1<<bay;if((enabledMask&bit)!=0 && TaskData.get(world).maintenance(ClusterScheduler.serverId(slots.get(bay)),false)>0)return false;if((enabledMask&bit)==0&&Hardware.state(slots.get(bay))!=ServerSpec.READY)return false;OfflineState.invalidateAt(world,pos);enabledMask^=bit;fault[bay]=0;if((enabledMask&bit)==0){TaskData.get(world).serverStopped(ClusterScheduler.serverId(slots.get(bay)),true);poweredMask&=~bit;runningMask&=~bit;lastPower=Math.max(0,lastPower-powerUsed[bay]);powerUsed[bay]=0;}EventSystem.rack(this,bay,Level.INFO,Category.POWER,(enabledMask&bit)!=0?"server_on":"server_off",(enabledMask&bit)!=0?"Server enabled":"Server disabled");changed();return true;}
         boolean connect(int bay,int port,EntityPlayer p){return connect(bay,port,p,1);}
         boolean connect(int bay,int port,EntityPlayer p,int tier){if(!isServer(bay)||port<0||port>=Hardware.ports(switchTier())||!allows(p))return false;
             if(ports[port]==bay+1){clearPort(port,p);OfflineState.invalidateAt(world,pos);EventSystem.rack(this,bay,Level.WARNING,Category.NETWORK,"port_disconnected","Patch cable disconnected");changed();return true;}
@@ -152,7 +152,7 @@ public final class Tiles {
         }
         int[] miningStats=new int[6]; // assigned, active, effective work, allocated Mbps, milli-NTC/s, requested Mbps
         int racks, servers, uplink, switching, networkUsed, clusterPower;
-        @Override int idlePower(){return 5;}
+        @Override int idlePower(){return NetworkEquipment.DATAOS_WATTS;}
         void resetCycle(){Arrays.fill(miningStats,0);racks=servers=uplink=switching=networkUsed=clusterPower=0;}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setUniqueId("ControllerId",id);return n;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("ControllerId"))id=n.getUniqueId("ControllerId");}

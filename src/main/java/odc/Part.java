@@ -11,7 +11,7 @@ final class Part {
     final Kind kind;
     final String name, id;
     int socket, pci, ddr, watts, sockets, ramSlots, pciSlots, m2Slots, sataSlots;
-    int cores, mhz, gb, speed, chips, width, mbps, fe;
+    int cores, mhz, gb, speed, chips, width, mbps, efficiency;
 
     private Part(Kind kind, String name, int tier) {
         this.kind = kind;
@@ -40,7 +40,7 @@ final class Part {
             case RAM: info = "DDR"+ddr+"   "+gb+" GB   "+mhz+" MHz"; break;
             case GPU: info = chips+" GPU × "+gb+" GB VRAM   "+mhz+" MHz\nPCIe "+pci+".0   "+width+" slots"; break;
             case NIC: info = mbps/1000.0+" Gbit/s   PCIe "+pci+".0"; break;
-            case PSU: info = watts+" W"; break;
+            case PSU: info = watts+" W | "+efficiency+"%"; break;
             default: info = (kind==Kind.PCIE?"PCIe NVMe":kind==Kind.NVME?"M.2 NVMe":"SATA")+"   "+gb+" GB   "+speed+" MB/s";
         }
         return ("T"+tier+"  |  "+kind+"\n"+info+(kind==Kind.PSU?"":"\n"+watts+" W")).split("\n");
@@ -100,10 +100,11 @@ final class Part {
         p.watts = watts;
     }
 
-    private static void psu(String name, int tier, int watts, int fe) {
+    private static void psu(String name, int tier, int watts, int efficiency) {
         Part p = new Part(Kind.PSU, name, tier);
         p.watts = watts;
-        p.fe = fe;
+        if(efficiency<1||efficiency>100)throw new IllegalArgumentException("PSU efficiency");
+        p.efficiency = efficiency;
     }
 
     static {
@@ -176,11 +177,11 @@ final class Part {
         nic("Melonox Connect 25", 2, 25000, 4, 16);
         nic("Melonox Connect 40", 3, 40000, 5, 18);
         nic("Melonox Connect 100", 3, 100000, 5, 20);
-        psu("AeroHot VX500", 1, 500, 1000);
-        psu("AeroHot VX650", 1, 650, 1300);
-        psu("CorsError RM750 Gold", 2, 750, 1350);
-        psu("CorsError RM1000 Gold", 2, 1000, 1800);
-        psu("SuperMacro 1200 Platinum", 3, 1200, 1920);
-        psu("SuperMacro 1500 Titanium", 3, 1500, 2250);
+        psu("AeroHot VX500", 1, 500, 80);
+        psu("AeroHot VX650", 1, 650, 80);
+        psu("CorsError RM750 Gold", 2, 750, 90);
+        psu("CorsError RM1000 Gold", 2, 1000, 90);
+        psu("SuperMacro 1200 Platinum", 3, 1200, 92);
+        psu("SuperMacro 1500 Titanium", 3, 1500, 94);
     }
 }

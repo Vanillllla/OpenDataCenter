@@ -116,7 +116,7 @@ public final class ServerSpec {
     }
     static int psu(int[] p) {
         int watts=0;
-        for(int i=PSU;i<CPU2;i++) watts+=Part.at(p[i]).watts;
+        for(int i=PSU;i<CPU2;i++){Part unit=Part.at(p[i]);if(unit.kind==Part.Kind.PSU)watts+=unit.watts;}
         return watts;
     }
     static int drawWatts(int[] p) {
@@ -124,11 +124,26 @@ public final class ServerSpec {
         for(int i=0;i<PSU;i++) watts+=Part.at(p[i]).watts;
         return watts;
     }
-    static int drawFE(int[] p) {
-        int ratedFE=0, capacity=psu(p);
-        for(int i=PSU;i<CPU2;i++) ratedFE+=Part.at(p[i]).fe;
-        return capacity==0?0:(drawWatts(p)*ratedFE+capacity-1)/capacity;
+    /** Each PSU carries the same fraction of its own rating (no redundancy).
+     * Negative means the requested DC output cannot be supplied by the installed PSU set.
+     * Exact rational arithmetic; round only the total AC input upward to whole watts. */
+    static int inputWatts(int[] p,int loadWatts) {
+        if(loadWatts<0)throw new IllegalArgumentException("negative load");
+        int capacity=psu(p);
+        if(capacity<=0||loadWatts>capacity)return -1;
+        long denominator=1;
+        for(int i=PSU;i<CPU2;i++){
+            Part unit=Part.at(p[i]);if(unit.kind==Part.Kind.PSU)denominator*=unit.efficiency;
+        }
+        long weighted=0;
+        for(int i=PSU;i<CPU2;i++){
+            Part unit=Part.at(p[i]);if(unit.kind==Part.Kind.PSU)weighted+=100L*unit.watts*(denominator/unit.efficiency);
+        }
+        long numerator=weighted*loadWatts, divisor=denominator*capacity;
+        return (int)(numerator/divisor+(numerator%divisor==0?0:1));
     }
+    static int maxInputWatts(int[] p){return inputWatts(p,drawWatts(p));}
+    static int idleInputWatts(int[] p){return inputWatts(p,new TaskEngine.Node(null,0,0,p).watts(0,0));}
     static int nic(int[] p) {
         Part board=Part.at(p[BOARD]);
         int fastest=board.onboardNicMbps();

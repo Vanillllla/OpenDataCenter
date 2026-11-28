@@ -4,7 +4,7 @@ import java.util.*;
 /** Pure 0.3 mining math. Other workloads deliberately wait for the 0.4 scheduler. */
 public final class ComputeEngine {
     public static final int TICKS=20;
-    public static final int IDLE=0,NO_CONTROLLER=1,CONTROLLER_OFFLINE=2,TASK_DISABLED=3,INCOMPATIBLE=4,NO_NETWORK=5,NO_POWER=6,RUNNING=7,THROTTLED=8,MAINTENANCE=9,INCOMPLETE=10;
+    public static final int IDLE=0,NO_CONTROLLER=1,CONTROLLER_OFFLINE=2,TASK_DISABLED=3,INCOMPATIBLE=4,NO_NETWORK=5,NO_POWER=6,RUNNING=7,THROTTLED=8,MAINTENANCE=9,INCOMPLETE=10,PSU_OVERLOAD=11;
     private ComputeEngine(){}
     public static final class Profile {
         public final int work,mbps,fePerTick;public final long microMilliPerSecond;
