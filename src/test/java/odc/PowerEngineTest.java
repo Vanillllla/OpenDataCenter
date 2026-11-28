@@ -29,6 +29,36 @@ public final class PowerEngineTest {
         Set<Integer> off=TopologySearch.component(0,edges::get,x->x!=4,16);
         check(off.size()==4&&!off.contains(5),"open relay separates domains");
         check(TopologySearch.component(0,edges::get,x->true,3)==null,"oversize fails closed");
+        // Fluctuations apply to the whole nominal sum, with consistent rounding.
+        for(int factor:new int[]{9000,10000,11000,0,20000}){
+            PowerEngine.Budget scaled=new PowerEngine.Budget(1000,20,factor);
+            PowerEngine.Preview trial=new PowerEngine.Preview();
+            check(trial.use(scaled,30)&&trial.use(scaled,70),"preview");
+            check(scaled.usedUnits()==0,"preview untouched");
+            check(scaled.use(30)&&scaled.use(70),"commit");
+            check(scaled.nominalWatts()==100&&scaled.usedUnits()==PowerEngine.scale(100,factor)*20,"actual sum");
+            long[] cats=PowerEngine.scaleCategories(new long[]{31,32,37},factor);
+            check(cats[0]+cats[1]+cats[2]==PowerEngine.scale(100,factor),"category sum");
+        }
+        PowerEngine.Budget high=new PowerEngine.Budget(100,20,11000);
+        check(high.use(90)&&!high.canUse(2)&&!high.use(2),"upward excursion trips capacity");
+        PowerEngine.Budget low=new PowerEngine.Budget(100,20,9000);
+        check(low.use(110)&&low.usedUnits()==99*20,"downward excursion");
+        PowerEngine.Budget round=new PowerEngine.Budget(11,20,11000);
+        PowerEngine.Preview trial=new PowerEngine.Preview();
+        for(int i=0;i<10;i++)check(trial.use(round,1)&&round.use(1),"cumulative rounding");
+        check(round.usedUnits()==220&&!round.use(1),"exact total not per-item rounding");
+        int previous=PowerEngine.factor(42,0,10);boolean changes=false,positive=false,negative=false;
+        for(int cycle=1;cycle<1000;cycle++){
+            int factor=PowerEngine.factor(42,cycle,10);
+            check(factor>=9000&&factor<=11000,"range");
+            check(factor==PowerEngine.factor(42,cycle,10)&&PowerEngine.factor(42,cycle,0)==10000,"deterministic and disabled");
+            changes|=factor!=previous;positive|=factor>10000;negative|=factor<10000;previous=factor;
+            long forecast=PowerEngine.scale(1000,PowerEngine.factor(42,cycle+1,10));
+            PowerEngine.Budget next=new PowerEngine.Budget(2000,20,PowerEngine.factor(42,cycle+1,10));
+            check(next.use(1000)&&next.usedUnits()/20==forecast,"next external receipt matches stable demand");
+        }
+        check(changes&&positive&&negative,"both directions");
         System.out.println("PowerEngine: "+count+" checks passed");
     }
 }

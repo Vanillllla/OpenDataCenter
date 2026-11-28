@@ -20,7 +20,7 @@ public final class PowerMonitor {
         long[] c=new long[PowerStats.SIZE];
         if(d.virtualGroup!=null){
             System.arraycopy(d.virtualGroup.fixedCategories,0,c,0,c.length);
-            long used=d.budget.usedUnits()/PowerEngine.TICKS_PER_SECOND;
+            long used=d.budget.nominalWatts();
             c[PowerStats.SERVER]+=Math.max(0,used-d.virtualGroup.fixed);
         }else for(TileEntity tile:d.consumers){
             if(tile instanceof Tiles.Rack){
@@ -38,7 +38,7 @@ public final class PowerMonitor {
         long tick=w.getTotalWorldTime();LinkedHashMap<UUID,PowerStats.History> histories=histories(w);
         for(PowerGrid.Domain d:PowerGrid.topology(w).domains){
             boolean known=d.complete||d.virtualGroup!=null;
-            PowerStats.Sample sample=new PowerStats.Sample(tick,d.fundedWatts(),d.ratedWatts(),categories(d),d.state,known,!ODC.requireEnergy,d.funded());
+            PowerStats.Sample sample=new PowerStats.Sample(tick,d.fundedWatts(),d.ratedWatts(),PowerEngine.scaleCategories(categories(d),d.budget.factor),d.state,known,!ODC.requireEnergy,d.funded());
             histories.computeIfAbsent(key(w,d),k->new PowerStats.History()).record(sample);
         }
         histories.entrySet().removeIf(e->e.getValue().latest!=null&&e.getValue().latest.tick<=tick-PowerStats.WINDOW);

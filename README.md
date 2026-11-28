@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.8-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.9-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.2.9-alpha
+
+Случайные колебания суммарного потребления каждой физической энергосети раз в 20 тиков. Настройка `energy.powerFluctuationPercent` (по умолчанию 10, диапазон 0–100, 0 отключает). Учитываются в бюджете, аварийной защите, внешних запросах и DataOS; характеристики отдельных устройств остаются базовыми.
 
 ### Версия 0.6.2.8-alpha
 
@@ -100,6 +104,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.2.9-alpha
+
+Per-grid random total load variation every 20 ticks, configured by `energy.powerFluctuationPercent` (default 10, 0–100, 0 disables). The shared budget, protection, external receipts and DataOS use the same factor; individual hardware ratings remain nominal.
 
 ### Version 0.6.2.8-alpha
 

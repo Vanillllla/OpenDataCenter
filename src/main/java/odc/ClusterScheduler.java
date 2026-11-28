@@ -79,9 +79,10 @@ public final class ClusterScheduler {
             boolean controller=cs.stream().anyMatch(Tiles.Computer::operational);
             boolean complete=initialPaid;
             for(int i=0;i<refs.size();i++){Ref f=refs.get(i);if(!excluded.contains(i)&&(f.rack.poweredMask&(1<<f.bay))==0){excluded.add(i);complete=false;}}
-            int switching=0,actualPower=0;
-            for(int ri=0;ri<racks.size();ri++){Tiles.Rack rack=racks.get(ri);caps[ri]=rack.switchOnline?Hardware.switchMbps(rack.switchTier()):0;switching=add(switching,caps[ri]);actualPower=add(actualPower,rack.lastPower);}
-            for(Tiles.Owned tile:devices)if(tile instanceof Tiles.Powered&&((Tiles.Powered)tile).operational())actualPower=add(actualPower,((Tiles.Powered)tile).idlePower());
+            int switching=0;Map<PowerGrid.Domain,Long> displayLoads=new IdentityHashMap<>();
+            for(int ri=0;ri<racks.size();ri++){Tiles.Rack rack=racks.get(ri);caps[ri]=rack.switchOnline?Hardware.switchMbps(rack.switchTier()):0;switching=add(switching,caps[ri]);PowerGrid.addDisplayLoad(displayLoads,rack,rack.lastPower);}
+            for(Tiles.Owned tile:devices)if(tile instanceof Tiles.Powered&&((Tiles.Powered)tile).operational())PowerGrid.addDisplayLoad(displayLoads,tile,((Tiles.Powered)tile).idlePower());
+            int actualPower=(int)Math.min(Integer.MAX_VALUE,PowerGrid.displayTotal(displayLoads));
             if(finalAnchor!=null){
                 TaskConsole.Domain live=new TaskConsole.Domain(nodes,caps,controller?Integer.MAX_VALUE:0,excluded,w.getTotalWorldTime(),w);
                 if(complete&&controller)live.plan=finalPlan;

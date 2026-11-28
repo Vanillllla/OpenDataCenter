@@ -28,6 +28,13 @@ final class PowerGrid {
         boolean complete;
         long creativeWatts,paidWatts;
         boolean external,confirmed;
+        private boolean noiseSeedReady;
+        private long noiseSeed;
+        int factor(long cycle){
+            if(!noiseSeedReady){long anchor=positions.stream().mapToLong(BlockPos::toLong).min().orElse(0);noiseSeed=world.getSeed()^anchor^(0x632be59bd9b4e019L*world.provider.getDimension());noiseSeedReady=true;}
+            return PowerEngine.factor(noiseSeed,cycle,ODC.powerFluctuationPercent);
+        }
+        long displayedWatts(long nominal){return PowerEngine.scale(nominal,budget.factor);}
         OfflineState.Snapshot virtualSnapshot;
         OfflineState.Group virtualGroup;
         Domain(World world,Set<BlockPos> p){this.world=world;positions=p;footprint=p;}
@@ -50,7 +57,7 @@ final class PowerGrid {
                 if(source instanceof Tiles.Transformer){external=true;capacity=PowerEngine.sum(capacity,source.ratedWatts());}
                 else{long watts=Math.max(0,source.outputWatts());creativeWatts=PowerEngine.sum(creativeWatts,watts);capacity=PowerEngine.sum(capacity,watts);}
             }
-            budget=new PowerEngine.Budget(capacity,PowerEngine.TICKS_PER_SECOND);
+            budget=new PowerEngine.Budget(capacity,PowerEngine.TICKS_PER_SECOND,factor(world.getTotalWorldTime()/20));
             confirmed=!external||!ODC.requireEnergy;
         }
         long fundedWatts(){return state==GridProtection.ON?PowerEngine.sum(creativeWatts,paidWatts):0;}
@@ -65,7 +72,10 @@ final class PowerGrid {
         ExternalWindow finish(){
             if(state!=GridProtection.ON||!external||!ODC.requireEnergy)return null;
             long demand=budget.usedUnits()/PowerEngine.TICKS_PER_SECOND;
-            long needed=Math.max(0,demand-creativeWatts);
+            // Request next cycle's factor for the current nominal load. A steady load
+            // must not lose funding just because the next random multiplier is larger.
+            long nextDemand=Math.min(budget.capacityWatts,PowerEngine.scale(budget.nominalWatts(),factor(world.getTotalWorldTime()/20+1)));
+            long needed=Math.max(0,nextDemand-creativeWatts);
             confirmed=PersistentPower.funded(demand,creativeWatts,paidWatts,true);
             // No previous receipt can be reused; the next window is a fresh demand.
             ExternalWindow next=new ExternalWindow(needed);
@@ -149,6 +159,12 @@ final class PowerGrid {
         int availableWatts(){PowerEngine.Budget b=budget();return !closed()?0:!ODC.requireEnergy?Integer.MAX_VALUE:b==null?0:(int)Math.min(Integer.MAX_VALUE,domain().fundedWatts());}
     }
     private PowerGrid(){}
+    /** Display a LAN subset without summing nominal loads from different grids before scaling. */
+    static void addDisplayLoad(Map<Domain,Long> loads,TileEntity tile,long nominal){
+        if(nominal<=0)return;
+        Domain d=domain(tile.getWorld(),tile.getPos());if(d!=null)loads.merge(d,nominal,PowerEngine::sum);
+    }
+    static long displayTotal(Map<Domain,Long> loads){long total=0;for(Map.Entry<Domain,Long> e:loads.entrySet())total=PowerEngine.sum(total,e.getKey().displayedWatts(e.getValue()));return total;}
     static boolean settling(World w){return topology(w).settling;}
     static Domain virtualDomain(World w,OfflineState.Group group){return topology(w).virtual.get(group);}
     static void worldUnload(World w){Map<Set<BlockPos>,ExternalWindow> active=windows.remove(w);if(active!=null)for(ExternalWindow window:active.values())window.close();}

@@ -124,7 +124,7 @@ public final class OfflineState extends WorldSavedData {
             PowerGrid.Domain grid=verified.get(g);long planned=0;
             for(int ri=0;ri<racks.size();ri++)if(racks.get(ri).energy.domain()==grid){s.gridByRack[ri]=g;planned+=s.budget[ri];}
             Group group=s.groups.get(g);
-            group.fixed=Math.max(0,grid.budget.usedUnits()/PowerEngine.TICKS_PER_SECOND-planned);
+            group.fixed=Math.max(0,grid.budget.nominalWatts()-planned);
             group.fixedCategories=PowerMonitor.categories(grid);group.fixedCategories[PowerStats.SERVER]=Math.max(0,group.fixedCategories[PowerStats.SERVER]-planned);
             long categorized=PowerStats.total(group.fixedCategories);if(categorized<=group.fixed)group.fixedCategories[PowerStats.OTHER]+=group.fixed-categorized;else{Arrays.fill(group.fixedCategories,0);group.fixedCategories[PowerStats.OTHER]=group.fixed;}
             for(TileEntity consumer:grid.consumers)if(consumer instanceof Tiles.Computer&&((Tiles.Computer)consumer).operational())group.controller=true;
@@ -209,7 +209,7 @@ public final class OfflineState extends WorldSavedData {
                     for(int g=0;g<domains.length;g++){
                         PowerGrid.Domain domain=domains[g];
                         if(domain==null||domain.state!=GridProtection.ON)continue;
-                        if(!GridProtection.sufficient(domain.budget.remainingWatts(),demand[g])){
+                        if(!domain.budget.canUse(demand[g])){
                             domain.shutdown(GridProtection.TRIPPED);
                             trip(w,d,s,g,"Insufficient power (virtual simulation)");retry=true;
                         }
