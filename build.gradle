@@ -227,3 +227,10 @@ task thermalBenchmark(type: JavaExec, dependsOn: testClasses) {
     classpath = sourceSets.test.runtimeClasspath
     main = 'odc.ThermalBenchmark'
 }
+
+
+task verifyCoolingRegression(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.CoolingRegressionTest'
+}
+check.dependsOn verifyCoolingRegression

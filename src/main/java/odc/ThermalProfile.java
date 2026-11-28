@@ -15,8 +15,10 @@ final class ThermalProfile {
         double air=2.0,inside=100;int electrical=0,limit=0,liquid=0;
         for(int slot=0;slot<models.length;slot++){
             Part p=part(slot);
-            if(p.kind==Part.Kind.FAN)air+=p.conductance;
-            if(slot>=ServerSpec.CPU_COOLER){electrical+=p.watts;if(p.liquidCooling())liquid+=p.coolingWatts;}
+            if(slot>=ServerSpec.CPU_COOLER&&installedCooling(slot)){
+                if(p.kind==Part.Kind.FAN)air+=p.conductance;
+                electrical+=p.watts;if(p.liquidCooling())liquid+=p.coolingWatts;
+            }
             if(p.electronic()&&p.kind!=Part.Kind.CPU&&p.kind!=Part.Kind.GPU){
                 inside+=p.heatCapacity;limit=limit==0?p.criticalC:Math.min(limit,p.criticalC);
             }
@@ -25,7 +27,8 @@ final class ThermalProfile {
         coolingElectricalWatts=electrical;internalLimitC=limit;liquidRatedWatts=liquid;
     }
     Part part(int slot){return Part.at(models[slot]);}
-    Part cooler(int componentSlot){int slot=ServerSpec.linkedCoolingSlot(componentSlot);return Part.at(slot<0?0:models[slot]);}
+    private boolean installedCooling(int slot){Part p=part(slot);return p.kind!=Part.Kind.EMPTY&&ServerSpec.accepts(chassis,models,slot,p);}
+    Part cooler(int componentSlot){int slot=ServerSpec.linkedCoolingSlot(componentSlot);return slot>=0&&installedCooling(slot)?part(slot):Part.at(0);}
     int criticalC(int slot){return part(slot).criticalC;}
     double heatCapacity(int slot){return part(slot).heatCapacity;}
     boolean liquid(int slot){return cooler(slot).liquidCooling();}

@@ -38,7 +38,7 @@ final class DataOSScreen extends GuiContainer {
     private int content(){return tab==0?OVERVIEW_FIXED+HEADER+count()*ROW:(tab==1||tab==7)?count()*ROW:tab==3?RESOURCE_FIXED+count()*ROW:tab==6?WALLET_FIXED+count()*ROW:tab==5?POWER_FIXED+Math.max(1,count())*POWER_ROW:tab==4?coolingHeight():0;}
     private int visibleHeight(){return viewHeight-((tab==1||tab==7)?HEADER+22:0);}
     private int maxScroll(){return Math.max(0,content()-visibleHeight());}
-    private void request(){if(!menu.terminalPowered())return;int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):tab==3?Math.max(0,(scroll-RESOURCE_FIXED)/ROW):tab==6?Math.max(0,(scroll-WALLET_FIXED)/ROW):tab==5?Math.max(0,(scroll-POWER_FIXED)/POWER_ROW):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),0,0,null,tab==1?query().encode():tab==7?eventQuery().encode():""));}
+    private void request(){if(!menu.terminalPowered())return;int start=tab==0?Math.max(0,(scroll-OVERVIEW_FIXED-HEADER)/ROW):tab==3?Math.max(0,(scroll-RESOURCE_FIXED)/ROW):tab==6?Math.max(0,(scroll-WALLET_FIXED)/ROW):tab==5?Math.max(0,(scroll-POWER_FIXED)/POWER_ROW):tab==4?CoolingUiState.offset(scroll,ready()?data().getTagList("ThermalEvents",10).tagCount():0):Math.max(0,scroll/ROW);if(start==requested)return;requested=start;RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),0,0,null,tab==1?query().encode():tab==7?eventQuery().encode():""));}
     private void send(int action,int value,UUID id){RackInteraction.channel.sendToServer(new DataOSPackets.Request(menu.windowId,tab,Math.max(0,requested),action,value,id));}
     private void setScroll(int value){scroll=Math.max(0,Math.min(maxScroll(),value));tabScroll[tab]=scroll;request();}
     private void changeTab(int next){if(next==tab||pending)return;focus=0;poolPicker=-1;popup=-1;confirm=-1;tabScroll[tab]=scroll;tab=next;scroll=tabScroll[tab];requestNow();}
@@ -258,7 +258,7 @@ final class DataOSScreen extends GuiContainer {
         if(fault!=0)labels.add(r.getBoolean("RestartAllowed")?tr("Manual restart available","Ручной запуск доступен"):tr("Restart blocked","Запуск заблокирован"));
         for(int slot=0;slot<ServerSpec.COUNT;slot++)if((broken&(1L<<slot))!=0)labels.add("! "+tr("Broken: ","Повреждено: ")+Part.at(p[slot]).name+" #"+(slot+1));
     }
-    private int coolingHeight(){return 215+data().getTagList("ThermalEvents",10).tagCount()*18+count()*22;}
+    private int coolingHeight(){return CoolingUiState.rowsTop(data().getTagList("ThermalEvents",10).tagCount())+count()*CoolingUiState.ROW;}
     private void coolingPanel(){
         NBTTagCompound d=data();int y=TOP-scroll;
         section(tr("Cooling — loaded LAN servers","Охлаждение — загруженные серверы LAN"),y+5);
@@ -280,8 +280,8 @@ final class DataOSScreen extends GuiContainer {
         for(int i=0;i<events.tagCount();i++){NBTTagCompound e=events.getCompoundTagAt(i);button(eventTime(e.getLong("Last"))+"  "+(e.getString("Code").contains("damage")?tr("Thermal damage","Повреждение"):tr("Thermal shutdown","Перегрев"))+" >",12,y+188+i*18,438,16,false,false);}
         int base=y+188+events.tagCount()*18;
         section(tr("Shared loops / chillers","Общие контуры / охладители")+"  "+d.getInteger("Loops")+"/"+d.getInteger("Chillers"),base);
-        text(tr("Showing ","Показано ")+count()+"/"+d.getInteger("TotalRows"),12,base+15,438,MUTED);
-        for(int i=0;i<count();i++){NBTTagCompound r=row(i);if(r==null)continue;int yy=base+27+i*22;if(yy+22<TOP||yy>TOP+viewHeight)continue;widgets.row(i,11,yy,440,21,false);
+        text(tr("Total rows: ","Всего строк: ")+count(),12,base+19,438,MUTED);
+        for(int i=CoolingUiState.offset(scroll,events.tagCount());i<count();i++){int yy=base+31+i*CoolingUiState.ROW;if(yy>TOP+viewHeight)break;NBTTagCompound r=row(i);if(r==null)continue;widgets.row(i,11,yy,440,21,false);
             String title=tr("Loop ","Контур ")+r.getInteger("Loop");
             if(r.hasKey("Tier")){int[] p=r.getIntArray("Position");title+=" | "+tr("Chiller T","Охладитель T")+r.getInteger("Tier")+(p.length==3?"  "+p[0]+","+p[1]+","+p[2]:"");text(title,16,yy+2,430,FG);text((r.getLong("Capacity")>0?tr("Confirmed","Подтверждён"):r.getBoolean("Powered")?tr("Unconfirmed","Не подтверждён"):tr("Offline","Отключён"))+" | "+r.getLong("Capacity")+"/"+r.getInteger("Rated")+" W",16,yy+11,430,r.getLong("Capacity")>0?BLUE:MUTED);}
             else{text(title+" | "+temperature(r.getInteger("Temperature"))+" | "+r.getInteger("Chillers")+" "+tr("chillers","охлад."),16,yy+2,430,FG);text(r.getLong("Used")+"/"+r.getLong("Capacity")+" W",16,yy+11,430,MUTED);}
@@ -571,7 +571,7 @@ final class DataOSScreen extends GuiContainer {
         if(DataOSUiState.hit(x,y,92,6,74,15)&&navigation.available()){goBack();return;}
         if(tab==7&&eventDetail!=null){eventWindowClick(x,y);return;}
         if(tab==1&&serverDetail!=null){serverWindowClick(x,y);return;}
-        if(tab==4&&ready()&&x>=12&&x<452&&y>=TOP&&y<TOP+viewHeight){int i=(y-TOP+scroll-188)/18;if(y-TOP+scroll>=188&&i<data().getTagList("ThermalEvents",10).tagCount())navEvent(data().getTagList("ThermalEvents",10).getCompoundTagAt(i).getUniqueId("Key"));return;}
+        if(tab==4&&ready()&&drawnScroll==scroll&&x>=12&&x<452&&y>=TOP&&y<TOP+viewHeight){int i=(y-TOP+scroll-188)/18;if(y-TOP+scroll>=188&&i<data().getTagList("ThermalEvents",10).tagCount())navEvent(data().getTagList("ThermalEvents",10).getCompoundTagAt(i).getUniqueId("Key"));return;}
         int clickedTab=DataOSUiState.tabAt(x,y);if(clickedTab>=0){changeTab(clickedTab);return;}
         if(tab==3&&ready()){if(DataOSUiState.hit(x,y,12,TOP-scroll+5,300,18)&&y>=TOP&&y<TOP+viewHeight){poolPicker=3;poolScroll=0;return;}if(scroll==drawnScroll&&x>=11&&x<451&&y>=TOP&&y<TOP+viewHeight&&y>=TOP-scroll+RESOURCE_FIXED){NBTTagCompound r=row((y-TOP+scroll-RESOURCE_FIXED)/ROW);if(r!=null){if(r.getBoolean("ServerLink"))navServer(r.getUniqueId("Key"));else navTask(r.getUniqueId("Key"));}return;}}
         if(tab==2&&ready()){taskClick(x,y);return;}

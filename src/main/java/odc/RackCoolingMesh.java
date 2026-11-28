@@ -10,7 +10,7 @@ final class RackCoolingMesh {
     static boolean connected(ChassisSpec c,int[] parts){
         if(c==null||!c.liquid||parts.length!=ServerSpec.COUNT)return false;
         for(int i=ServerSpec.CPU_COOLER;i<ServerSpec.FAN;i++)
-            if(Part.at(parts[i]).liquidCooling()&&ServerSpec.slotAvailable(c,parts,i))return true;
+            if(Part.at(parts[i]).liquidCooling()&&ServerSpec.accepts(c,parts,i,Part.at(parts[i])))return true;
         return false;
     }
     private static double[] p(double x,double y,double z){return new double[]{x,y,z};}
