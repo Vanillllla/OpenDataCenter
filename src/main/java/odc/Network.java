@@ -61,8 +61,7 @@ public final class Network {
         for(TileEntity t:new ArrayList<>(w.loadedTileEntityList))if(isPowerDevice(t)&&live(w,t)){
             if(t instanceof Tiles.Rack){
                 Tiles.Rack r=(Tiles.Rack)t;
-                if(r.role!=-1&&!r.energy.fed())for(int bay=0;bay<r.capacity();bay++)
-                    if(r.isServer(bay)&&(r.enabledMask&(1<<bay))!=0)ClusterScheduler.trip(r,bay,6,TaskData.get(w));
+                if(r.role!=-1&&!r.energy.fed()&&r.enabledMask!=0)r.energy.tripGrid();
             }else if(t instanceof Tiles.Powered){
                 Tiles.Powered p=(Tiles.Powered)t;if(!p.energy.fed())p.setPowered(false);
             }

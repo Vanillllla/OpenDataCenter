@@ -168,6 +168,10 @@ public final class Tiles {
     public static final class Station extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&!e.terminal()?e:NetworkEquipment.RADIO;} boolean satellite(){return equipment()==NetworkEquipment.SATELLITE;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
     public static final class Transformer extends Owned implements PowerGrid.Source {
         boolean enabled=true;
+        int breakerState=GridProtection.ON;
+        private boolean legacy;
+        boolean legacyOff(){return legacy&&!enabled;}
+        @Override public void gridState(int state){boolean change=breakerState!=state||enabled!=(state==GridProtection.ON)||legacy;legacy=false;breakerState=state;enabled=state==GridProtection.ON;if(change)changed();}
         int tier(){
             if(world==null||!world.isBlockLoaded(pos))return 1;
             net.minecraft.block.Block block=world.getBlockState(pos).getBlock();
@@ -181,14 +185,23 @@ public final class Tiles {
         long actualInputUnits(){return 0;}
         void toggle(){
             if(world==null||world.isRemote)return;
-            enabled=!enabled;
-            OfflineState.invalidateAt(world,pos);
-            changed();
+            PowerGrid.Domain grid=PowerGrid.domain(world,pos);if(grid!=null)grid.toggle();
         }
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("BreakerEnabled",enabled);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);enabled=!n.hasKey("BreakerEnabled")||n.getBoolean("BreakerEnabled");}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("BreakerEnabled",enabled);n.setInteger("GridState",breakerState);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);enabled=!n.hasKey("BreakerEnabled")||n.getBoolean("BreakerEnabled");legacy=!n.hasKey("GridState");breakerState=legacy?(enabled?GridProtection.ON:GridProtection.OFF):n.getInteger("GridState");}
     }
     public static final class Battery extends Owned implements PowerGrid.Source {
-        @Override public long outputWatts(){return ODC.batteryOutput;}
+        int configuredWatts=-1;
+        int breakerState=GridProtection.ON;
+        int watts(){return configuredWatts<0?ODC.batteryOutput:configuredWatts;}
+        @Override public long ratedWatts(){return watts();}
+        @Override public long outputWatts(){return breakerState==GridProtection.ON?watts():0;}
+        @Override public void gridState(int state){if(breakerState!=state){breakerState=state;changed();}}
+        boolean configure(int watts){
+            if(watts<1||watts>TransformerCore.MAX_WATTS)return false;
+            configuredWatts=watts;OfflineState.invalidateAt(world,pos);markDirty();changed();return true;
+        }
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("OutputWatts",watts());n.setInteger("GridState",breakerState);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);configuredWatts=n.hasKey("OutputWatts")?Math.max(1,Math.min(TransformerCore.MAX_WATTS,n.getInteger("OutputWatts"))):-1;breakerState=n.getInteger("GridState");}
     }
 }

@@ -4,7 +4,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
-version = '0.6.2.3-alpha'
+version = '0.6.2.4-alpha'
 group = 'odc'
 archivesBaseName = 'OpenDataCenter-1.12.2'
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
@@ -151,3 +151,9 @@ task verifyHardwarePower(type: JavaExec, dependsOn: testClasses) {
     main = 'odc.HardwarePowerTest'
 }
 check.dependsOn verifyHardwarePower
+
+task verifyGridProtection(type: JavaExec, dependsOn: testClasses) {
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'odc.GridProtectionTest'
+}
+check.dependsOn verifyGridProtection

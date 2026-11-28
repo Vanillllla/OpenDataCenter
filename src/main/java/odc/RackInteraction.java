@@ -14,7 +14,7 @@ import io.netty.buffer.ByteBuf;
 /** Ordinary RMB uses the vanilla block interaction; modifier RMB uses a server-validated ray trace. */
 public final class RackInteraction {
     static SimpleNetworkWrapper channel;
-    static void init(){channel=NetworkRegistry.INSTANCE.newSimpleChannel("odc_rack");channel.registerMessage(RemoveHandler.class,Remove.class,0,Side.SERVER);channel.registerMessage(RenameHandler.class,Rename.class,1,Side.SERVER);channel.registerMessage(DoorHandler.class,DoorClick.class,8,Side.SERVER);DataOSPackets.register(channel);NetworkMapPackets.register(channel);channel.registerMessage(NetworkEditCommand.Handler.class,NetworkEditCommand.class,7,Side.SERVER);channel.registerMessage(UplinkCommand.Handler.class,UplinkCommand.class,5,Side.SERVER);}
+    static void init(){channel=NetworkRegistry.INSTANCE.newSimpleChannel("odc_rack");channel.registerMessage(RemoveHandler.class,Remove.class,0,Side.SERVER);channel.registerMessage(RenameHandler.class,Rename.class,1,Side.SERVER);channel.registerMessage(DoorHandler.class,DoorClick.class,8,Side.SERVER);BatteryCommand.register(channel);DataOSPackets.register(channel);NetworkMapPackets.register(channel);channel.registerMessage(NetworkEditCommand.Handler.class,NetworkEditCommand.class,7,Side.SERVER);channel.registerMessage(UplinkCommand.Handler.class,UplinkCommand.class,5,Side.SERVER);}
     public static final class DoorClick implements IMessage {
         long pos;public DoorClick(){}DoorClick(BlockPos p){pos=p.toLong();}
         public void fromBytes(ByteBuf b){pos=b.readLong();}public void toBytes(ByteBuf b){b.writeLong(pos);}

@@ -1,0 +1,9 @@
+# Grid protection — 0.6.2.4
+
+The source switch belongs to the physical electrical domain. ON, OFF and TRIPPED are persistent cell latches in dimension-local PowerState; merges inherit the strongest state and splits inherit each member's state. A reset clears the verified connected component; known partial footprints cannot be reset. Creative battery per-block power is saved in NBT; older batteries use the existing config default. Range 1–100000000 W. A battery reset button appears only when off/tripped. Transformers remain unfunded until 0.6.2.5.
+
+On a failed budget reservation, the grid trips, source output becomes zero, fixed devices and switches stop, all enabled servers are disabled; PSU overload is still local. Server task settlement is deferred until all loaded grids have been evaluated; results involving an unpowered controller, server, switch or unfunded network route are not credited. The journal records grid transitions at rack/controller scopes. With requireEnergy=false the physical breaker still works, but power capacity is bypassed.
+
+Unloaded state: known footprints and latches are persisted. Physical edits invalidate affected known footprints, remaining cell latches survive. A previously verified partially unloaded grid cannot be reset until loaded; virtual execution continues only with fully unloaded exclusive creative groups, using their last verified capacities minus fixed demand. Previous snapshot schema is rejected. Real external accounting and more complete partial topology verification are planned for 0.6.2.6.
+
+Manual checks: battery GUI, number validation, owner permissions, per-block save, two transformers on one grid toggle together, battery-only trip/reset, two physical grids sharing LAN, two LANs sharing grid, exact limit, PSU overload local, insufficient supply all off, no task credit after trip, manual restart, re-trip, merge/split, relay, restart, unload/reload. No game test performed during source preparation.

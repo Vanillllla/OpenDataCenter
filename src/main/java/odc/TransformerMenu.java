@@ -14,7 +14,7 @@ final class TransformerMenu extends Container {
     final Tiles.Transformer tile;
     final EntityPlayer player;
     // tier, rating, funded output, paid input, enabled, grid funded, grid rated, HE rate, FE rate
-    final int[] data=new int[9],previous=new int[18];
+    final int[] data=new int[10],previous=new int[20];
     private TransformerMenu(EntityPlayer p,Tiles.Transformer t){player=p;tile=t;Arrays.fill(previous,-1);}
     static TransformerMenu open(EntityPlayer p,World w,BlockPos pos){
         if(!w.isBlockLoaded(pos))return null;
@@ -29,7 +29,7 @@ final class TransformerMenu extends Container {
     }
     @Override public boolean enchantItem(EntityPlayer p,int action){
         if(p.world.isRemote||action!=TOGGLE||!canInteractWith(p))return false;
-        tile.toggle();return true;
+        PowerGrid.Domain d=PowerGrid.domain(p.world,tile.getPos());return d!=null&&d.toggle();
     }
     private static int bounded(long value){return (int)Math.max(0,Math.min(Integer.MAX_VALUE,value));}
     @Override public void detectAndSendChanges(){
@@ -37,9 +37,9 @@ final class TransformerMenu extends Container {
         if(player.world.isRemote||!canInteractWith(player))return;
         PowerGrid.Domain d=PowerGrid.domain(player.world,tile.getPos());
         data[0]=tile.tier();data[1]=bounded(tile.ratedWatts());data[2]=bounded(tile.actualOutputWatts());
-        data[3]=bounded(tile.actualInputUnits());data[4]=tile.enabled?1:0;
+        data[3]=bounded(tile.actualInputUnits());data[4]=d==null?GridProtection.OFF:d.state;
         data[5]=d==null?0:bounded(d.budget.capacityWatts);data[6]=d==null?0:bounded(d.ratedWatts());
-        data[7]=ODC.conversionRate(TransformerCore.Input.HE);data[8]=ODC.conversionRate(TransformerCore.Input.FE);
+        data[9]=d!=null&&d.complete?1:0;data[7]=ODC.conversionRate(TransformerCore.Input.HE);data[8]=ODC.conversionRate(TransformerCore.Input.FE);
         for(int i=0;i<data.length;i++)for(int part=0;part<2;part++){
             int id=i*2+part,value=(data[i]>>>(part*16))&65535;
             if(previous[id]!=value){for(IContainerListener listener:listeners)listener.sendWindowProperty(this,id,value);previous[id]=value;}
