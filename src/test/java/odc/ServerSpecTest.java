@@ -39,6 +39,42 @@ public final class ServerSpecTest {
         check(ServerSpec.state(1,server)==ServerSpec.INVALID,"incompatible DIMM");
         server=minimal();server[ServerSpec.CPU]=model("InTroll Zeon 2670 v2");
         check(ServerSpec.state(1,server)==ServerSpec.INVALID,"incompatible socket");
+        int gpu3=model("NoVideo RTX 3080"),gpu4=model("NoVideo RTX 6090"),gpu2=model("NoVideo Teslo M10"),nic=model("FakeTek G1000"),disk=model("InTroll Optan P100");
+        int[] pc=new int[ServerSpec.COUNT];pc[ServerSpec.BOARD]=model("ASBrick Rack EP2C612 WS");
+        int start=ServerSpec.PCIE;
+        check(ServerSpec.capacity(1,pc[0],start)==2&&ServerSpec.capacity(2,pc[0],start)==4&&ServerSpec.capacity(4,pc[0],start)==7,"chassis limit");
+        check(!ServerSpec.accepts(1,pc,start,Part.at(gpu3)),"3-slot GPU cannot fit 1U");
+        check(!ServerSpec.accepts(2,pc,start+2,Part.at(gpu3)),"cannot extend past end");
+        pc[start+1]=nic;
+        check(!ServerSpec.accepts(4,pc,start,Part.at(gpu3)),"fragmented space rejected despite sufficient total");
+        pc[start+1]=0;pc[start]=gpu3;
+        check(ServerSpec.pcieOwner(pc,start+1)==start&&ServerSpec.pcieOwner(pc,start+2)==start,"derived follower owner");
+        check(ServerSpec.slotAvailable(4,pc,start)&&!ServerSpec.slotAvailable(4,pc,start+1)&&!ServerSpec.slotAvailable(4,pc,start+2)&&ServerSpec.slotAvailable(4,pc,start+3),"only following slots locked");
+        check(!ServerSpec.accepts(4,pc,start+1,Part.at(nic))&&!ServerSpec.accepts(4,pc,start+2,Part.at(disk)),"all PCIe devices blocked");
+        check(ServerSpec.accepts(4,pc,start,Part.at(gpu4)),"replace at anchor");
+        pc[start+3]=disk;check(!ServerSpec.accepts(4,pc,start,Part.at(gpu4)),"wider replacement conflicts");
+        check(ServerSpec.accepts(4,pc,start,Part.at(gpu2)),"narrower replacement");
+        pc[start]=gpu2;check(ServerSpec.slotAvailable(4,pc,start+2),"narrower releases slot");
+        pc[start]=0;check(ServerSpec.slotAvailable(4,pc,start+1),"removal releases follower");
+        pc[start]=gpu3;pc[start+1]=nic;pc[start+3]=0;
+        check(ServerSpec.occupiedPcie(pc)==4&&!ServerSpec.validPcie(4,pc)&&ServerSpec.state(4,pc)==ServerSpec.CAPACITY,"old overlap invalid even within total");
+        pc[start+1]=0;check(ServerSpec.validPcie(4,pc),"legacy conflict removable");
+        pc[start]=0;pc[0]=model("ASBrick H81-S");
+        check(ServerSpec.capacity(4,pc[0],start)==2&&!ServerSpec.accepts(4,pc,start,Part.at(gpu3)),"board limit");
+        // Exhaust every sparse 7-position layout (empty, NIC, widths 2/3/4).
+        int[] ids={0,nic,gpu2,gpu3,gpu4};
+        for(int key=0;key<78125;key++){
+            int code=key;pc[0]=model("ASBrick Rack EP2C612 WS");int[] widths=new int[7];
+            for(int i=0;i<7;i++){pc[start+i]=ids[code%5];widths[i]=code%5;code/=5;}
+            for(int u:new int[]{1,2,4}){
+                int cap=ServerSpec.chassisPcie(u);boolean valid=true;boolean[] occupied=new boolean[7];
+                for(int i=0;i<7;i++)if(widths[i]>0){
+                    if(i+widths[i]>cap)valid=false;
+                    for(int k=i;k<Math.min(7,i+widths[i]);k++){if(occupied[k])valid=false;occupied[k]=true;}
+                }
+                check(ServerSpec.validPcie(u,pc)==valid,"exhaustive PCIe placement");
+            }
+        }
         Random r=new Random(37);
         int layouts=0;int[] sizes={0,1,2,4};for(int key=0;key<(1<<18);key++){int[] a=new int[9];boolean[] busy=new boolean[9];boolean valid=true;for(int i=0;i<9;i++){a[i]=sizes[(key>>(i*2))&3];if(i+a[i]>9){valid=false;break;}for(int k=i;k<i+a[i];k++){if(busy[k])valid=false;busy[k]=true;}}if(!valid)continue;layouts++;
             for(int i=0;i<9;i++){check((RackLayout.startAt(a,i)>=0)==busy[i],"9U occupied");for(int u:new int[]{1,2,4}){boolean expect=i+u<=9;for(int j=0;j<9;j++)if(j!=i&&a[j]>0&&j<i+u&&i<j+a[j])expect=false;check(expect==RackLayout.canInsert(a,i,u),"9U collision");}if(a[i]>0){check((RackLayout.retainedIndex(i,a[i],false)>=0)==(i+a[i]<=4),"lower retained");check((RackLayout.retainedIndex(i,a[i],true)>=0)==(i>=5),"upper retained");}}}

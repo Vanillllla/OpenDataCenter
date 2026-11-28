@@ -128,6 +128,41 @@ public final class WorkbenchTransferTest {
         check(inChassis(player.inventory.getItemStack(),ram)==1&&inChassis(player.inventory.getItemStack(),otherRam)==1,"chassis retains both real DIMMs");
         click(menu,0,1);cursor(player,Hardware.CHASSIS1,0,"reinserting packed chassis consumes cursor");
         check(inChassis(bench.slots.get(0),otherRam)==1,"packed chassis survives reinsertion");
+        // Real cursor, shift-click and direct inventory validation with a 3-slot GPU.
+        menu.onContainerClosed(player);player.inventory.clear();
+        bench=new Tiles.Workbench();world.bench=bench;bench.setWorld(world);
+        menu=new Menus.Menu(Menus.WORKBENCH,player,bench);bag=menu.machineSlots;
+        Item largeBoard=model("ASBrick Rack EP2C612 WS"),gpu=model("NoVideo RTX 3080"),smallGpu=model("NoVideo Teslo M10"),nic=model("FakeTek G1000");
+        bench.setInventorySlotContents(0,new ItemStack(Hardware.CHASSIS4));
+        menu.parts.setInventorySlotContents(ServerSpec.BOARD,new ItemStack(largeBoard));
+        int pci=1+ServerSpec.PCIE;
+        player.inventory.setItemStack(new ItemStack(nic));click(menu,pci+1,0);
+        player.inventory.setItemStack(new ItemStack(gpu));click(menu,pci,0);cursor(player,gpu,1,"fragmented placement rejected");
+        player.inventory.setItemStack(ItemStack.EMPTY);click(menu,pci+1,0);cursor(player,nic,1,"remove obstruction");
+        player.inventory.setItemStack(new ItemStack(gpu));click(menu,pci,0);cursor(player,gpu,0,"GPU inserted");
+        check(menu.getSlot(pci).isEnabled()&&!menu.getSlot(pci+1).isEnabled()&&!menu.getSlot(pci+2).isEnabled()&&menu.getSlot(pci+3).isEnabled(),"GUI follower slots disabled");
+        player.inventory.setItemStack(new ItemStack(nic));click(menu,pci+1,0);click(menu,pci+2,1);cursor(player,nic,1,"blocked left/right click");
+        menu.parts.setInventorySlotContents(ServerSpec.PCIE+1,new ItemStack(nic));
+        check(menu.getSlot(pci+1).getStack().isEmpty(),"server inventory setter rejects covered slot");
+        menu.getSlot(bag).putStack(new ItemStack(nic));move(menu,bag);
+        check(menu.getSlot(pci+3).getStack().getItem()==nic&&menu.getSlot(pci+1).getStack().isEmpty()&&menu.getSlot(bag).getStack().isEmpty(),"shift click skips blocked slots");
+        menu.parts.setInventorySlotContents(ServerSpec.BOARD,new ItemStack(board));
+        check(menu.getSlot(1+ServerSpec.BOARD).getStack().getItem()==largeBoard,"direct populated board replacement rejected");
+        // Persist the real chassis NBT; reopening derives the lock again without placeholder items.
+        ItemStack saved=new ItemStack(bench.slots.get(0).writeToNBT(new net.minecraft.nbt.NBTTagCompound()));
+        menu.onContainerClosed(player);bench.setInventorySlotContents(0,saved);
+        menu=new Menus.Menu(Menus.WORKBENCH,player,bench);bag=menu.machineSlots;
+        check(!menu.getSlot(pci+1).isEnabled()&&!menu.getSlot(pci+2).isEnabled()&&inChassis(saved,gpu)==1,"reopen and NBT round trip");
+        player.inventory.setItemStack(new ItemStack(smallGpu));click(menu,pci,0);cursor(player,gpu,1,"narrower card swap");
+        check(!menu.getSlot(pci+1).isEnabled()&&menu.getSlot(pci+2).isEnabled(),"swap unlocks excess");
+        player.inventory.setItemStack(ItemStack.EMPTY);click(menu,pci,0);cursor(player,smallGpu,1,"GPU extracted");
+        check(menu.getSlot(pci+1).isEnabled()&&menu.getSlot(pci+2).isEnabled(),"all followers unlocked");
+        // A legacy overlapping item remains visible and extractable for manual repair.
+        net.minecraft.util.NonNullList<ItemStack> legacy=bench.parts();
+        legacy.set(ServerSpec.PCIE,new ItemStack(gpu));legacy.set(ServerSpec.PCIE+1,new ItemStack(nic));bench.write(legacy);
+        check(menu.getSlot(pci+1).isEnabled()&&!menu.fits(ServerSpec.PCIE+1),"legacy item visible but insertion blocked");
+        player.inventory.setItemStack(ItemStack.EMPTY);click(menu,pci+1,0);cursor(player,nic,1,"legacy obstruction recoverable");
+        check(!menu.getSlot(pci+1).isEnabled(),"legacy repair restores lock");
         // Render state is a pure function of the stored chassis, including after NBT reload.
         odc.Blocks.Workbench block=(odc.Blocks.Workbench)Hardware.WORKBENCH;
         Item[] cases={Hardware.CHASSIS1,Hardware.CHASSIS2,Hardware.CHASSIS4};

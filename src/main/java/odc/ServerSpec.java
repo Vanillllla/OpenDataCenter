@@ -47,9 +47,37 @@ public final class ServerSpec {
         for(int i=PCIE;i<PSU;i++) total+=width(Part.at(parts[i]));
         return total;
     }
+    /** A PCIe item is stored only at its start; following positions are derived,
+     * never stored as placeholder items or duplicated resources. */
+    static int pcieOwner(int[] parts,int slot) {
+        if(slot<PCIE||slot>=PSU||parts.length!=COUNT)return -1;
+        for(int i=PCIE;i<=slot;i++)if(i+width(Part.at(parts[i]))>slot)return i;
+        return -1;
+    }
+    static boolean coveredPcie(int[] parts,int slot) {
+        int owner=pcieOwner(parts,slot);return owner>=0&&owner!=slot;
+    }
+    static boolean slotAvailable(int u,int[] parts,int slot) {
+        return parts.length==COUNT&&fits(u,parts[BOARD],slot)&&!coveredPcie(parts,slot);
+    }
+    static boolean validPcie(int u,int[] parts) {
+        int limit=PCIE+capacity(u,parts[BOARD],PCIE),end=PCIE;
+        for(int i=PCIE;i<PSU;i++)if(parts[i]!=0){
+            int w=width(Part.at(parts[i]));
+            if(w==0||i<end||i+w>limit)return false;
+            end=i+w;
+        }
+        return true;
+    }
     static boolean accepts(int u,int[] parts,int slot,Part candidate) {
-        if(!fits(u,parts[BOARD],slot) || !compatible(slot,candidate,Part.at(parts[BOARD]))) return false;
-        return first(slot)!=PCIE || occupiedPcie(parts)-width(Part.at(parts[slot]))+width(candidate)<=capacity(u,parts[BOARD],PCIE);
+        if(!slotAvailable(u,parts,slot)||!compatible(slot,candidate,Part.at(parts[BOARD])))return false;
+        if(slot==BOARD&&parts[BOARD]!=0&&!canRemoveBoard(parts))return false;
+        if(first(slot)!=PCIE)return true;
+        int end=slot+width(candidate);
+        if(end>PCIE+capacity(u,parts[BOARD],PCIE))return false;
+        // Exclude the old card at this exact start when replacing it.
+        for(int i=PCIE;i<PSU;i++)if(i!=slot&&parts[i]!=0&&i<end&&i+width(Part.at(parts[i]))>slot)return false;
+        return true;
     }
     static int state(int u,int[] p) {
         if(!chassis(u)||p.length!=COUNT) return INVALID;
@@ -58,7 +86,7 @@ public final class ServerSpec {
             if(!compatible(i,Part.at(p[i]),Part.at(p[BOARD]))) return INVALID;
             if(!fits(u,p[BOARD],i)) return CAPACITY;
         }
-        if(occupiedPcie(p)>capacity(u,p[BOARD],PCIE)) return CAPACITY;
+        if(!validPcie(u,p)) return CAPACITY;
         if(p[CPU]==0) return NO_CPU;
         if(ramGB(p)==0) return NO_RAM;
         if(diskGB(p)==0) return NO_DISK;

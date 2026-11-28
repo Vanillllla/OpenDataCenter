@@ -25,12 +25,18 @@ public final class Menus {
     /** A write-through inventory view. Never stores a duplicate of the chassis contents. */
     static final class Parts extends InventoryBasic {
         final Tiles.Workbench bench;
-        Parts(Tiles.Workbench b){super("Hardware",false,ServerSpec.COUNT);bench=b;}
+        final boolean client;
+        Parts(Tiles.Workbench b,boolean client){super("Hardware",false,ServerSpec.COUNT);bench=b;this.client=client;}
+        boolean canRemove(int i){return i!=ServerSpec.BOARD||ServerSpec.canRemoveBoard(Hardware.spec(bench.slots.get(0)));}
         @Override public ItemStack getStackInSlot(int i){return bench.parts().get(i);}
         @Override public boolean isEmpty(){for(ItemStack s:bench.parts())if(!s.isEmpty())return false;return true;}
-        @Override public ItemStack decrStackSize(int i,int count){if(count<=0)return ItemStack.EMPTY;NonNullList<ItemStack> p=bench.parts();ItemStack s=p.get(i);if(s.isEmpty())return ItemStack.EMPTY;ItemStack taken=s.splitStack(count);if(s.isEmpty())p.set(i,ItemStack.EMPTY);bench.write(p);return taken;}
+        @Override public ItemStack decrStackSize(int i,int count){if(count<=0||i<0||i>=ServerSpec.COUNT||!canRemove(i))return ItemStack.EMPTY;NonNullList<ItemStack> p=bench.parts();ItemStack s=p.get(i);if(s.isEmpty())return ItemStack.EMPTY;ItemStack taken=s.splitStack(count);if(s.isEmpty())p.set(i,ItemStack.EMPTY);bench.write(p);return taken;}
         @Override public ItemStack removeStackFromSlot(int i){return decrStackSize(i,1);}
-        @Override public void setInventorySlotContents(int i,ItemStack s){if(bench.chassis()==0)return;NonNullList<ItemStack> p=bench.parts();ItemStack one=s.copy();if(!one.isEmpty())one.setCount(1);if(ItemStack.areItemStacksEqual(p.get(i),one))return;p.set(i,one);bench.write(p);}
+        @Override public void setInventorySlotContents(int i,ItemStack s){if(bench.chassis()==0||i<0||i>=ServerSpec.COUNT)return;NonNullList<ItemStack> p=bench.parts();ItemStack one=s.copy();if(!one.isEmpty())one.setCount(1);if(ItemStack.areItemStacksEqual(p.get(i),one))return;
+            // The detached client inventory must accept authoritative window packets,
+            // including a legacy invalid layout, without filtering packet order.
+            if(!client&&(one.isEmpty()?!canRemove(i):!isItemValidForSlot(i,one)))return;
+            p.set(i,one);bench.write(p);}
         @Override public int getInventoryStackLimit(){return 1;}
         @Override public boolean isItemValidForSlot(int i,ItemStack s){Part part=Hardware.MODELS.get(s.getItem());return part!=null&&ServerSpec.accepts(bench.chassis(),Hardware.spec(bench.slots.get(0)),i,part);}
     }
@@ -46,10 +52,12 @@ public final class Menus {
                 // must never replace the chassis NBT during an in-flight GUI click.
                 if(p.world.isRemote){assembly=new Tiles.Workbench();assembly.setInventorySlotContents(0,actual.slots.get(0).copy());}
                 else{assembly=actual;actual.editor=this;}
-                Tiles.Workbench a=assembly;parts=new Parts(a);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
+                Tiles.Workbench a=assembly;parts=new Parts(a,p.world.isRemote);addSlotToContainer(new Slot(a,0,12,41){ @Override public boolean isItemValid(ItemStack stack){return a.isItemValidForSlot(0,stack);} });for(int i=0;i<ServerSpec.COUNT;i++){final int j=i;addSlotToContainer(new Slot(parts,i,partX(i),partY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
                     @Override public boolean isItemValid(ItemStack s){return parts.isItemValidForSlot(j,s);}
-                    @Override public boolean canTakeStack(EntityPlayer p){return j!=0||ServerSpec.canRemoveBoard(Hardware.spec(a.slots.get(0)));}
+                    @Override public boolean isEnabled(){return getHasStack()||fits(j);}
+                    // Legacy conflicting items remain visible and extractable, never insertable.
+                    @Override public boolean canTakeStack(EntityPlayer p){return getHasStack()&&parts.canRemove(j);}
                 });}machineSlots=1+ServerSpec.COUNT;
             }else{assembly=null;parts=null;if(id==RACK){Tiles.Rack r=(Tiles.Rack)t;for(int i=0;i<9;i++){final int j=i;addSlotToContainer(new Slot(r,i,rackX(i),rackY(i)){
                     @Override public int getSlotStackLimit(){return 1;}
@@ -80,7 +88,7 @@ public final class Menus {
             return 112;
         }
         int chassis(){return assembly==null?0:assembly.chassis();}
-        boolean fits(int i){return type==WORKBENCH&&ServerSpec.fits(chassis(),Hardware.spec(assembly.slots.get(0))[0],i);}
+        boolean fits(int i){return type==WORKBENCH&&ServerSpec.slotAvailable(chassis(),Hardware.spec(assembly.slots.get(0)),i);}
         @Override public void onContainerClosed(EntityPlayer p){super.onContainerClosed(p);if(type==WORKBENCH&&!p.world.isRemote&&((Tiles.Workbench)tile).editor==this)((Tiles.Workbench)tile).editor=null;}
         @Override public boolean canInteractWith(EntityPlayer p){return tile.getWorld()==p.world&&p.world.getTileEntity(tile.getPos())==tile&&p.getDistanceSq(tile.getPos().getX()+.5,tile.getPos().getY()+.5,tile.getPos().getZ()+.5)<=64&&tile.allows(p)&&(type!=RACK||((Tiles.Rack)tile).role!=-1&&((Tiles.Rack)tile).doorAllowsAccess()&&((Tiles.Rack)tile).revision==revision)&&(type!=WORKBENCH||p.world.isRemote||((Tiles.Workbench)tile).editor==this);}
         @Override public ItemStack slotClick(int slot,int drag,ClickType click,EntityPlayer p){if(!p.world.isRemote&&!canInteractWith(p)||type==MARKET&&slot>=0&&slot<4)return ItemStack.EMPTY;
@@ -116,7 +124,7 @@ public final class Menus {
                     ItemStack one=cursor.copy();one.setCount(1);
                     slot.putStack(one);
                     // Only debit the cursor when insertion actually succeeded.
-                    if(slot.getHasStack()){
+                    if(slot.getHasStack()&&(index==0||ItemStack.areItemStacksEqual(slot.getStack(),one))){
                         cursor.shrink(1);
                         p.inventory.setItemStack(cursor.isEmpty()?ItemStack.EMPTY:cursor);
                     }
@@ -125,7 +133,7 @@ public final class Menus {
                 // Never mutate or alias the cursor, the chassis, or a detached parts stack.
                 if(!ItemStack.areItemsEqual(old,cursor)||!ItemStack.areItemStackTagsEqual(old,cursor)){
                     slot.putStack(cursor.copy());
-                    p.inventory.setItemStack(old);
+                    if(index==0||ItemStack.areItemStacksEqual(slot.getStack(),cursor))p.inventory.setItemStack(old);
                 }
             }
             // Vanilla click transactions compare the slot contents before the click.
@@ -145,7 +153,11 @@ public final class Menus {
                     ItemStack current=src.getStack();if(current.isEmpty())break;
                     Slot dest=inventorySlots.get(i);
                     if(dest.getHasStack() || !dest.isItemValid(current)) continue;
-                    dest.putStack(src.decrStackSize(1));
+                    if(type==WORKBENCH){
+                        ItemStack one=current.copy();one.setCount(1);dest.putStack(one);
+                        if(!dest.getHasStack()||(i!=0&&!ItemStack.areItemStacksEqual(dest.getStack(),one)))continue;
+                        src.decrStackSize(1);
+                    }else dest.putStack(src.decrStackSize(1));
                     moved=true;
                 }
                 if(!moved) return ItemStack.EMPTY;

@@ -87,10 +87,12 @@ public final class Client {
             panel(5,134,290,24,0xff263b44);
             panel(66,160,168,78,0xff84939a);
             for(net.minecraft.inventory.Slot slot:menu.inventorySlots) slot(slot.xPos,slot.yPos);
-            for(int i=0;i<ServerSpec.COUNT;i++) if(!menu.fits(i)) {
+            int[] spec=Hardware.spec(menu.getSlot(0).getStack());
+            for(int i=0;i<ServerSpec.COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassis(),spec,i)) {
                 int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);
                 panel(x,y,16,16,0xff536065);
                 panel(x+4,y+7,8,2,0xff717a7b);
+                if(ServerSpec.coveredPcie(spec,i))panel(x+2,y+2,12,2,0xff91999b);
             }
         }
         @Override protected void drawGuiContainerBackgroundLayer(float f,int mx,int my){if(menu.type==Menus.WORKBENCH){assemblyBackground();return;}panel(0,0,xSize,ySize,0xff111719);panel(1,1,xSize-2,ySize-2,0xff717a7e);panel(3,3,xSize-6,ySize-6,0xff2c353a);panel(4,4,xSize-8,21,0xff1d282e);panel(5,27,xSize-10,129,0xff222c31);panel(5,158,xSize-10,78,0xff354047);
