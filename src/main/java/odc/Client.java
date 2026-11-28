@@ -1,5 +1,9 @@
 package odc;
 import net.minecraft.block.Block;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.input.Mouse;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -49,7 +53,14 @@ public final class Client {
     static String tr(String key,Object... args){return I18n.format("gui.odc."+key,args);}
     public static final class Screen extends GuiContainer {
         final Menus.Menu menu;final int TEXT=0xffe2e5e5,MUTED=0xffa5adb0,GREEN=0xff8cdda4,AMBER=0xffe5bf76,RED=0xffeb9888;
-        Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=Menus.H+(m.type==Menus.WORKBENCH?62:0);}
+        private static final ResourceLocation VANILLA_CHEST=new ResourceLocation("textures/gui/container/generic_54.png");
+        private int actualWidth,actualHeight;
+        Screen(Menus.Menu m){super(m);menu=m;xSize=Menus.W;ySize=m.type==Menus.WORKBENCH?AssemblyGuiLayout.HEIGHT:Menus.H;}
+        @Override public void setWorldAndResolution(Minecraft mc,int w,int h){
+            actualWidth=w;actualHeight=h;
+            if(menu.type==Menus.WORKBENCH){AssemblyGuiLayout layout=new AssemblyGuiLayout(w,h);super.setWorldAndResolution(mc,layout.width,layout.height);}
+            else super.setWorldAndResolution(mc,w,h);
+        }
         @Override public void initGui(){super.initGui();int type=menu.type;
             if(type==Menus.RACK){for(int i=0;i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i);button(10+i,x+49,y-1,32,18,"On");button(30+i,x+83,y-1,43,18,"Link");}for(int i=0;i<8;i++)button(50+i,12+i*34,138,32,17,"P"+(i+1));}
             if(type==Menus.CONTROL){button(102,184,6,48,18,tr("refresh"));button(2,234,6,57,18,tr("market"));button(1,10,128,56,18,tr("start_all"));button(3,68,128,56,18,tr("stop_all"));button(100,192,128,23,18,"<");button(101,268,128,23,18,">");for(int i=0;i<5;i++){button(20+i,205,47+i*16,42,15,"Mine");button(30+i,249,47+i*16,41,15,"On");}}
@@ -65,8 +76,8 @@ public final class Client {
         void panel(int x,int y,int w,int h,int c){Gui.drawRect(guiLeft+x,guiTop+y,guiLeft+x+w,guiTop+y+h,c);}
         void slot(int x,int y){panel(x-1,y-1,18,18,0xff687174);panel(x,y,16,16,0xff171c1e);}
         void assemblyBackground(){
-            panel(0,0,xSize,ySize,0xff25313b);
-            panel(2,2,xSize-4,ySize-4,0xffbac5c9);
+            panel(0,0,xSize,AssemblyGuiLayout.MACHINE_HEIGHT,0xff25313b);
+            panel(2,2,xSize-4,AssemblyGuiLayout.MACHINE_HEIGHT-4,0xffbac5c9);
             panel(4,4,xSize-8,18,0xff34495b);
             panel(5,24,162,128,0xff21473d);
             panel(7,26,158,124,0xff305849);
@@ -86,8 +97,11 @@ public final class Client {
             for(int y:new int[]{26,59,106,128}) panel(173,y,119,1,0xff819098);
             panel(5,157,290,31,0xff263b44);
             panel(5,189,290,30,0xff263b44);
-            panel(66,222,168,78,0xff84939a);
-            for(net.minecraft.inventory.Slot slot:menu.inventorySlots) slot(slot.xPos,slot.yPos);
+            for(int i=0;i<=ServerSpec.COUNT;i++){net.minecraft.inventory.Slot s=menu.getSlot(i);slot(s.xPos,s.yPos);}
+            // Same bottom texture region used by vanilla GuiChest, including all 36 slots.
+            GlStateManager.color(1,1,1,1);
+            mc.getTextureManager().bindTexture(VANILLA_CHEST);
+            drawTexturedModalRect(guiLeft+AssemblyGuiLayout.INVENTORY_X,guiTop+AssemblyGuiLayout.INVENTORY_Y,0,126,AssemblyGuiLayout.INVENTORY_WIDTH,AssemblyGuiLayout.INVENTORY_HEIGHT);
             int[] spec=Hardware.spec(menu.getSlot(0).getStack());
             for(int i=0;i<ServerSpec.COUNT;i++) if(!ServerSpec.slotAvailable(menu.chassisModel(),spec,i)) {
                 int x=Menus.Menu.partX(i),y=Menus.Menu.partY(i);
@@ -108,6 +122,7 @@ public final class Client {
         @Override protected void drawGuiContainerForegroundLayer(int mx,int my){int[] d=menu.data;String name=menu.type==Menus.RACK?tr("rack")+" "+d[0]+"U":menu.type==Menus.WORKBENCH?tr("assembly"):menu.type==Menus.CONTROL?tr("control"):menu.type==Menus.MARKET?tr("market"):tr("station");label(name,10,11,TEXT);
             if(menu.type==Menus.RACK){label(d[2]+" / "+d[1]+" W | "+tr("switch")+": "+(d[4]==1?"ON":"OFF"),12,27,MUTED);for(int i=0;i<d[0]&&i<9;i++){int x=Menus.Menu.rackX(i),y=Menus.Menu.rackY(i),start=d[10+i]-1;ItemStack s=menu.getSlot(i).getStack();label((i+1)+"U",x+19,y+3,MUTED);if(Hardware.units(s)>0)label((d[7]&(1<<i))!=0?"●":"·",x+39,y+3,(d[8]&(1<<i))!=0?GREEN:MUTED);else if(Hardware.switchTier(s)>0)clipped("SW "+SwitchLimits.label(Hardware.switchTier(s)),x+43,y+3,76,d[4]==1?GREEN:MUTED);else if(start>=0)clipped("↑ "+(start+1)+"U",x+45,y+3,70,MUTED);}if(d[3]==0)label(tr("no_switch"),12,141,AMBER);else clipped(tr("port_hint"),156,122,133,MUTED);}
             else if(menu.type==Menus.WORKBENCH){
+                label(mc.player.inventory.getDisplayName().getUnformattedText(),AssemblyGuiLayout.INVENTORY_X+8,AssemblyGuiLayout.INVENTORY_Y+3,0x404040);
                 clipped(tr("chassis"),10,29,41,TEXT);clipped(tr("board"),53,29,45,TEXT);
                 label("CPU 1 / 2",103,29,TEXT);label("DIMM",12,72,TEXT);label("PCI Express",12,101,TEXT);
                 label("M.2",219,35,TEXT);label("SATA",180,54,TEXT);label("PSU",261,116,TEXT);
@@ -123,6 +138,14 @@ public final class Client {
             else if(menu.type==Menus.MARKET){label(tr("wallet",amount(d[0])),12,35,GREEN);label(d[1]==1?tr("market_hint"):tr("offline"),12,49,MUTED);}
             else {label(d[0]==1?tr("online"):tr("offline"),12,35,d[0]==1?GREEN:RED);label(d[1]+" Mb/s WAN | "+d[3]+" W",12,51,TEXT);label("Grid: "+d[2]+" W",12,66,MUTED);}
         }
-        @Override public void drawScreen(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);renderHoveredToolTip(x,y);if(menu.type==Menus.WORKBENCH&&mc.player.inventory.getItemStack().isEmpty())for(int i=0;i<ServerSpec.COUNT;i++){int xx=guiLeft+Menus.Menu.partX(i),yy=guiTop+Menus.Menu.partY(i);if(x>=xx&&x<xx+16&&y>=yy&&y<yy+16&&!menu.getSlot(i+1).getHasStack()&&!menu.fits(i)){int[] p=Hardware.spec(menu.getSlot(0).getStack());String key=ServerSpec.coveredPcie(p,i)?"slot_covered":ServerSpec.coolingTarget(i)>=0?"slot_cooling_unavailable":"slot_unavailable";drawHoveringText(java.util.Collections.singletonList(tr(key)),x,y);break;}}}
+        @Override public void drawScreen(int x,int y,float f){
+            if(menu.type!=Menus.WORKBENCH||actualWidth==width&&actualHeight==height){drawContents(x,y,f);return;}
+            // GuiScreen.handleMouseInput uses the virtual width/height set above.
+            // Use the same raw mouse conversion for hovering, held stacks and tooltips.
+            int vx=Mouse.getX()*width/mc.displayWidth,vy=height-Mouse.getY()*height/mc.displayHeight-1;
+            GlStateManager.pushMatrix();
+            try{GlStateManager.scale(actualWidth/(double)width,actualHeight/(double)height,1);drawContents(vx,vy,f);}finally{GlStateManager.popMatrix();}
+        }
+        private void drawContents(int x,int y,float f){drawDefaultBackground();super.drawScreen(x,y,f);renderHoveredToolTip(x,y);if(menu.type==Menus.WORKBENCH&&mc.player.inventory.getItemStack().isEmpty())for(int i=0;i<ServerSpec.COUNT;i++){int xx=guiLeft+Menus.Menu.partX(i),yy=guiTop+Menus.Menu.partY(i);if(x>=xx&&x<xx+16&&y>=yy&&y<yy+16&&!menu.getSlot(i+1).getHasStack()&&!menu.fits(i)){int[] p=Hardware.spec(menu.getSlot(0).getStack());String key=ServerSpec.coveredPcie(p,i)?"slot_covered":ServerSpec.coolingTarget(i)>=0?"slot_cooling_unavailable":"slot_unavailable";drawHoveringText(java.util.Collections.singletonList(tr(key)),x,y);break;}}}
     }
 }

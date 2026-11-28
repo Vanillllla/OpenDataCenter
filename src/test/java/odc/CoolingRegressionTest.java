@@ -27,6 +27,20 @@ public final class CoolingRegressionTest {
         }
     }
     public static void main(String[] args){
+        for(int w:new int[]{160,213,320,384,427,640,854,1280,1920})for(int h:new int[]{120,180,240,270,300,360,480,720,1080}){
+            AssemblyGuiLayout l=new AssemblyGuiLayout(w,h);
+            check(l.width>=AssemblyGuiLayout.WIDTH+12&&l.height>=AssemblyGuiLayout.HEIGHT+12,"whole workbench fits virtual viewport");
+            check(l.width>=w&&l.height>=h,"never enlarge UI");
+            if(w>=AssemblyGuiLayout.WIDTH+12&&h>=AssemblyGuiLayout.HEIGHT+12)check(l.width==w&&l.height==h,"native scale when fits");
+            int left=(l.width-AssemblyGuiLayout.WIDTH)/2,top=(l.height-AssemblyGuiLayout.HEIGHT)/2;
+            for(int c=0;c<9;c++)for(int row=0;row<4;row++){
+                int x=left+AssemblyGuiLayout.playerX(c),y=top+(row==3?AssemblyGuiLayout.hotbarY():AssemblyGuiLayout.playerY(row));
+                double dx=x*w/(double)l.width,dy=y*h/(double)l.height;
+                check(dx>=0&&dy>=0&&(x+16)*w/(double)l.width<=w&&(y+16)*h/(double)l.height<=h,"visible player slot");
+                check(Math.abs(dx*l.width/w-x)<1e-8&&Math.abs(dy*l.height/h-y)<1e-8,"inverse mapping");
+            }
+        }
+        check(AssemblyGuiLayout.playerY(0)-1>AssemblyGuiLayout.MACHINE_HEIGHT&&AssemblyGuiLayout.hotbarY()+17<=AssemblyGuiLayout.HEIGHT,"inventory separated and hotbar inside");
         CoolingUiState.History h=new CoolingUiState.History();
         for(int i=0;i<500;i++){h.sample(i*20L,1,i,i+1);h.sample(i*20L+5,1,999,999);}
         int[] a=h.values(false),b=h.values(true);

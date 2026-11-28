@@ -99,8 +99,7 @@ public final class Menus {
                 });}machineSlots=9;}
                 else if(id==MARKET){for(int i=0;i<4;i++){if(!p.world.isRemote&&i<ODC.market.length)offers.setInventorySlotContents(i,ODC.market[i].stack());addSlotToContainer(new Slot(offers,i,25+i*68,72){@Override public boolean isItemValid(ItemStack s){return false;}@Override public boolean canTakeStack(EntityPlayer p){return false;}});}machineSlots=4;}else machineSlots=0;}
             if(id==STATION||id==STATION_LIST)return;
-            int offset=id==WORKBENCH?62:0;
-            for(int r=0;r<3;r++)for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c+r*9+9,70+c*18,162+offset+r*18));for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c,70+c*18,220+offset));
+            for(int r=0;r<3;r++)for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c+r*9+9,id==WORKBENCH?AssemblyGuiLayout.playerX(c):70+c*18,id==WORKBENCH?AssemblyGuiLayout.playerY(r):162+r*18));for(int c=0;c<9;c++)addSlotToContainer(new Slot(p.inventory,c,id==WORKBENCH?AssemblyGuiLayout.playerX(c):70+c*18,id==WORKBENCH?AssemblyGuiLayout.hotbarY():220));
         }
         static int rackX(int i){return i<5?12:156;}static int rackY(int i){return 37+(i<5?i:i-5)*20;}
         static int partX(int i) {
