@@ -26,7 +26,7 @@ public final class LiquidNetwork {
         final Set<BlockPos> cells;
         final List<Tiles.Rack> racks=new ArrayList<>();
         final List<Tiles.Chiller> chillers=new ArrayList<>();
-        LiquidCore.Loop loop;
+        LiquidCore.Loop loop;LiquidTemperatures.Sample saved;
         Contour(Set<BlockPos> cells){this.cells=cells;}
     }
     private static final class Topology {
@@ -115,7 +115,8 @@ public final class LiquidNetwork {
             }
             c.racks.sort(Network.ORDER);c.chillers.sort(Network.ORDER);
             Contour prior=previous.get(cells);
-            c.loop=prior!=null&&prior.racks.equals(c.racks)&&prior.chillers.equals(c.chillers)?prior.loop:new LiquidCore.Loop(c.racks.size()+c.chillers.size(),ODC.ambientTemperature);
+            c.saved=LiquidTemperatures.get(w).sample(cells,ODC.ambientTemperature);
+            c.loop=prior!=null&&prior.racks.equals(c.racks)&&prior.chillers.equals(c.chillers)?prior.loop:new LiquidCore.Loop(c.racks.size()+c.chillers.size(),c.saved.temp);
             result.contours.add(c);for(BlockPos q:cells)result.byPos.put(q,c);
         }
         caches.put(w,result);return result;
@@ -123,9 +124,11 @@ public final class LiquidNetwork {
     static Contour contour(World w,BlockPos p){return w==null||w.isRemote?null:topology(w).byPos.get(p);}
     static void step(World w,List<Tiles.Rack> racks,long tick){
         Topology t=topology(w);
+        Set<Contour> live=Collections.newSetFromMap(new IdentityHashMap<Contour,Boolean>());for(Tiles.Rack rack:racks){Contour c=t.byPos.get(rack.getPos());if(c!=null)live.add(c);}
         for(Contour c:t.contours){
             double capacity=0;
-            if(!c.racks.isEmpty())for(Tiles.Chiller chiller:c.chillers)capacity+=chiller.available(tick);
+            if(live.contains(c))for(Tiles.Chiller chiller:c.chillers)capacity+=chiller.available(tick);
+            if(live.contains(c)&&c.saved.tick<tick&&c.saved.tick!=Long.MIN_VALUE)c.loop.temp=c.saved.temp;
             c.loop.begin(capacity);
         }
         for(Tiles.Rack rack:racks){
@@ -135,7 +138,7 @@ public final class LiquidNetwork {
         for(Tiles.Rack rack:racks){
             Contour c=t.byPos.get(rack.getPos());ThermalRuntime.finish(rack,c==null?null:c.loop);
         }
-        for(Contour c:t.contours)c.loop.finish(ODC.ambientTemperature);
+        for(Contour c:t.contours)if(live.contains(c)||c.racks.isEmpty()){c.loop.finish(ODC.ambientTemperature);c.saved.record(c.loop.temp,tick);}
     }
     /** Install with collector in hand on rear, remove with empty hand + sneak.
      * Owner/reach are enforced by the vanilla block interaction. */

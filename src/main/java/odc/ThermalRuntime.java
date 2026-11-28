@@ -13,6 +13,7 @@ final class ThermalRuntime {
         NBTTagCompound hardware;
         long broken;
         final ThermalEngine.State state;
+        final int[] parts;final ChassisSpec chassis;
         final int[] idle=new int[ServerSpec.COUNT];
         final int idleAC;
         int[] dc;
@@ -21,7 +22,7 @@ final class ThermalRuntime {
         PowerGrid.Domain domain;
         Entry(ItemStack item,NBTTagCompound hardware){
             this.item=item;this.hardware=hardware;
-            net.minecraft.util.NonNullList<ItemStack> installed=Hardware.parts(item);int[] parts=Hardware.tiers(installed);broken=HardwareDamage.mask(installed);ChassisSpec chassis=Hardware.chassis(item);
+            net.minecraft.util.NonNullList<ItemStack> installed=Hardware.parts(item);parts=Hardware.tiers(installed);broken=HardwareDamage.mask(installed);chassis=Hardware.chassis(item);
             state=new ThermalEngine.State(ServerSpec.thermalProfile(chassis,parts),ODC.ambientTemperature);
             HardwareDamage.restore(item,state);
             TaskEngine.Node node=new TaskEngine.Node(null,0,0,parts,null,chassis);
@@ -62,6 +63,7 @@ final class ThermalRuntime {
         for(Entry e:rack.thermal)if(e!=null)e.state.finish(ODC.ambientTemperature,loop);
     }
     static void checkpoint(Tiles.Rack rack,int bay){Entry e=rack.thermal[bay];if(e!=null&&e.item==rack.slots.get(bay))HardwareDamage.checkpoint(e.item,e.state);}
+    static void savePeriodic(Tiles.Rack rack){if(rack.getWorld().getTotalWorldTime()%400!=0)return;for(int i=0;i<rack.capacity();i++)checkpoint(rack,i);rack.markDirty();}
     static boolean canRestart(Tiles.Rack rack,int bay){Entry e=entry(rack,bay);return e!=null&&ThermalProtection.canRestart(e.state,e.broken);}
     static ThermalEngine.State state(Tiles.Rack rack,int bay){Entry e=rack.thermal[bay];return e==null?null:e.state;}
 }

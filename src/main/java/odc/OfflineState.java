@@ -33,8 +33,10 @@ public final class OfflineState extends WorldSavedData {
         int[] caps,budget,gridByRack;
         List<Group> groups=new ArrayList<>();
         Set<PhysicalTopology.Pos> routing=new HashSet<>();
+        PersistentThermal thermal=new PersistentThermal();
     }
     final Map<UUID,Snapshot> snapshots=new HashMap<>();final Map<UUID,Integer> faults=new HashMap<>();
+    final Map<UUID,PersistentThermal.Server> pendingThermal=new HashMap<>();
     public OfflineState(){super(KEY);}public OfflineState(String n){super(n);}
     static OfflineState get(World w){net.minecraft.world.storage.MapStorage s=w.getPerWorldStorage();OfflineState d=(OfflineState)s.getOrLoadData(OfflineState.class,KEY);if(d==null){d=new OfflineState();s.setData(KEY,d);}return d;}
     static PersistentPower.Mode mode(World w,Snapshot s){
@@ -92,7 +94,9 @@ public final class OfflineState extends WorldSavedData {
         Tiles.Computer root=null;for(Tiles.Owned t:devices)if(t instanceof Tiles.Computer){root=(Tiles.Computer)t;break;}
         if(root!=null){Set<PhysicalTopology.Pos> footprint=PhysicalNetwork.exclusiveFootprint(w,root.getPos());boolean certified=!footprint.isEmpty();for(PhysicalTopology.Pos p:footprint){BlockPos q=PhysicalNetwork.block(p);TileEntity tile=w.getTileEntity(q);if(tile instanceof Tiles.Station){if(!Objects.equals(((Tiles.Station)tile).owner,owner)){certified=false;break;}own.add(tile);}else if(tile instanceof Tiles.Owned&&Network.isLanDevice(tile)&&!own.contains(tile)){if(tile instanceof Tiles.Rack&&((Tiles.Rack)tile).role==-1)continue;certified=false;break;}}
             if(certified){s.routing.addAll(footprint);for(PhysicalTopology.Pos p:footprint)s.positions.add(PhysicalNetwork.block(p));}else{own.clear();own.addAll(devices);}}
-        for(TileEntity t:own)s.consumers.add(t.getPos());
+        List<LiquidNetwork.Contour> certified=PersistentThermal.exclusive(w,racks);
+        for(LiquidNetwork.Contour c:certified){own.addAll(c.chillers);s.positions.addAll(c.cells);}
+        for(TileEntity t:own){s.consumers.add(t.getPos());s.positions.add(t.getPos());}
         Set<TileEntity> powered=Collections.newSetFromMap(new IdentityHashMap<TileEntity,Boolean>());List<PowerGrid.Domain> verified=new ArrayList<>();
         if(ODC.requireEnergy){
             Set<PowerGrid.Domain> grids=Collections.newSetFromMap(new IdentityHashMap<PowerGrid.Domain,Boolean>());
@@ -129,8 +133,9 @@ public final class OfflineState extends WorldSavedData {
             long categorized=PowerStats.total(group.fixedCategories);if(categorized<=group.fixed)group.fixedCategories[PowerStats.OTHER]+=group.fixed-categorized;else{Arrays.fill(group.fixedCategories,0);group.fixedCategories[PowerStats.OTHER]=group.fixed;}
             for(TileEntity consumer:grid.consumers)if(consumer instanceof Tiles.Computer&&((Tiles.Computer)consumer).operational())group.controller=true;
         }
+        s.thermal.capture(s,previous,racks,refs,nodes,excluded,verified,certified);
         if(!ODC.requireEnergy)Arrays.fill(s.budget,Integer.MAX_VALUE);
-        if(s.nodes.isEmpty()){snapshots.remove(anchor);markDirty();return;}
+        if(s.nodes.isEmpty()&&s.thermal.servers.isEmpty()){snapshots.remove(anchor);markDirty();return;}
         // Two saved snapshots must not own overlapping physical consumers or electrical cells.
         for(Snapshot old:new ArrayList<>(snapshots.values()))if(!old.anchor.equals(anchor)&&!Collections.disjoint(old.positions,s.positions)){
             if(!allLoaded(w,old))return;
@@ -152,8 +157,8 @@ public final class OfflineState extends WorldSavedData {
         Group g=s.groups.get(group);int before=PowerState.get(w).state(g.cells);
         if(before==GridProtection.ON)PowerState.get(w).set(g.cells,GridProtection.TRIPPED);
         PowerGrid.cancel(w,g.cells);
-        for(int i=0;i<s.nodes.size();i++)if(s.gridByRack[s.nodes.get(i).rack]==group){
-            UUID id=s.nodes.get(i).id;
+        for(PersistentThermal.Server server:s.thermal.servers)if(s.gridByRack[server.rack]==group&&(server.node>=0||server.idleWatts>0)){
+            UUID id=server.id;
             if(!faults.containsKey(id)){
                 faults.put(id,ComputeEngine.NO_POWER);d.serverStopped(id,false);
                 d.record(s.owner,s.anchor,id,Level.CRITICAL,Category.POWER,Target.SERVER,"grid_overload",reason,-1,0);
@@ -202,6 +207,7 @@ public final class OfflineState extends WorldSavedData {
                 if(retry)continue;
                 if(ODC.requireEnergy){
                     long[] demand=new long[domains.length];for(int g=0;g<demand.length;g++)demand[g]=s.groups.get(g).fixed;
+                    s.thermal.addIdleDemand(s,this,demand);
                     for(int i=0;i<s.nodes.size();i++)if(!excluded.contains(i)){
                         int g=s.gridByRack[s.nodes.get(i).rack];
                         if(g>=0)demand[g]=PersistentPower.demand(demand[g],p.power[i]);
@@ -222,6 +228,8 @@ public final class OfflineState extends WorldSavedData {
             }
             final TaskEngine.Plan planned=p;
             settlement.add(()->{
+                if(snapshots.get(s.anchor)!=s||mode(w,s)!=PersistentPower.Mode.VIRTUAL)return;
+                s.thermal.step(w,d,this,s,planned,excluded,domains,false,false);
                 if(!validVirtual(w,s))return;
                 boolean controller=!ODC.requireEnergy;
                 if(ODC.requireEnergy)for(int g=0;g<domains.length;g++)if(domains[g]!=null&&domains[g].funded()&&s.groups.get(g).controller)controller=true;
@@ -229,18 +237,22 @@ public final class OfflineState extends WorldSavedData {
                 for(TaskData.Job j:jobs){
                     TaskEngine.Result result=planned.tasks.get(j.id);if(result==null||j.served)continue;
                     boolean funded=controller&&j.enabled&&NetworkAdmission.served(current,j.terms.getUniqueId("Key"),j.bindings);
-                    if(ODC.requireEnergy)for(TaskEngine.Slice slice:result.slices){
+                    for(TaskEngine.Slice slice:result.slices){
                         int g=s.gridByRack[s.nodes.get(slice.node).rack];
-                        if(g<0||domains[g]==null||!domains[g].funded()||faults.containsKey(s.nodes.get(slice.node).id))funded=false;
+                        if(excluded.contains(slice.node)||faults.containsKey(s.nodes.get(slice.node).id)||ODC.requireEnergy&&(g<0||domains[g]==null||!domains[g].funded()))funded=false;
                     }
                     if(j.enabled)d.resourceState(j,!funded||result.work<=0||!result.full);
                     if(!funded)continue;
                     j.work=result.work;j.usedCPU=result.cpu;j.usedGPU=result.gpus;j.usedRAM=result.ram;j.usedDisk=result.disk;j.usedNet=result.net;j.full=result.full;
                     d.account(j,result);
                 }
-                markDirty();
+                if(w.getTotalWorldTime()%400==0)markDirty();
             });
         }
+    }
+    void passiveThermal(World w,TaskData d){
+        for(Snapshot s:snapshots.values())if(mode(w,s)!=PersistentPower.Mode.LIVE)
+            s.thermal.step(w,d,this,s,null,Collections.emptySet(),new PowerGrid.Domain[s.groups.size()],true,true);
     }
     @Override public NBTTagCompound writeToNBT(NBTTagCompound n){
         NBTTagList ss=new NBTTagList();
@@ -260,22 +272,22 @@ public final class OfflineState extends WorldSavedData {
             NBTTagList nn=new NBTTagList();for(TaskEngine.Node node:s.nodes){
                 NBTTagCompound q=new NBTTagCompound();q.setUniqueId("Id",node.id);if(node.pool!=null)q.setUniqueId("Pool",node.pool);q.setInteger("Rack",node.rack);q.setInteger("Net",node.net);q.setIntArray("Parts",node.parts);if(node.chassis!=null)q.setString("Chassis",node.chassis.id);nn.appendTag(q);
             }
-            a.setTag("Nodes",nn);ss.appendTag(a);
+            a.setTag("Nodes",nn);a.setTag("Thermal",s.thermal.write());ss.appendTag(a);
         }
-        n.setInteger("PowerSchema",5);n.setTag("Snapshots",ss);
+        n.setInteger("PowerSchema",6);n.setTag("Snapshots",ss);
         NBTTagList fs=new NBTTagList();for(Map.Entry<UUID,Integer> f:faults.entrySet()){
             NBTTagCompound a=new NBTTagCompound();a.setUniqueId("Id",f.getKey());a.setInteger("Reason",f.getValue());fs.appendTag(a);
         }
-        n.setTag("Faults",fs);return n;
+        n.setTag("Faults",fs);NBTTagList pending=new NBTTagList();for(PersistentThermal.Server server:pendingThermal.values())pending.appendTag(server.write());n.setTag("PendingThermal",pending);return n;
     }
-    private static NBTTagList writePositions(Collection<BlockPos> positions){
+    static NBTTagList writePositions(Collection<BlockPos> positions){
         NBTTagList list=new NBTTagList();for(BlockPos p:positions){NBTTagCompound a=new NBTTagCompound();a.setLong("P",p.toLong());list.appendTag(a);}return list;
     }
-    private static Set<BlockPos> readPositions(NBTTagList list){
+    static Set<BlockPos> readPositions(NBTTagList list){
         Set<BlockPos> result=new HashSet<>();for(int i=0;i<list.tagCount();i++)result.add(BlockPos.fromLong(list.getCompoundTagAt(i).getLong("P")));return result;
     }
     @Override public void readFromNBT(NBTTagCompound n){
-        snapshots.clear();NBTTagList ss=n.getInteger("PowerSchema")==5?n.getTagList("Snapshots",10):new NBTTagList();
+        snapshots.clear();NBTTagList ss=n.getInteger("PowerSchema")==6?n.getTagList("Snapshots",10):new NBTTagList();
         for(int i=0;i<ss.tagCount();i++){
             NBTTagCompound a=ss.getCompoundTagAt(i);if(!a.hasUniqueId("Anchor")||!a.hasUniqueId("Owner"))continue;
             Snapshot s=new Snapshot();s.anchor=a.getUniqueId("Anchor");s.owner=a.getUniqueId("Owner");
@@ -305,8 +317,9 @@ public final class OfflineState extends WorldSavedData {
                 if(ODC.requireEnergy&&(s.gridByRack[rack]<0||s.gridByRack[rack]>=s.groups.size())){valid=false;break;}
                 s.nodes.add(new TaskEngine.Node(q.getUniqueId("Id"),rack,q.getInteger("Net"),parts,q.hasUniqueId("Pool")?q.getUniqueId("Pool"):PoolResources.id(s.owner,PoolResources.DEFAULT),chassis));
             }
-            if(valid&&!s.nodes.isEmpty()&&snapshots.values().stream().noneMatch(old->!Collections.disjoint(old.positions,s.positions)))snapshots.put(s.anchor,s);
+            if(valid){s.thermal=PersistentThermal.read(a.getCompoundTag("Thermal"),s);if(s.thermal!=null&&!s.thermal.servers.isEmpty()&&snapshots.values().stream().noneMatch(old->!Collections.disjoint(old.positions,s.positions)))snapshots.put(s.anchor,s);}
         }
+        pendingThermal.clear();NBTTagList pt=n.getTagList("PendingThermal",10);for(int i=0;i<pt.tagCount();i++){PersistentThermal.Server server=PersistentThermal.Server.read(pt.getCompoundTagAt(i));if(server!=null)pendingThermal.put(server.id,server);}
         faults.clear();NBTTagList fs=n.getTagList("Faults",10);for(int i=0;i<fs.tagCount();i++){NBTTagCompound a=fs.getCompoundTagAt(i);if(a.hasUniqueId("Id"))faults.put(a.getUniqueId("Id"),a.getInteger("Reason"));}
     }
 }

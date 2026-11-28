@@ -155,6 +155,7 @@ final class PowerGrid {
         final Set<BlockPos> failed=new HashSet<>();
         final List<Domain> domains=new ArrayList<>();
         final Map<OfflineState.Group,Domain> virtual=new IdentityHashMap<>();
+        final Set<OfflineState.Snapshot> virtualOwners=Collections.newSetFromMap(new IdentityHashMap<OfflineState.Snapshot,Boolean>());
         boolean settling;
     }
     static final class Port {
@@ -191,7 +192,7 @@ final class PowerGrid {
         for(ExternalWindow window:previous.values())window.close();
         OfflineState.get(w).checkInterruptedWindows(w,previous);
         Network.Cache cache=Network.cache(w);
-        if(cache.power!=null&&(!cache.power.virtual.isEmpty()||OfflineState.get(w).hasVirtual(w)))cache.power=null;
+        if(cache.power!=null){OfflineState offline=OfflineState.get(w);Set<OfflineState.Snapshot> active=Collections.newSetFromMap(new IdentityHashMap<OfflineState.Snapshot,Boolean>());if(ODC.requireEnergy)for(OfflineState.Snapshot s:offline.snapshots.values())if(offline.validVirtual(w,s))active.add(s);if(!active.equals(cache.power.virtualOwners))cache.power=null;}
         Topology t=topology(w);t.settling=false;for(Domain d:t.domains)d.reset();
         for(Domain d:t.domains){
             int saved=PowerState.get(w).state(d.footprint);if(saved!=GridProtection.ON)d.applyOff(saved);
@@ -294,6 +295,7 @@ final class PowerGrid {
         ordered.sort(Comparator.comparing(s->s.anchor.toString()));
         for(OfflineState.Snapshot snapshot:ordered){
             if(!offline.validVirtual(w,snapshot))continue;
+            t.virtualOwners.add(snapshot);
             for(OfflineState.Group group:snapshot.groups){
                 if(group.cells.isEmpty())continue;
                 Set<Domain> overlaps=Collections.newSetFromMap(new IdentityHashMap<Domain,Boolean>());

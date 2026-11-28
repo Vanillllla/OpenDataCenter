@@ -20,7 +20,8 @@ public final class ClusterScheduler {
         TaskData d=TaskData.get(w);OfflineState offline=OfflineState.get(w);PowerTickets.sync(w,offline,d);PowerGrid.begin(w);d.clock();for(TaskData.Job j:d.jobs){j.work=j.usedCPU=j.usedGPU=j.usedRAM=j.usedDisk=j.usedNet=0;j.full=false;}
         Set<net.minecraft.util.math.BlockPos> paused=offline.paused(w,d);
         List<TileEntity> powerOrder=new ArrayList<>(w.loadedTileEntityList);powerOrder.sort(Network.ORDER);
-        for(TileEntity t:powerOrder)if(paused.contains(t.getPos())&&Network.live(w,t))pause(t);
+        for(TileEntity t:powerOrder)if(t instanceof Tiles.Rack&&Network.live(w,t))PersistentThermal.reconcile(offline,(Tiles.Rack)t);
+        for(TileEntity t:powerOrder)if(paused.contains(t.getPos())&&Network.live(w,t)){pause(t);if(t instanceof Tiles.Rack&&((Tiles.Rack)t).role!=-1){Tiles.Rack r=(Tiles.Rack)t;ThermalRuntime.prepare(r,w.getTotalWorldTime(),null);ThermalRuntime.finish(r,null);ThermalRuntime.savePeriodic(r);}}
         powerOrder.removeIf(t->paused.contains(t.getPos()));for(TileEntity t:powerOrder)if(t instanceof Tiles.Powered&&Network.live(w,t))((Tiles.Powered)t).refreshPower();
         List<TileEntity> loaded=new ArrayList<>();List<Tiles.Rack> racks=new ArrayList<>();Map<Tiles.Rack,Integer> old=new IdentityHashMap<>();
         for(TileEntity t:powerOrder)if(Network.isDataDevice(t)&&Network.live(w,t)){
@@ -29,7 +30,7 @@ public final class ClusterScheduler {
         PhysicalNetwork.refreshRouting(w);BandwidthEngine.Result network=PhysicalNetwork.bandwidth(w);
         List<Runnable> settlement=new ArrayList<>();List<EventSystem.Topology> observed=new ArrayList<>();loaded.sort(Network.ORDER);for(Network.Domain domain:Network.domains(w,loaded)){Map<UUID,List<Tiles.Owned>> owners=new LinkedHashMap<>();for(Tiles.Owned t:domain.devices)if(t.owner!=null&&!paused.contains(t.getPos()))owners.computeIfAbsent(t.owner,k->new ArrayList<>()).add(t);for(Map.Entry<UUID,List<Tiles.Owned>> o:owners.entrySet()){Set<UUID> ids=new HashSet<>();for(Tiles.Owned t:o.getValue()){UUID scope=EventSystem.scope(t);if(scope!=null)ids.add(scope);}if(!ids.isEmpty())observed.add(new EventSystem.Topology(o.getKey(),ids,domain.positions));run(w,d,offline,domain.positions,o.getKey(),o.getValue(),network,settlement);}}EventSystem.observe(w,d,observed);
         // Disconnected racks still consume idle energy; no job can run without controller.
-        for(Tiles.Rack r:racks){for(int b=0;b<r.capacity();b++)if(r.isServer(b)&&(r.enabledMask&(1<<b))!=0&&(r.poweredMask&(1<<b))==0&&r.status[b]==0){powerIdle(r,b,d,r.networkConnected(b)?ComputeEngine.NO_CONTROLLER:ComputeEngine.NO_NETWORK);}}offline.plan(w,d,settlement);PowerGrid.finish(w);LiquidNetwork.step(w,racks,w.getTotalWorldTime());for(Tiles.Rack r:racks)ThermalSafety.check(r,d);PhysicalNetwork.refreshRouting(w);for(Runnable commit:settlement)commit.run();for(Tiles.Rack r:racks){int now=r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0);if(now!=old.get(r))r.changed();}PowerMonitor.record(w);PowerTickets.sync(w,offline,d);d.finishCycle();
+        for(Tiles.Rack r:racks){for(int b=0;b<r.capacity();b++)if(r.isServer(b)&&(r.enabledMask&(1<<b))!=0&&(r.poweredMask&(1<<b))==0&&r.status[b]==0){powerIdle(r,b,d,r.networkConnected(b)?ComputeEngine.NO_CONTROLLER:ComputeEngine.NO_NETWORK);}}offline.plan(w,d,settlement);PowerGrid.finish(w);LiquidNetwork.step(w,racks,w.getTotalWorldTime());for(Tiles.Rack r:racks)ThermalSafety.check(r,d);PhysicalNetwork.refreshRouting(w);for(Runnable commit:settlement)commit.run();offline.passiveThermal(w,d);for(Tiles.Rack r:racks)ThermalRuntime.savePeriodic(r);for(Tiles.Rack r:racks){int now=r.poweredMask|(r.runningMask<<9)|(r.switchOnline?1<<18:0);if(now!=old.get(r))r.changed();}PowerMonitor.record(w);PowerTickets.sync(w,offline,d);d.finishCycle();
     }
     private static void pause(TileEntity tile){
         if(tile instanceof Tiles.Powered)((Tiles.Powered)tile).pauseForSnapshot();
@@ -102,7 +103,7 @@ public final class ClusterScheduler {
                 for(TaskEngine.Slice slice:result.slices){Ref f=refs.get(slice.node);f.rack.activeJobs.computeIfAbsent(f.bay,k->new ArrayList<>()).add(j.id);f.rack.runningMask|=1<<f.bay;f.rack.work[f.bay]+=slice.work;f.rack.status[f.bay]=result.full?ComputeEngine.RUNNING:ComputeEngine.THROTTLED;active++;}
             }
             for(Tiles.Computer c:cs){NetworkMonitor mon=PhysicalNetwork.monitor(w,c.getPos());c.racks=racks.size();c.servers=serverCount;c.uplink=NetworkAdmission.floor(mon.wan+mon.ingressFree);c.switching=switching;c.networkUsed=NetworkAdmission.floor(mon.wan);c.clusterPower=actualPower;c.miningStats=new int[]{jobs.size(),active,hash,used,0,0};}
-            d.markDirty();if(controller&&complete&&!jobs.isEmpty())offline.capture(w,finalAnchor,owner,positions,devices,racks,nodes,refs,excluded,caps,0);
+            d.markDirty();if(controller&&complete)offline.capture(w,finalAnchor,owner,positions,devices,racks,nodes,refs,excluded,caps,0);
         });
     }
 }

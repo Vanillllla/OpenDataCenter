@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.3.6-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.3.7-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.3.7-alpha
+
+Сохранение температур, тепловые снимки и виртуальные аварии, восстановление повреждений по UUID и модели детали, пропорциональное охлаждение при подтверждённой энергии, пассивное остывание частичных снимков. Нагрузочный тест: tools/test-core.sh или Gradle thermalBenchmark.
 
 ### Версия 0.6.3.6-alpha
 
@@ -132,6 +136,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.3.7-alpha
+
+Thermal checkpoints, virtual heat and failure simulation, pending damage reconciliation, funded coolant allocation, passive cooling for partial snapshots. Benchmark: tools/test-core.sh or Gradle thermalBenchmark.
 
 ### Version 0.6.3.6-alpha
 

@@ -14,11 +14,6 @@ final class ThermalSafety {
             if(entry==null)continue;
             ItemStack item=rack.slots.get(bay);
             int bit=1<<bay,latched=HardwareDamage.fault(item);
-            if(latched!=0){
-                // Update the persisted restart guard at a bounded cadence;
-                // the in-memory state is always used for live restart.
-                if(rack.getWorld().getTotalWorldTime()%400==0){ThermalRuntime.checkpoint(rack,bay);rack.markDirty();}
-            }
             boolean running=(rack.enabledMask&rack.poweredMask&bit)!=0;
             ThermalProtection.Accident accident=ThermalProtection.evaluate(entry.state,running,latched!=0,entry.broken,ODC.thermalFailurePercent,rack.getWorld().rand::nextInt);
             if(accident==null)continue;

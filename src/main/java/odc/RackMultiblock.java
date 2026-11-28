@@ -16,6 +16,7 @@ final class RackMultiblock {
     static boolean merge(World w,Tiles.Rack low,Tiles.Rack high){
         if(low==null||high==null||low.role!=0||high.role!=0||!Objects.equals(low.owner,high.owner))return false;
         IBlockState a=w.getBlockState(low.getPos()),b=w.getBlockState(high.getPos());if(a.getBlock()!=b.getBlock()||a.getValue(Blocks.FACING)!=b.getValue(Blocks.FACING))return false;
+        PersistentThermal.reconcile(OfflineState.get(w),low);PersistentThermal.reconcile(OfflineState.get(w),high);
         boolean keepLowSwitch=low.switchTier()>0;low.clearPorts();high.clearPorts();
         for(int i=0;i<4;i++){ItemStack item=high.slots.get(i);if(keepLowSwitch&&Hardware.switchTier(item)>0){high.removeUplinks(item);InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,item);}else{low.slots.set(i+5,item);low.thermal[i+5]=high.thermal[i];}high.thermal[i]=null;high.slots.set(i,ItemStack.EMPTY);low.remainder[i+5]=high.remainder[i];high.remainder[i]=0;}
         if(low.manifold&&high.manifold)InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,new ItemStack(Hardware.MANIFOLD));
@@ -26,6 +27,7 @@ final class RackMultiblock {
     /** Called before the broken tile is removed. Master owns every item exactly once. */
     static void breakRack(World w,BlockPos p){Tiles.Rack r=at(w,p);if(r==null||w.isRemote)return;Tiles.Rack master=r.master();if(master==null)return;
         Tiles.Rack survivor=master.role==1?at(w,p.equals(master.getPos())?p.up():p.down()):null;
+        PersistentThermal.reconcile(OfflineState.get(w),master);
         master.clearPorts();
         boolean manifold=master.manifold;master.manifold=false;if(survivor!=null)survivor.manifold=manifold;else if(manifold)InventoryHelper.spawnItemStack(w,p.getX()+.5,p.getY()+.5,p.getZ()+.5,new ItemStack(Hardware.MANIFOLD));LiquidNetwork.invalidate(w);
         ThermalRuntime.Entry[] thermal=new ThermalRuntime.Entry[4];ItemStack[] retained=new ItemStack[4];Arrays.fill(retained,ItemStack.EMPTY);boolean keepUpper=survivor!=null&&survivor!=master;
