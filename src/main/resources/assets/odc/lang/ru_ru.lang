@@ -469,3 +469,9 @@ tooltip.odc.thermal.limit=Критическая температура: %d °C
 gui.odc.gpu_cooling=Водоблоки GPU
 gui.odc.cpu_cooling=Кулеры CPU
 gui.odc.fans=Вентиляторы корпуса
+
+tile.odc.liquid_pipe.name=Труба жидкостного охлаждения
+item.odc.liquid_manifold.name=Коллектор жидкостного охлаждения
+tile.odc.liquid_chiller_t1.name=Жидкостный охладитель T1
+tile.odc.liquid_chiller_t2.name=Жидкостный охладитель T2
+tile.odc.liquid_chiller_t3.name=Жидкостный охладитель T3

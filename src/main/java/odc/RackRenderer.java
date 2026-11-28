@@ -73,6 +73,8 @@ final class RackRenderer extends TileEntitySpecialRenderer<Tiles.Rack> {
             double height=rack.role==1?2:1,pitch=rack.role==1?1.875/9:.875/4;
             begin();
             powerFaces(RackPowerMesh.rail(rack.capacity()));
+            // Temporary rear 0U rail; final paired hoses/materials in 0.6.3.8.
+            if(rack.manifold)solidBox(.105,.065,.925,.175,height-.065,.985);
             String lamp=rack.powerLamp==GridProtection.LAMP_RED?"power_lamp_red":rack.powerLamp==GridProtection.LAMP_GREEN?"power_lamp_green":"power_lamp_off";
             quad(lamp,255,v(.875,height-.123,.986),v(.845,height-.123,.986),v(.845,height-.093,.986),v(.875,height-.093,.986));
             for(int i=0;i<rack.capacity();i++){

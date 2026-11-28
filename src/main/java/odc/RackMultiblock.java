@@ -18,6 +18,8 @@ final class RackMultiblock {
         IBlockState a=w.getBlockState(low.getPos()),b=w.getBlockState(high.getPos());if(a.getBlock()!=b.getBlock()||a.getValue(Blocks.FACING)!=b.getValue(Blocks.FACING))return false;
         boolean keepLowSwitch=low.switchTier()>0;low.clearPorts();high.clearPorts();
         for(int i=0;i<4;i++){ItemStack item=high.slots.get(i);if(keepLowSwitch&&Hardware.switchTier(item)>0){high.removeUplinks(item);InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,item);}else{low.slots.set(i+5,item);low.thermal[i+5]=high.thermal[i];}high.thermal[i]=null;high.slots.set(i,ItemStack.EMPTY);low.remainder[i+5]=high.remainder[i];high.remainder[i]=0;}
+        if(low.manifold&&high.manifold)InventoryHelper.spawnItemStack(w,high.getPos().getX()+.5,high.getPos().getY()+.5,high.getPos().getZ()+.5,new ItemStack(Hardware.MANIFOLD));
+        low.manifold|=high.manifold;high.manifold=false;LiquidNetwork.invalidate(w);
         low.enabledMask|=high.enabledMask<<5;low.miningMask|=high.miningMask<<5;low.poweredMask=low.runningMask=0;high.enabledMask=high.miningMask=high.poweredMask=high.runningMask=0;
         EventSystem.moveRackHistory(high,low.id);low.role=1;high.role=-1;low.powerLamp=high.powerLamp=GridProtection.LAMP_OFF;low.resetDoor();high.resetDoor();low.revision++;high.revision++;low.changed();high.changed();Network.invalidate(w);return true;
     }
@@ -25,6 +27,7 @@ final class RackMultiblock {
     static void breakRack(World w,BlockPos p){Tiles.Rack r=at(w,p);if(r==null||w.isRemote)return;Tiles.Rack master=r.master();if(master==null)return;
         Tiles.Rack survivor=master.role==1?at(w,p.equals(master.getPos())?p.up():p.down()):null;
         master.clearPorts();
+        boolean manifold=master.manifold;master.manifold=false;if(survivor!=null)survivor.manifold=manifold;else if(manifold)InventoryHelper.spawnItemStack(w,p.getX()+.5,p.getY()+.5,p.getZ()+.5,new ItemStack(Hardware.MANIFOLD));LiquidNetwork.invalidate(w);
         ThermalRuntime.Entry[] thermal=new ThermalRuntime.Entry[4];ItemStack[] retained=new ItemStack[4];Arrays.fill(retained,ItemStack.EMPTY);boolean keepUpper=survivor!=null&&survivor!=master;
         int mask=0,mining=0;int[] rem=new int[4];
         for(int i=0;i<9;i++){ItemStack stack=master.slots.get(i);if(stack.isEmpty())continue;int k=survivor==null?-1:RackLayout.retainedIndex(i,Hardware.rackUnits(stack),keepUpper);if(k>=0){retained[k]=stack;thermal[k]=master.thermal[i];rem[k]=master.remainder[i];if((master.enabledMask&(1<<i))!=0)mask|=1<<k;if((master.miningMask&(1<<i))!=0)mining|=1<<k;}else {

@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.3.4-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.3.5-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.3.5-alpha
+
+Жидкостное охлаждение: коллектор 0U устанавливается ПКМ предметом по задней стороне стойки, снимается Shift+ПКМ пустой рукой. Трубы подключаются к задним портам и охладителям T1–T3. Охлаждение распределяется пропорционально запросам при подтверждённом электропитании. Пока временные модели, без рецептов и сохранения температуры контура.
 
 ### Версия 0.6.3.4-alpha
 
@@ -124,6 +128,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.3.5-alpha
+
+Liquid cooling: right-click the rear of a rack with a 0U manifold, sneak-right-click empty-handed to remove it. Pipes connect rear contacts to T1–T3 chillers. Funded cooling is distributed proportionally to demand. Provisional assets; recipes and persistent thermal state follow later.
 
 ### Version 0.6.3.4-alpha
 

@@ -10,8 +10,8 @@ def check(ok,msg):
     if not ok: raise AssertionError(msg)
 for f in root.rglob('*.json'):read(f)
 for f in root.rglob('*.mcmeta'):read(f)
-blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower','transformer_t1','transformer_t2','transformer_t3'}
-items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','switch_2p_100','switch_2p_500','switch_2p_1000','switch_2p_10000','switch_4p_1000','switch_4p_10000','switch_8p_10000','switch_8p_50000','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3'}
+blocks={'rack','rack_glass','workbench','computer','creative_battery','data_cable','power_cable','power_relay','raised_floor','wall_panel','radio_station','satellite_station','fiber_cable','network_terminal','network_terminal_t2','network_terminal_t3','telecom_tower','transformer_t1','transformer_t2','transformer_t3','liquid_pipe','liquid_chiller_t1','liquid_chiller_t2','liquid_chiller_t3'}
+items={'chassis_1u','chassis_2u','chassis_4u','precision_chip','switch_basic','switch_pro','switch_2p_100','switch_2p_500','switch_2p_1000','switch_2p_10000','switch_4p_1000','switch_4p_10000','switch_8p_10000','switch_8p_50000','ethernet_patch','ethernet_patch_t2','ethernet_patch_t3','liquid_manifold'}
 catalog=(root.parents[4]/'src/main/java/odc/Part.java').read_text(encoding='utf8')
 for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive|fan|cooler)\((?:Kind\.([A-Z_]+), )?"([^"]+)"',catalog,re.M):
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
@@ -160,3 +160,11 @@ for tier in range(1,4):
             check(variants[f'facing={direction},indicator={i}']['model']==f'odc:{name}_{state}','transformer model selection')
 for color in ('off','green','red'):tex_ref('odc:blocks/power_lamp_'+color)
 print('PASS: three-state power indicator assets')
+
+# Provisional liquid infrastructure model coverage.
+pipe=read(root/'blockstates/liquid_pipe.json')['multipart']
+check(len(pipe)==7 and {next(iter(p['when'])) for p in pipe[1:]}=={'down','up','north','south','west','east'},'liquid pipe connection directions')
+for tier in range(1,4):
+    name=f'liquid_chiller_t{tier}'
+    check(set(read(root/'blockstates'/f'{name}.json')['variants'])=={f'active={a},facing={d}' for a in ('true','false') for d in ('north','east','south','west')},'chiller states')
+print('PASS: liquid infrastructure assets')

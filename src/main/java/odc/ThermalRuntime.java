@@ -47,14 +47,17 @@ final class ThermalRuntime {
         e.nominalAC=nominal;e.dc=dc==null?e.idle:dc;e.tick=rack.getWorld().getTotalWorldTime();e.domain=domain;
         return true;
     }
-    static void step(Tiles.Rack rack,long tick){
+    static void prepare(Tiles.Rack rack,long tick,LiquidCore.Loop loop){
         for(int bay=0;bay<rack.thermal.length;bay++){
             Entry e=entry(rack,bay);if(e==null)continue;
             boolean powered=(rack.poweredMask&(1<<bay))!=0&&e.tick==tick&&e.domain!=null&&e.domain.funded();
-            e.state.step(powered?e.dc:null,powered?e.nominalAC:0,powered?e.actualAC:0,ODC.ambientTemperature,null);
-            // Don't retain old plans or topology objects between seconds.
+            e.state.prepare(powered?e.dc:null,powered?e.nominalAC:0,powered?e.actualAC:0,ODC.ambientTemperature);
+            if(loop!=null&&loop.capacity>0)loop.request(e.state.liquidDemand(loop.temperature()));
             e.dc=null;e.domain=null;
         }
+    }
+    static void finish(Tiles.Rack rack,LiquidCore.Loop loop){
+        for(Entry e:rack.thermal)if(e!=null)e.state.finish(ODC.ambientTemperature,loop);
     }
     static ThermalEngine.State state(Tiles.Rack rack,int bay){Entry e=rack.thermal[bay];return e==null?null:e.state;}
 }

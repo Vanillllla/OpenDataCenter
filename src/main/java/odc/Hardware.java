@@ -17,7 +17,8 @@ final class Hardware {
     static final CreativeTabs TAB=new CreativeTabs("odc"){@Override public ItemStack createIcon(){return new ItemStack(CHASSIS4);}};
     static final Block RACK=new Blocks.Rack("rack",false),RACK_GLASS=new Blocks.Rack("rack_glass",true),WORKBENCH=new Blocks.Workbench(),COMPUTER=new Blocks.Terminal(),BATTERY=new Blocks.Machine("creative_battery",3),STATION=new Blocks.Machine("radio_station",5),SATELLITE=new Blocks.Machine("satellite_station",6),TOWER=new Blocks.Tower(),NETWORK_TERMINAL=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_1),NETWORK_TERMINAL_T2=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_2),NETWORK_TERMINAL_T3=new Blocks.NetworkTerminal(NetworkEquipment.TERMINAL_3),FIBER_CABLE=new Blocks.Cable("fiber_cable",false,false,true),DATA_CABLE=new Blocks.Cable("data_cable",false,false),POWER_CABLE=new Blocks.Cable("power_cable",true,false),RELAY=new Blocks.Cable("power_relay",true,true),FLOOR=new Blocks.Decor("raised_floor"),PANEL=new Blocks.Decor("wall_panel");
     static final Block TRANSFORMER_T1=new Blocks.Transformer(1),TRANSFORMER_T2=new Blocks.Transformer(2),TRANSFORMER_T3=new Blocks.Transformer(3);
-    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL,TRANSFORMER_T1,TRANSFORMER_T2,TRANSFORMER_T3};
+    static final Block LIQUID_PIPE=new Blocks.LiquidPipe(),CHILLER_T1=new Blocks.Chiller(1),CHILLER_T2=new Blocks.Chiller(2),CHILLER_T3=new Blocks.Chiller(3);
+    static final Block[] BLOCKS={RACK,RACK_GLASS,WORKBENCH,COMPUTER,BATTERY,STATION,SATELLITE,TOWER,NETWORK_TERMINAL,NETWORK_TERMINAL_T2,NETWORK_TERMINAL_T3,FIBER_CABLE,DATA_CABLE,POWER_CABLE,RELAY,FLOOR,PANEL,TRANSFORMER_T1,TRANSFORMER_T2,TRANSFORMER_T3,LIQUID_PIPE,CHILLER_T1,CHILLER_T2,CHILLER_T3};
     static final class NetworkTerminalItem extends ItemBlock {
         private final NetworkEquipment equipment;
         NetworkTerminalItem(Blocks.NetworkTerminal block){super(block);equipment=block.equipment;}
@@ -32,6 +33,13 @@ final class Hardware {
             tips.add(net.minecraft.client.resources.I18n.format("tooltip.odc.transformer.pending"));
         }
     }
+    static final class ChillerItem extends ItemBlock {
+        final int tier;
+        ChillerItem(Blocks.Chiller block){super(block);tier=block.tier;}
+        @SideOnly(Side.CLIENT) @Override public void addInformation(ItemStack stack,@Nullable World world,List<String> tips,ITooltipFlag flag){
+            tips.add(LiquidCore.rated(tier)+" W thermal");tips.add(LiquidCore.electric(tier)+" W electrical");
+        }
+    }
     static final class PoweredItem extends ItemBlock {
         private final int watts;
         PoweredItem(Block block,int watts){super(block);this.watts=watts;}
@@ -44,9 +52,10 @@ final class Hardware {
     static {for(ChassisSpec c:ChassisSpec.values())CHASSIS.put(c,new Chassis(c));}
     static final Item CHASSIS1=CHASSIS.get(ChassisSpec.BASIC_1),CHASSIS2=CHASSIS.get(ChassisSpec.BASIC_2),CHASSIS4=CHASSIS.get(ChassisSpec.BASIC_4);
     static final Item CHIP=item("precision_chip",""), PATCH=item("ethernet_patch","100 Mb/s"), PATCH2=item("ethernet_patch_t2","1000 Mb/s"), PATCH3=item("ethernet_patch_t3","100000 Mb/s");
+    static final Item MANIFOLD=item("liquid_manifold","0U | Rack liquid cooling");
     static final Item[] SWITCHES=new Item[SwitchLimits.count()+1];
     static final java.util.Map<Item,Part> MODELS=new java.util.IdentityHashMap<>();
-    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3));
+    static final java.util.List<Item> ITEMS=new java.util.ArrayList<>(java.util.Arrays.asList(CHASSIS1,CHASSIS2,CHASSIS4,CHIP,PATCH,PATCH2,PATCH3,MANIFOLD));
     static {
         for(ChassisSpec c:ChassisSpec.values())if(c!=ChassisSpec.legacy(c.units))ITEMS.add(CHASSIS.get(c));
         for(int i=1;i<SWITCHES.length;i++){SwitchLimits.Model m=SwitchLimits.model(i);SWITCHES[i]=item(m.id,m.ports+" ports | "+m.total+" Mb/s total\n"+m.port+" Mb/s per port\n"+m.power+" W");ITEMS.add(SWITCHES[i]);}

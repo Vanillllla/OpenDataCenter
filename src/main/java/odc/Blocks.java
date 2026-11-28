@@ -47,10 +47,32 @@ final class Blocks {
         @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Rack();}
         @Override public void onBlockPlacedBy(World w,BlockPos p,IBlockState s,EntityLivingBase e,ItemStack i){super.onBlockPlacedBy(w,p,s,e,i);RackMultiblock.placed(w,p);}
         @Override public void breakBlock(World w,BlockPos p,IBlockState s){RackMultiblock.breakRack(w,p);super.breakBlock(w,p,s);}
-        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){if(hand==EnumHand.MAIN_HAND)return RackInteraction.interact(w,p,player,side,y,false);return true;}
+        @Override public boolean onBlockActivated(World w,BlockPos p,IBlockState s,EntityPlayer player,EnumHand hand,EnumFacing side,float x,float y,float z){if(hand==EnumHand.MAIN_HAND){if(LiquidNetwork.interact(w,p,s,player,side))return true;return RackInteraction.interact(w,p,player,side,y,false);}return true;}
         @Override int gui(){return 0;}
     }
     /** The model is derived from the real inventory, never from a second saved item. */
+    static final class Chiller extends Oriented {
+        final int tier;
+        Chiller(int tier){super("liquid_chiller_t"+tier);this.tier=tier;setDefaultState(blockState.getBaseState().withProperty(FACING,EnumFacing.NORTH).withProperty(ACTIVE,false));}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,FACING,ACTIVE);}
+        @Override public TileEntity createNewTileEntity(World w,int meta){return new Tiles.Chiller();}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){TileEntity t=w.getTileEntity(p);return s.withProperty(ACTIVE,t instanceof Tiles.Chiller&&((Tiles.Chiller)t).online);}
+        @Override int gui(){return -1;}
+    }
+    static final class LiquidPipe extends Block {
+        LiquidPipe(){super(Material.IRON);setRegistryName(ODC.ID,"liquid_pipe");setTranslationKey(ODC.ID+".liquid_pipe");setCreativeTab(Hardware.TAB);setHardness(.7f);setSoundType(SoundType.METAL);IBlockState s=blockState.getBaseState();for(PropertyBool p:LINK)s=s.withProperty(p,false);setDefaultState(s);}
+        @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,LINK[0],LINK[1],LINK[2],LINK[3],LINK[4],LINK[5]);}
+        @Override public int getMetaFromState(IBlockState s){return 0;}
+        @Override public IBlockState getStateFromMeta(int meta){return getDefaultState();}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){for(EnumFacing f:EnumFacing.VALUES)s=s.withProperty(LINK[f.getIndex()],LiquidNetwork.pipeContact(w,p.offset(f),f.getOpposite()));return s;}
+        @Override public boolean isOpaqueCube(IBlockState s){return false;}
+        @Override public boolean isFullCube(IBlockState s){return false;}
+        @Override public BlockFaceShape getBlockFaceShape(IBlockAccess w,IBlockState s,BlockPos p,EnumFacing f){return BlockFaceShape.UNDEFINED;}
+        @Override public AxisAlignedBB getBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){s=getActualState(s,w,p);return new AxisAlignedBB(s.getValue(LINK[4])?0:.3125,s.getValue(LINK[0])?0:.3125,s.getValue(LINK[2])?0:.3125,s.getValue(LINK[5])?1:.6875,s.getValue(LINK[1])?1:.6875,s.getValue(LINK[3])?1:.6875);}
+        @Override public AxisAlignedBB getCollisionBoundingBox(IBlockState s,IBlockAccess w,BlockPos p){return getBoundingBox(s,w,p);}
+        @Override public void onBlockAdded(World w,BlockPos p,IBlockState s){super.onBlockAdded(w,p,s);LiquidNetwork.invalidate(w);OfflineState.invalidateAt(w,p);}
+        @Override public void breakBlock(World w,BlockPos p,IBlockState s){super.breakBlock(w,p,s);LiquidNetwork.invalidate(w);OfflineState.invalidateAt(w,p);}
+    }
     static final class Workbench extends Oriented {
         // Render index 3 denotes the 4U case (there is no 3U item).
         static final PropertyInteger CHASSIS=PropertyInteger.create("chassis",0,3);
@@ -151,7 +173,7 @@ final class Blocks {
         @Override protected BlockStateContainer createBlockState(){return new BlockStateContainer(this,LINK[0],LINK[1],LINK[2],LINK[3],LINK[4],LINK[5],ACTIVE);}
         @Override public IBlockState getStateFromMeta(int m){return getDefaultState().withProperty(ACTIVE,relay&&(m&1)!=0);}
         @Override public int getMetaFromState(IBlockState s){return relay&&s.getValue(ACTIVE)?1:0;}
-        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){for(EnumFacing f:EnumFacing.VALUES){IBlockState neighbor=w.getBlockState(p.offset(f));Block b=neighbor.getBlock();boolean antenna=Hardware.antenna(b)&&(!(b instanceof Tower)||neighbor.getValue(PART)==0);boolean yes=fiber?(b==Hardware.FIBER_CABLE||Hardware.networkTerminal(b)||antenna):(b==Hardware.RACK||b==Hardware.RACK_GLASS||b==Hardware.COMPUTER||Hardware.networkTerminal(b)||(power?(antenna||b==Hardware.POWER_CABLE||b==Hardware.RELAY||b==Hardware.BATTERY||Hardware.transformer(b)):b==Hardware.DATA_CABLE));s=s.withProperty(LINK[f.getIndex()],yes);}return s;}
+        @Override public IBlockState getActualState(IBlockState s,IBlockAccess w,BlockPos p){for(EnumFacing f:EnumFacing.VALUES){IBlockState neighbor=w.getBlockState(p.offset(f));Block b=neighbor.getBlock();boolean antenna=Hardware.antenna(b)&&(!(b instanceof Tower)||neighbor.getValue(PART)==0);boolean yes=fiber?(b==Hardware.FIBER_CABLE||Hardware.networkTerminal(b)||antenna):(b==Hardware.RACK||b==Hardware.RACK_GLASS||b==Hardware.COMPUTER||Hardware.networkTerminal(b)||(power?(antenna||b instanceof Chiller||b==Hardware.POWER_CABLE||b==Hardware.RELAY||b==Hardware.BATTERY||Hardware.transformer(b)):b==Hardware.DATA_CABLE));s=s.withProperty(LINK[f.getIndex()],yes);}return s;}
         @Override public boolean isOpaqueCube(IBlockState s){return false;}
         @Override public boolean isFullCube(IBlockState s){return false;}
         @Override public BlockFaceShape getBlockFaceShape(IBlockAccess w,IBlockState s,BlockPos p,EnumFacing f){return BlockFaceShape.UNDEFINED;}

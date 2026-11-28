@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.3.4-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.3.5-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -48,6 +48,7 @@ public final class ODC {
         GameRegistry.registerTileEntity(Tiles.Computer.class,new ResourceLocation(ID,"computer"));
         GameRegistry.registerTileEntity(Tiles.Battery.class,new ResourceLocation(ID,"battery"));
         GameRegistry.registerTileEntity(Tiles.Transformer.class,new ResourceLocation(ID,"transformer"));
+        GameRegistry.registerTileEntity(Tiles.Chiller.class,new ResourceLocation(ID,"liquid_chiller"));
         GameRegistry.registerTileEntity(Tiles.NetworkTerminal.class,new ResourceLocation(ID,"network_terminal"));
         GameRegistry.registerTileEntity(Tiles.Station.class,new ResourceLocation(ID,"network_station"));
         NetworkRegistry.INSTANCE.registerGuiHandler(this,new Menus.Handler());
@@ -55,7 +56,7 @@ public final class ODC {
     }
     @SubscribeEvent public static void blocks(RegistryEvent.Register<Block> e){e.getRegistry().registerAll(Hardware.BLOCKS);}
     @SubscribeEvent public static void items(RegistryEvent.Register<Item> e){
-        for(Block b:Hardware.BLOCKS){ItemBlock ib=b instanceof Blocks.NetworkTerminal?new Hardware.NetworkTerminalItem((Blocks.NetworkTerminal)b):b instanceof Blocks.Transformer?new Hardware.TransformerItem((Blocks.Transformer)b):b==Hardware.COMPUTER?new Hardware.PoweredItem(b,NetworkEquipment.DATAOS_WATTS):Hardware.antenna(b)?new Hardware.PoweredItem(b,NetworkEquipment.byId(b.getRegistryName().toString()).watts):new ItemBlock(b);ib.setRegistryName(b.getRegistryName());e.getRegistry().register(ib);}
+        for(Block b:Hardware.BLOCKS){ItemBlock ib=b instanceof Blocks.Chiller?new Hardware.ChillerItem((Blocks.Chiller)b):b instanceof Blocks.NetworkTerminal?new Hardware.NetworkTerminalItem((Blocks.NetworkTerminal)b):b instanceof Blocks.Transformer?new Hardware.TransformerItem((Blocks.Transformer)b):b==Hardware.COMPUTER?new Hardware.PoweredItem(b,NetworkEquipment.DATAOS_WATTS):Hardware.antenna(b)?new Hardware.PoweredItem(b,NetworkEquipment.byId(b.getRegistryName().toString()).watts):new ItemBlock(b);ib.setRegistryName(b.getRegistryName());e.getRegistry().register(ib);}
         e.getRegistry().registerAll(Hardware.ITEMS.toArray(new Item[0]));
     }
 }

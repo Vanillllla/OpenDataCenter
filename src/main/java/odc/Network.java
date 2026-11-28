@@ -25,7 +25,7 @@ public final class Network {
     }
     static boolean isDataDevice(TileEntity t){return t instanceof Tiles.Rack||t instanceof Tiles.Computer||t instanceof Tiles.Station||t instanceof Tiles.NetworkTerminal;}
     static boolean isLanDevice(TileEntity t){return isDataDevice(t)&&!(t instanceof Tiles.Station);}
-    static boolean isPowerDevice(TileEntity t){return isDataDevice(t);}
+    static boolean isPowerDevice(TileEntity t){return isDataDevice(t)||t instanceof Tiles.Chiller;}
     static boolean live(World w,TileEntity t){return t!=null&&!t.isInvalid()&&w.isBlockLoaded(t.getPos())&&w.getTileEntity(t.getPos())==t;}
     static TileEntity deviceAt(World w,BlockPos p){return w.getTileEntity(Blocks.Terminal.base(w,p));}
     static boolean dataNode(World w,BlockPos p){

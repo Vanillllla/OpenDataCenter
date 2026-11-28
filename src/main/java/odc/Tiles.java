@@ -24,8 +24,8 @@ public final class Tiles {
             if(powerLamp==lamp)return;powerLamp=lamp;
             if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,2);}
         }
-        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote)powerLamp=GridProtection.LAMP_OFF;Network.invalidate(world);PhysicalNetwork.changed(world,pos);}
-        @Override public void invalidate(){super.invalidate();Network.invalidate(world);}
+        @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote)powerLamp=GridProtection.LAMP_OFF;Network.invalidate(world);if(this instanceof Rack||this instanceof Chiller)LiquidNetwork.invalidate(world);PhysicalNetwork.changed(world,pos);}
+        @Override public void invalidate(){super.invalidate();Network.invalidate(world);if(this instanceof Rack||this instanceof Chiller)LiquidNetwork.invalidate(world);}
         void setOwner(UUID id){owner=id;markDirty();}
         boolean allows(EntityPlayer p){return owner==null||owner.equals(p.getUniqueID())||p.capabilities.isCreativeMode;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);owner=n.hasUniqueId("Owner")?n.getUniqueId("Owner"):null;powerLamp=Math.max(0,Math.min(2,n.getInteger("PowerLamp")));}
@@ -60,6 +60,8 @@ public final class Tiles {
     public static final class Rack extends InventoryTile {
         final PowerGrid.Port energy=new PowerGrid.Port(this);
         final ThermalRuntime.Entry[] thermal=new ThermalRuntime.Entry[9];
+        boolean manifold;
+        void setManifold(boolean value){if(manifold==value)return;manifold=value;LiquidNetwork.invalidate(world);if(world!=null&&!world.isRemote){OfflineState.invalidateAt(world,pos);changed();if(role==1)world.notifyBlockUpdate(pos.up(),world.getBlockState(pos.up()),world.getBlockState(pos.up()),3);}}
         final int[] ports=new int[8], cableTiers=new int[8];
         final UUID[] cableIds=new UUID[8]; // 0 empty, otherwise bay+1
         final java.util.Map<Integer,java.util.List<Integer>> activeJobs=new java.util.HashMap<>();
@@ -114,8 +116,8 @@ public final class Tiles {
             ports[port]=bay+1;cableTiers[port]=tier;cableIds[port]=UUID.randomUUID();OfflineState.invalidateAt(world,pos);EventSystem.rack(this,bay,Level.INFO,Category.NETWORK,"port_connected","Patch cable connected: "+patchMbps(port)+" Mb/s");changed();return true;
         }
         boolean upgrade(int port,int tier,EntityPlayer p){if(!allows(p)||!LanPorts.canUpgrade(ports,cableTiers,Hardware.ports(switchTier()),port,tier)||!LanCables.take(p,tier))return false;int old=cableTier(port);cableTiers[port]=tier;LanCables.refund(world,pos,p,old);OfflineState.invalidateAt(world,pos);EventSystem.rack(this,ports[port]-1,Level.INFO,Category.NETWORK,"port_upgraded","Patch cable replaced: LAN T"+old+" -> T"+tier);changed();return true;}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Role",role);n.setBoolean("Manifold",manifold);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);role=n.getInteger("Role");manifold=role!=-1&&n.getBoolean("Manifold");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
         @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return glassRack()&&role!=-1?new net.minecraft.util.math.AxisAlignedBB(pos.add(-1,0,-1),pos.add(2,role==1?2:1,2)):new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }
@@ -146,6 +148,32 @@ public final class Tiles {
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("Online",online);return n;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);online=n.getBoolean("Online");}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){online=false;markDirty();}}
+    }
+    public static final class Chiller extends Powered {
+        int tier(){if(world==null)return 1;net.minecraft.block.Block b=world.getBlockState(pos).getBlock();return b instanceof Blocks.Chiller?((Blocks.Chiller)b).tier:1;}
+        @Override int idlePower(){return LiquidCore.electric(tier());}
+        private PowerGrid.Domain reserved;
+        private long tick=Long.MIN_VALUE,actualAC;
+        @Override void refreshPower(){
+            reserved=null;actualAC=0;tick=world.getTotalWorldTime();
+            LiquidNetwork.Contour contour=LiquidNetwork.contour(world,pos);
+            if(contour==null||contour.racks.isEmpty()){setPowered(false);return;}
+            PowerGrid.Domain d=energy.domain();
+            if(d==null){setPowered(false);return;}
+            long before=d.budget.usedUnits();
+            if(!d.use(idlePower())){setPowered(false);return;}
+            reserved=d;actualAC=ODC.requireEnergy?(d.budget.usedUnits()-before)/PowerEngine.TICKS_PER_SECOND:PowerEngine.scale(idlePower(),d.budget.factor);
+            setPowered(true);
+        }
+        double available(long now){
+            double capacity=LiquidCore.available(tier(),actualAC,tick==now&&online&&reserved!=null&&reserved.funded());
+            reserved=null;return capacity;
+        }
+        @Override void setPowered(boolean value){
+            // Cooling devices are not LAN endpoints; no network rediscovery on
+            // every transition. The existing grid still clears them on failure.
+            if(online!=value){online=value;markDirty();if(world!=null&&!world.isRemote){net.minecraft.block.state.IBlockState s=world.getBlockState(pos);world.notifyBlockUpdate(pos,s,s,2);}}
+        }
     }
     public static final class Computer extends Powered {
         UUID id=UUID.randomUUID();

@@ -469,3 +469,9 @@ tooltip.odc.thermal.limit=Critical temperature: %d °C
 gui.odc.gpu_cooling=GPU waterblocks
 gui.odc.cpu_cooling=CPU coolers
 gui.odc.fans=Case fans
+
+tile.odc.liquid_pipe.name=Liquid Cooling Pipe
+item.odc.liquid_manifold.name=Rack Liquid Manifold
+tile.odc.liquid_chiller_t1.name=Liquid Chiller T1
+tile.odc.liquid_chiller_t2.name=Liquid Chiller T2
+tile.odc.liquid_chiller_t3.name=Liquid Chiller T3

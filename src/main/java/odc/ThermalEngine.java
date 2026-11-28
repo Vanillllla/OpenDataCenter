@@ -26,6 +26,7 @@ final class ThermalEngine {
         private final double[] temp,capacity,onExchange,offExchange;
         private final double internalOn,internalOff,airOn,airOff;
         double internal,air,generatedWatts,liquidWatts,ambientWatts;
+        private boolean active;
         State(ThermalProfile profile,double ambient){
             this.profile=profile;
             int n=0;
@@ -52,7 +53,8 @@ final class ThermalEngine {
         double temperature(int slot){for(int k=0;k<slots.length;k++)if(slots[k]==slot)return temp[k];return Double.NaN;}
         // Existing per-slot DC values are nominal. Scale the whole AC receipt once;
         // preserve the same ratio for DC and PSU losses, including cumulative rounding.
-        void step(int[] dc,int nominalAC,double actualAC,double ambient,LiquidSink sink){
+        void step(int[] dc,int nominalAC,double actualAC,double ambient,LiquidSink sink){prepare(dc,nominalAC,actualAC,ambient);finish(ambient,sink);}
+        void prepare(int[] dc,int nominalAC,double actualAC,double ambient){
             ambient=safe(ambient,25);air=safe(air,ambient);internal=safe(internal,ambient);
             for(int i=0;i<temp.length;i++)temp[i]=safe(temp[i],ambient);
             double ratio=dc!=null&&dc.length==ServerSpec.COUNT&&nominalAC>0&&Double.isFinite(actualAC)&&actualAC>0?actualAC/nominalAC:0;
@@ -67,20 +69,28 @@ final class ThermalEngine {
             // Rated PSU output is never counted as heat; only measured conversion loss.
             inside+=Math.max(0,(ratio>0?actualAC:0)-totalDC);
             generatedWatts=inside+airHeat;
-            boolean active=ratio>0;
+            active=ratio>0;
             internal+=inside/profile.internalHeatCapacity;
             air+=airHeat/profile.airHeatCapacity;
             for(int k=0;k<slots.length;k++){
                 double p=active?Math.max(0,dc[slots[k]])*ratio:0;generatedWatts+=p;temp[k]+=p/capacity[k];
             }
             liquidWatts=0;
-            // A disconnected/unpowered contour passes null (or accepts zero). A future
-            // allocator may cap the request per slot; no coolant is simulated here.
+        }
+        private double request(int k,double coolant){
+            if(!profile.liquid(slots[k]))return 0;
+            double diff=Math.max(0,temp[k]-coolant);
+            return Math.min(profile.coolingRating(slots[k]),Math.min(diff*capacity[k],diff/Math.max(.01,profile.resistance(slots[k]))));
+        }
+        double liquidDemand(double coolant){
+            double total=0;for(int k=0;k<slots.length;k++)total+=request(k,coolant);return total;
+        }
+        void finish(double ambient,LiquidSink sink){
+            ambient=safe(ambient,25);
             if(sink!=null){
                 double coolant=safe(sink.temperature(),ambient);
                 for(int k=0;k<slots.length;k++)if(profile.liquid(slots[k])){
-                    double diff=Math.max(0,temp[k]-coolant);
-                    double request=Math.min(profile.coolingRating(slots[k]),Math.min(diff*capacity[k],diff/Math.max(.01,profile.resistance(slots[k]))));
+                    double request=request(k,coolant);
                     if(request>0){double got=sink.take(slots[k],request);if(!Double.isFinite(got))got=0;got=Math.max(0,Math.min(request,got));temp[k]-=got/capacity[k];liquidWatts+=got;}
                 }
             }
