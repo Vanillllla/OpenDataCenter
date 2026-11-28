@@ -17,7 +17,7 @@ for family,drive,name in re.findall(r'^        (board|cpu|ram|gpu|nic|psu|drive|
     items.add(re.sub('[^a-z0-9]+','_',((drive or family)+'_'+name).lower()))
 chassis_catalog=(root.parents[4]/'src/main/java/odc/ChassisSpec.java').read_text(encoding='utf8')
 items.update(re.findall(r'^    [A-Z_0-9]+\("(chassis_[a-z0-9_]+)"',chassis_catalog,re.M))
-check(set(p.stem for p in (root/'models/item').glob('*.json')) == blocks|items|{'chassis_1u_ready','chassis_2u_ready','chassis_4u_ready'},'item model registry')
+check(set(p.stem for p in (root/'models/item').glob('*.json')) == blocks|items|{name+'_ready' for name in items if name.startswith('chassis_')},'item model registry')
 for f in root.rglob('*.png'):
     b=f.read_bytes();check(b[:8]==b'\x89PNG\r\n\x1a\n',f'PNG header {f.name}');w,h=struct.unpack('>II',b[16:24]);check(w in (16,32,64) and h%w==0 and h<=64,f'texture resolution {f.name}');
     meta=f.with_name(f.name+'.mcmeta')
@@ -83,7 +83,7 @@ check(heights==sorted(set(heights)),'distinct case heights')
 # Rotated elements are checked separately by their bounding data, not by this plane test.
 mesh_count=0;quad_count=0;max_cable=0
 for p in (root/'models/block').glob('*.json'):
-    if not p.stem.startswith(('rack_','fiber_cable_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_','workbench_')):continue
+    if not p.stem.startswith(('rack_','fiber_cable_','data_cable_','power_cable_','power_relay_','computer_','radio_station_','satellite_station_','workbench_','liquid_chiller_')):continue
     mesh_count+=1;m=read(p);planes={};quad_count+=sum(len(e['faces']) for e in m['elements'])
     if p.stem.startswith(('fiber_cable_','data_cable_','power_cable_')):max_cable=max(max_cable,sum(len(e['faces']) for e in m['elements']))
     for e in m['elements']:
@@ -96,7 +96,7 @@ check(max_cable<=24,'cable quad budget')
 print(f'Geometry: {mesh_count} meshes, {quad_count} authored faces, max {max_cable} quads per cable; no positive-area coplanar axis-aligned overlaps.')
 for u in (1,2,4):
     for state in ('ready','empty'):tex_ref(f'odc:blocks/server_{u}_{state}')
-for name in ('switch_panel_1','switch_panel_2','switch_panel_2port','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_cable_mesh_t1','patch_cable_mesh_t3','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
+for name in ('coolant_supply','coolant_return','chassis_1u_compact_front','chassis_1u_compute_front','chassis_2u_compact_front','chassis_2u_compute_front','chassis_4u_storage_front','chassis_4u_gpu_front','switch_panel_1','switch_panel_2','switch_panel_2port','led_on','led_off','rack_window','led_activity','module_side','patch_cable_mesh','patch_cable_mesh_t1','patch_cable_mesh_t3','patch_plug_mesh'):tex_ref('odc:blocks/'+name)
 # The switch PNG socket spans two centered pixels; inspect exact colors via optional Pillow test separately.
 check(not (root/'textures/blocks/patch_up.png').exists() and not (root/'textures/blocks/patch_down.png').exists(),'legacy flat patch sprites removed')
 recipes=set()
