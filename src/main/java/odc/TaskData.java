@@ -49,8 +49,8 @@ public final class TaskData extends WorldSavedData {
     private final Map<UUID,AllocationCache> cache=new HashMap<>();
     private final Set<UUID> usedCaches=new HashSet<>();
     private long worldMillis=System.currentTimeMillis();
-    long now(){return worldMillis+(lastNanos==0?0:Math.max(0,(System.nanoTime()-lastNanos)/1000000));}
-    private long lastNanos; long elapsedMillis;
+    long now(){return worldMillis;}
+    long elapsedMillis;
     List<Job> reservingJobs(){List<Job> result=new ArrayList<>();for(Job j:jobs)if(!j.terms.hasKey("End")&&!j.terms.getBoolean("Finished"))result.add(j);return result;}
     TaskEngine.Plan plan(UUID anchor,List<TaskEngine.Node> nodes,List<Job> jobs,int[] caps,int wan,Set<Integer> excluded) {
         return plan(anchor,nodes,jobs,caps,wan,excluded,null);
@@ -62,10 +62,8 @@ public final class TaskData extends WorldSavedData {
     }
     void clock(){
         ticks++;
-        long now=System.nanoTime();
-        if(lastNanos==0) lastNanos=now;
-        elapsedMillis=(now-lastNanos)/1_000_000;
-        lastNanos+=elapsedMillis*1_000_000;worldMillis+=elapsedMillis;
+        // Exactly one simulated second per 20 game ticks, never wall-clock catch-up.
+        elapsedMillis=1000;worldMillis+=elapsedMillis;
         if(ticks%60==0) rate[1]=EconomyEngine.rate(rate[1],ticks,1);
         long wall=now();for(Job j:jobs){j.earned=0;settle(j,wall);}market.tick(this,wall);
         for(Job j:jobs) j.served=false;

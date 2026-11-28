@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.5-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.6-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,);after:hbm")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -23,6 +23,7 @@ public final class ODC {
     static int heMilliJoules=50,feMilliJoules=50;
     static int transformerWatts(int tier){return transformerWatts[TransformerCore.tierIndex(tier)];}
     static int conversionRate(TransformerCore.Input input){return input==TransformerCore.Input.HE?heMilliJoules:feMilliJoules;}
+    static int persistentSourceChunks=64;
     static int journalLimit=256;
     static boolean requireEnergy=true;
     static Market.Entry[] market;
@@ -34,6 +35,7 @@ public final class ODC {
         for(int tier=1;tier<=3;tier++)transformerWatts[tier-1]=c.getInt("transformerT"+tier+"Watts","energy",TransformerCore.defaultWatts(tier),1,TransformerCore.MAX_WATTS,"Maximum transformer output in watts.");
         heMilliJoules=c.getInt("heMilliJoulesPerUnit","energy",50,1,100000000,"Millijoules per HE (provisional game balance).");
         feMilliJoules=c.getInt("feMilliJoulesPerUnit","energy",50,1,100000000,"Millijoules per FE (provisional game balance).");
+        persistentSourceChunks=c.getInt("persistentSourceChunks","energy",64,0,1024,"Maximum source/connection chunks forced per dimension; 0 disables ODC chunk loading.");
         journalLimit=c.getInt("journalLimit","dataos",256,16,4096,"Maximum retained events per data center.");
         ContractMarket.configure(c);c.save();
         market=Market.load(e.getModConfigurationDirectory());
@@ -45,7 +47,7 @@ public final class ODC {
         GameRegistry.registerTileEntity(Tiles.NetworkTerminal.class,new ResourceLocation(ID,"network_terminal"));
         GameRegistry.registerTileEntity(Tiles.Station.class,new ResourceLocation(ID,"network_station"));
         NetworkRegistry.INSTANCE.registerGuiHandler(this,new Menus.Handler());
-        RackInteraction.init();
+        RackInteraction.init();PowerTickets.init();
     }
     @SubscribeEvent public static void blocks(RegistryEvent.Register<Block> e){e.getRegistry().registerAll(Hardware.BLOCKS);}
     @SubscribeEvent public static void items(RegistryEvent.Register<Item> e){

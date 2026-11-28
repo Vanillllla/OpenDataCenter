@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.5-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.6-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.2.6-alpha
+
+Виртуальная симуляция подтверждённых эксклюзивных энергосетей с HE/FE: сохраняются источники, топология и постоянная нагрузка, чанки трансформаторов и известных соседних точек подключения удерживаются ограниченными Forge-билетами. Виртуальная и живая нагрузка используют единый бюджет и фактические квитанции энергии. При частичной загрузке подтверждённого дата-центра симуляция приостанавливается до однозначного перехода; дефицит питания вызывает сохранённую аварию. Лимит `persistentSourceChunks` по умолчанию 64 на измерение. Проверка на сервере с реальными модами ещё нужна.
 
 ### Версия 0.6.2.5-alpha
 
@@ -88,6 +92,10 @@
 - **DataOS.** View infrastructure, inspect individual servers, browse the event log, and check resource usage and wallet balances.
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
+
+### Version 0.6.2.6-alpha
+
+Verified exclusive electrical grids can simulate unloaded consumers using HE/FE. Source and immediate connection chunks are retained with bounded Forge tickets; live and virtual loads share actual receipt accounting. Ambiguous partial loading pauses simulation; insufficient supply trips the saved grid. Default source chunk cap: 64 per dimension. Dedicated-server integration tests remain pending.
 
 ### Version 0.6.2.5-alpha
 

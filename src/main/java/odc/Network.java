@@ -16,7 +16,7 @@ public final class Network {
     static void invalidate(World w){if(w!=null&&!w.isRemote)caches.remove(w);}
     @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void load(net.minecraftforge.event.world.ChunkEvent.Load e){invalidate(e.getWorld());}
     @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void unload(net.minecraftforge.event.world.ChunkEvent.Unload e){invalidate(e.getWorld());}
-    @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void worldUnload(net.minecraftforge.event.world.WorldEvent.Unload e){caches.remove(e.getWorld());}
+    @net.minecraftforge.fml.common.eventhandler.SubscribeEvent public static void worldUnload(net.minecraftforge.event.world.WorldEvent.Unload e){caches.remove(e.getWorld());PowerGrid.worldUnload(e.getWorld());}
     static final int LIMIT=16384;
     static final Comparator<TileEntity> ORDER=Comparator.comparingLong(t->t.getPos().toLong());
     static final class Domain {

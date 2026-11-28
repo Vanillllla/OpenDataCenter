@@ -28,6 +28,8 @@ final class PowerGrid {
         boolean complete;
         long creativeWatts,paidWatts;
         boolean external,confirmed;
+        OfflineState.Snapshot virtualSnapshot;
+        OfflineState.Group virtualGroup;
         Domain(World world,Set<BlockPos> p){this.world=world;positions=p;footprint=p;}
         long ratedWatts(){
             long total=0;
@@ -36,7 +38,7 @@ final class PowerGrid {
         }
         void reset(){
             PowerState saved=PowerState.get(world);
-            footprint=saved.footprint(world,positions);complete=footprint.equals(positions);
+            footprint=virtualGroup!=null?positions:saved.footprint(world,positions);complete=virtualGroup==null&&footprint.equals(positions);
             state=saved.state(footprint);
             // Migrate local switches from 0.6.2.2 once; subsequently the saved grid is authoritative.
             for(Source source:sources)if(source instanceof Tiles.Transformer&&((Tiles.Transformer)source).legacyOff())state=Math.max(state,GridProtection.OFF);
@@ -64,7 +66,7 @@ final class PowerGrid {
             if(state!=GridProtection.ON||!external||!ODC.requireEnergy)return null;
             long demand=budget.usedUnits()/PowerEngine.TICKS_PER_SECOND;
             long needed=Math.max(0,demand-creativeWatts);
-            confirmed=needed<=paidWatts;
+            confirmed=PersistentPower.funded(demand,creativeWatts,paidWatts,true);
             // No previous receipt can be reused; the next window is a fresh demand.
             ExternalWindow next=new ExternalWindow(needed);
             for(Source source:sources)if(source instanceof Tiles.Transformer){Tiles.Transformer t=(Tiles.Transformer)source;next.add(t,t.ratedWatts());t.openWindow(next);}
@@ -131,6 +133,8 @@ final class PowerGrid {
         final Map<BlockPos,Domain> byPos=new HashMap<>();
         final Set<BlockPos> failed=new HashSet<>();
         final List<Domain> domains=new ArrayList<>();
+        final Map<OfflineState.Group,Domain> virtual=new IdentityHashMap<>();
+        boolean settling;
     }
     static final class Port {
         final TileEntity tile;
@@ -145,17 +149,23 @@ final class PowerGrid {
         int availableWatts(){PowerEngine.Budget b=budget();return !closed()?0:!ODC.requireEnergy?Integer.MAX_VALUE:b==null?0:(int)Math.min(Integer.MAX_VALUE,domain().fundedWatts());}
     }
     private PowerGrid(){}
+    static boolean settling(World w){return topology(w).settling;}
+    static Domain virtualDomain(World w,OfflineState.Group group){return topology(w).virtual.get(group);}
+    static void worldUnload(World w){Map<Set<BlockPos>,ExternalWindow> active=windows.remove(w);if(active!=null)for(ExternalWindow window:active.values())window.close();}
     private static final Map<World,Map<Set<BlockPos>,ExternalWindow>> windows=new WeakHashMap<>();
     static void cancel(World w,Set<BlockPos> cells){
         Map<Set<BlockPos>,ExternalWindow> active=windows.get(w);if(active==null)return;
         active.entrySet().removeIf(e->{if(Collections.disjoint(e.getKey(),cells))return false;e.getValue().close();return true;});
     }
-    static boolean active(World w,BlockPos p,ExternalWindow window){Map<Set<BlockPos>,ExternalWindow> map=windows.get(w);Domain d=domain(w,p);return map!=null&&d!=null&&d.state==GridProtection.ON&&map.get(d.positions)==window;}
+    static boolean active(World w,BlockPos p,ExternalWindow window){Map<Set<BlockPos>,ExternalWindow> map=windows.get(w);Domain d=domain(w,p);return map!=null&&d!=null&&d.state==GridProtection.ON&&map.get(d.positions)==window&&(d.virtualSnapshot==null||OfflineState.get(w).validVirtual(w,d.virtualSnapshot));}
     static void begin(World w){
         Map<Set<BlockPos>,ExternalWindow> previous=windows.remove(w);
         if(previous==null)previous=Collections.emptyMap();
         for(ExternalWindow window:previous.values())window.close();
-        Topology t=topology(w);for(Domain d:t.domains)d.reset();
+        OfflineState.get(w).checkInterruptedWindows(w,previous);
+        Network.Cache cache=Network.cache(w);
+        if(cache.power!=null&&(!cache.power.virtual.isEmpty()||OfflineState.get(w).hasVirtual(w)))cache.power=null;
+        Topology t=topology(w);t.settling=false;for(Domain d:t.domains)d.reset();
         for(Domain d:t.domains){
             int saved=PowerState.get(w).state(d.footprint);if(saved!=GridProtection.ON)d.applyOff(saved);
             ExternalWindow old=previous.get(d.positions);
@@ -167,7 +177,7 @@ final class PowerGrid {
     static void finish(World w){
         Map<Set<BlockPos>,ExternalWindow> next=new HashMap<>();
         for(Domain d:topology(w).domains){ExternalWindow window=d.finish();if(window!=null)next.put(new HashSet<>(d.positions),window);}
-        windows.put(w,next);
+        windows.put(w,next);topology(w).settling=true;
     }
     static Domain domain(World w,BlockPos p){
         if(!w.isBlockLoaded(p))return null;
@@ -241,7 +251,52 @@ final class PowerGrid {
             d.consumers.sort(Network.ORDER);t.domains.add(d);
             for(BlockPos q:d.positions)t.byPos.put(q,d);
         }
+        if(ODC.requireEnergy)attachVirtual(w,t);
         for(Domain d:t.domains)d.reset();
         return t;
+    }
+    /** A fully virtual consumer group owns the exact previously certified footprint.
+     * Loaded source-only fragments are replaced, never added as a second budget. */
+    private static void attachVirtual(World w,Topology t){
+        OfflineState offline=OfflineState.get(w);
+        List<OfflineState.Snapshot> ordered=new ArrayList<>(offline.snapshots.values());
+        ordered.sort(Comparator.comparing(s->s.anchor.toString()));
+        for(OfflineState.Snapshot snapshot:ordered){
+            if(!offline.validVirtual(w,snapshot))continue;
+            for(OfflineState.Group group:snapshot.groups){
+                if(group.cells.isEmpty())continue;
+                Set<Domain> overlaps=Collections.newSetFromMap(new IdentityHashMap<Domain,Boolean>());
+                boolean valid=true;
+                for(BlockPos p:group.cells){
+                    Domain existing=t.byPos.get(p);if(existing!=null)overlaps.add(existing);
+                    if(w.isBlockLoaded(p)&&!allowed(w,canonical(w,p))){valid=false;break;}
+                }
+                for(Domain d:overlaps)if(d.virtualGroup!=null||!d.consumers.isEmpty()||!group.cells.containsAll(d.positions))valid=false;
+                if(!valid)continue;
+                Domain d=new Domain(w,new HashSet<>(group.cells));
+                d.virtualGroup=group;d.virtualSnapshot=snapshot;
+                Set<BlockPos> sourcePositions=new HashSet<>();
+                for(OfflineState.SourceSpec spec:group.sources){
+                    if(!sourcePositions.add(spec.pos)){valid=false;break;}
+                    if(!w.isBlockLoaded(spec.pos)){
+                        if(spec.external){valid=false;break;}
+                        d.sources.add(new SavedCreative(spec.watts));continue;
+                    }
+                    TileEntity tile=endpoint(w,spec.pos);
+                    if(spec.external?!(tile instanceof Tiles.Transformer):!(tile instanceof Tiles.Battery)){valid=false;break;}
+                    d.sources.add((Source)tile);
+                }
+                for(Domain existing:overlaps)for(Source source:existing.sources)
+                    if(!(source instanceof TileEntity)||!sourcePositions.contains(((TileEntity)source).getPos()))valid=false;
+                if(!valid)continue;
+                for(Domain existing:overlaps){t.domains.remove(existing);for(BlockPos p:existing.positions)t.byPos.remove(p);}
+                t.domains.add(d);t.virtual.put(group,d);
+                for(BlockPos p:group.cells)t.byPos.put(p,d);
+            }
+        }
+    }
+    private static final class SavedCreative implements Source {
+        final long watts;SavedCreative(long watts){this.watts=watts;}
+        @Override public long outputWatts(){return watts;}
     }
 }

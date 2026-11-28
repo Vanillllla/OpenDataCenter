@@ -133,6 +133,7 @@ public final class Tiles {
         abstract int idlePower();
         boolean operational(){return TerminalPower.operational(online,energy.fed());}
         void refreshPower(){setPowered(energy.useWatts(idlePower()));}
+        void pauseForSnapshot(){if(online){online=false;changed();if(this instanceof Computer)world.markBlockRangeForRenderUpdate(pos,pos.up());else if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}
         void setPowered(boolean now){if(online!=now){online=now;OfflineState.invalidateAt(world,pos);if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();if(this instanceof Computer)world.markBlockRangeForRenderUpdate(pos,pos.up());else if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("Online",online);return n;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);online=n.getBoolean("Online");}
