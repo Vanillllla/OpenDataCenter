@@ -218,7 +218,7 @@ public final class TaskEngine {
             Node node=nodes.get(i);
             int watts=node.watts(plan.usedCores[i],plan.gpu[i]);
             if(watts>ServerSpec.psu(node.parts)) plan.overload.add(i);
-            plan.power[i]=node.fe(watts);
+            plan.power[i]=watts;
         }
         plan.freeSpace=space;plan.freeIO=io;return plan;
     }

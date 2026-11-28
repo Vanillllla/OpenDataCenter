@@ -39,7 +39,7 @@ public final class PhysicalTopologyTest {
         check(t.opticalPeers(a,x->false).stream().noneMatch(q->q.verified||q.loaded),"unloaded optical peers retained only");
         check(u.opticalPeers(antenna,x->true).size()==1,"tower only direct optical peers");
         check(t.opticalPeers(r,x->true).isEmpty(),"rack cannot act as optical endpoint");
-        for(NetworkEquipment e:NetworkEquipment.values()){check(NetworkEquipment.byId(e.id)==e&&NetworkEquipment.byId("odc:"+e.id)==e,"catalog id lookup");check(e.fe>0&&e.mbps>0,"positive equipment ratings");}
+        for(NetworkEquipment e:NetworkEquipment.values()){check(NetworkEquipment.byId(e.id)==e&&NetworkEquipment.byId("odc:"+e.id)==e,"catalog id lookup");check(e.watts>0&&e.mbps>0,"positive equipment ratings");}
         check(NetworkEquipment.RADIO.mbps==500&&NetworkEquipment.SATELLITE.mbps==2000&&NetworkEquipment.TOWER.mbps==10000,"source ratings");
         check(NetworkEquipment.TERMINAL_1.mbps==1000&&NetworkEquipment.TERMINAL_2.mbps==10000&&NetworkEquipment.TERMINAL_3.mbps==100000,"terminal ratings");
         check(NetworkEquipment.byId("invalid")==null,"unknown model");

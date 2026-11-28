@@ -40,7 +40,7 @@ final class Part {
             case RAM: info = "DDR"+ddr+"   "+gb+" GB   "+mhz+" MHz"; break;
             case GPU: info = chips+" GPU × "+gb+" GB VRAM   "+mhz+" MHz\nPCIe "+pci+".0   "+width+" slots"; break;
             case NIC: info = mbps/1000.0+" Gbit/s   PCIe "+pci+".0"; break;
-            case PSU: info = watts+" W   "+fe+" FE/t"; break;
+            case PSU: info = watts+" W"; break;
             default: info = (kind==Kind.PCIE?"PCIe NVMe":kind==Kind.NVME?"M.2 NVMe":"SATA")+"   "+gb+" GB   "+speed+" MB/s";
         }
         return ("T"+tier+"  |  "+kind+"\n"+info+(kind==Kind.PSU?"":"\n"+watts+" W")).split("\n");

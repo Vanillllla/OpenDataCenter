@@ -10,12 +10,8 @@ import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
-import net.minecraft.util.ITickable;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.energy.CapabilityEnergy;
-import net.minecraftforge.energy.EnergyStorage;
 import javax.annotation.Nullable;
 import java.util.*;
 
@@ -55,16 +51,8 @@ public final class Tiles {
         @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);ItemStackHelper.saveAllItems(n,slots);return n;}
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);slots.clear();ItemStackHelper.loadAllItems(n,slots);}
     }
-    static final class Buffer extends EnergyStorage {
-        final TileEntity tile; long lastFeed=Long.MIN_VALUE;
-        Buffer(TileEntity tile,int capacity){super(capacity,50000,0);this.tile=tile;}
-        @Override public int receiveEnergy(int n,boolean simulate){if(n<=0)return 0;if(!simulate&&tile.getWorld()!=null)lastFeed=tile.getWorld().getTotalWorldTime();int v=super.receiveEnergy(n,simulate);if(v>0&&!simulate)tile.markDirty();return v;}
-        boolean fed(){return !ODC.requireEnergy||tile.getWorld()!=null&&lastFeed!=Long.MIN_VALUE&&tile.getWorld().getTotalWorldTime()-lastFeed<=5;}
-        void load(int n){energy=Math.max(0,Math.min(capacity,n));}
-        boolean use(int n){if(n<0)return false;if(!ODC.requireEnergy)return true;if(!fed()||energy<n)return false;energy-=n;tile.markDirty();return true;}
-    }
     public static final class Rack extends InventoryTile {
-        final Buffer energy=new Buffer(this,1000000);
+        final PowerGrid.Port energy=new PowerGrid.Port(this);
         final int[] ports=new int[8], cableTiers=new int[8];
         final UUID[] cableIds=new UUID[8]; // 0 empty, otherwise bay+1
         final java.util.Map<Integer,java.util.List<Integer>> activeJobs=new java.util.HashMap<>();
@@ -119,10 +107,8 @@ public final class Tiles {
             ports[port]=bay+1;cableTiers[port]=tier;cableIds[port]=UUID.randomUUID();OfflineState.invalidateAt(world,pos);EventSystem.rack(this,bay,Level.INFO,Category.NETWORK,"port_connected","Patch cable connected: "+patchMbps(port)+" Mb/s");changed();return true;
         }
         boolean upgrade(int port,int tier,EntityPlayer p){if(!allows(p)||!LanPorts.canUpgrade(ports,cableTiers,Hardware.ports(switchTier()),port,tier)||!LanCables.take(p,tier))return false;int old=cableTier(port);cableTiers[port]=tier;LanCables.refund(world,pos,p,old);OfflineState.invalidateAt(world,pos);EventSystem.rack(this,ports[port]-1,Level.INFO,Category.NETWORK,"port_upgraded","Patch cable replaced: LAN T"+old+" -> T"+tier);changed();return true;}
-        @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY&&master()!=null||super.hasCapability(c,f);}
-        @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){Rack m=master();return c==CapabilityEnergy.ENERGY?(m==null?null:CapabilityEnergy.ENERGY.cast(m.energy)):super.getCapability(c,f);}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Role",role);n.setUniqueId("RackId",id);n.setInteger("Enabled",enabledMask);n.setInteger("Mining",miningMask);n.setInteger("Powered",poweredMask);n.setInteger("Running",runningMask);n.setBoolean("SwitchOnline",switchOnline);n.setBoolean("DoorOpen",doorOpen);n.setDouble("DoorFrom",doorFrom);n.setLong("DoorStart",doorStart);n.setIntArray("Fault",fault);n.setIntArray("Ports",ports);n.setIntArray("CableTiers",cableTiers);for(int i=0;i<8;i++)if(cableIds[i]!=null)n.setUniqueId("CableId"+i,cableIds[i]);n.setIntArray("Remainder",remainder);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);role=n.getInteger("Role");if(n.hasUniqueId("RackId"))id=n.getUniqueId("RackId");enabledMask=n.getInteger("Enabled");miningMask=n.getInteger("Mining");poweredMask=n.getInteger("Powered");runningMask=n.getInteger("Running");switchOnline=n.getBoolean("SwitchOnline");doorOpen=n.getBoolean("DoorOpen");doorFrom=n.hasKey("DoorFrom")?RackLayout.Door.clamp(n.getDouble("DoorFrom")):doorOpen?1:0;doorStart=n.getLong("DoorStart");Arrays.fill(ports,0);Arrays.fill(remainder,0);int[] f=n.getIntArray("Fault");Arrays.fill(fault,0);System.arraycopy(f,0,fault,0,Math.min(9,f.length));int[] a=n.getIntArray("Ports"),b=n.getIntArray("Remainder");System.arraycopy(a,0,ports,0,Math.min(8,a.length));int[] tiers=n.getIntArray("CableTiers");for(int i=0;i<8;i++){cableTiers[i]=ports[i]==0?0:i<tiers.length&&LogicalLinks.speed(tiers[i])>0?tiers[i]:1;cableIds[i]=ports[i]==0?null:n.hasUniqueId("CableId"+i)?n.getUniqueId("CableId"+i):null;}System.arraycopy(b,0,remainder,0,Math.min(9,b.length));}
         @Override public net.minecraft.util.math.AxisAlignedBB getRenderBoundingBox(){return glassRack()&&role!=-1?new net.minecraft.util.math.AxisAlignedBB(pos.add(-1,0,-1),pos.add(2,role==1?2:1,2)):new net.minecraft.util.math.AxisAlignedBB(pos,pos.add(1,role==1?2:1,1));}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){poweredMask=runningMask=0;switchOnline=false;}}
     }
@@ -141,16 +127,15 @@ public final class Tiles {
             if(world!=null)markDirty();
         }
     }
-    /** Powered devices consume their own idle load each game tick. */
-    public static abstract class Powered extends Owned implements ITickable {
-        final Buffer energy=new Buffer(this,480);boolean online=false;
+    /** Powered devices reserve their full load once in the shared scheduler cycle. */
+    public static abstract class Powered extends Owned {
+        final PowerGrid.Port energy=new PowerGrid.Port(this);boolean online=false;
         abstract int idlePower();
         boolean operational(){return TerminalPower.operational(online,energy.fed());}
-        @Override public void update(){if(!world.isRemote){boolean now=energy.use(idlePower());if(online!=now){online=now;if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();if(this instanceof Computer)world.markBlockRangeForRenderUpdate(pos,pos.up());else if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}}
-        @Override public boolean hasCapability(Capability<?> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY||super.hasCapability(c,f);}
-        @Nullable @Override public <T>T getCapability(Capability<T> c,@Nullable EnumFacing f){return c==CapabilityEnergy.ENERGY?CapabilityEnergy.ENERGY.cast(energy):super.getCapability(c,f);}
-        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setInteger("Energy",energy.getEnergyStored());n.setBoolean("Online",online);return n;}
-        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);energy.load(n.getInteger("Energy"));online=n.getBoolean("Online");}
+        void refreshPower(){setPowered(energy.useWatts(idlePower()));}
+        void setPowered(boolean now){if(online!=now){online=now;OfflineState.invalidateAt(world,pos);if(this instanceof Computer)EventSystem.terminalPower((Computer)this,now);changed();if(this instanceof Computer)world.markBlockRangeForRenderUpdate(pos,pos.up());else if(this instanceof Station&&((Station)this).equipment()==NetworkEquipment.TOWER)world.markBlockRangeForRenderUpdate(pos,pos.up(2));}}
+        @Override public NBTTagCompound writeToNBT(NBTTagCompound n){super.writeToNBT(n);n.setBoolean("Online",online);return n;}
+        @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);online=n.getBoolean("Online");}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote){online=false;markDirty();}}
     }
     public static final class Computer extends Powered {
@@ -179,10 +164,9 @@ public final class Tiles {
         @Override public void readFromNBT(NBTTagCompound n){super.readFromNBT(n);if(n.hasUniqueId("NetworkId"))networkId=n.getUniqueId("NetworkId");}
         @Override public void onLoad(){super.onLoad();if(world!=null&&!world.isRemote)markDirty();}
     }
-    public static final class NetworkTerminal extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&e.terminal()?e:NetworkEquipment.TERMINAL_1;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().fe;}}
-    public static final class Station extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&!e.terminal()?e:NetworkEquipment.RADIO;} boolean satellite(){return equipment()==NetworkEquipment.SATELLITE;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().fe;}}
-    public static final class Battery extends Owned implements ITickable {
-        int round=0;
-        @Override public void update(){if(world.isRemote||world.getTotalWorldTime()%5!=0)return;List<Network.Endpoint> ends=Network.power(world,pos);if(ends.isEmpty())return;int budget=ODC.batteryOutput*5;int start=Math.floorMod(round++,ends.size());for(int i=0;i<ends.size()&&budget>0;i++){Network.Endpoint end=ends.get((start+i)%ends.size());budget-=end.energy.receiveEnergy(budget,false);}}
+    public static final class NetworkTerminal extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&e.terminal()?e:NetworkEquipment.TERMINAL_1;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
+    public static final class Station extends NetworkDevice {NetworkEquipment equipment(){NetworkEquipment e=world==null?null:NetworkEquipment.byId(world.getBlockState(pos).getBlock().getRegistryName().toString());return e!=null&&!e.terminal()?e:NetworkEquipment.RADIO;} boolean satellite(){return equipment()==NetworkEquipment.SATELLITE;} int bandwidth(){return equipment().mbps;} @Override int idlePower(){return equipment().watts;}}
+    public static final class Battery extends Owned implements PowerGrid.Source {
+        @Override public long outputWatts(){return ODC.batteryOutput;}
     }
 }

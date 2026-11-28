@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
-@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.1.16-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
+@Mod(modid=ODC.ID, name="OpenDataCenter", version="0.6.2.1-alpha", acceptedMinecraftVersions="[1.12.2]", dependencies="required-after:forge@[14.23.5.2859,)")
 @Mod.EventBusSubscriber(modid=ODC.ID)
 public final class ODC {
     public static final String ID="odc";
@@ -26,7 +26,7 @@ public final class ODC {
         Configuration c=new Configuration(e.getSuggestedConfigurationFile());
         c.load();
         requireEnergy=c.getBoolean("requireEnergy","energy",true,"Require electricity for computers, racks and network devices.");
-        batteryOutput=c.getInt("creativeBatteryOutput","energy",50000,1,1000000,"Maximum FE per tick from each creative battery.");
+        batteryOutput=c.getInt("creativeBatteryOutput","energy",50000,1,1000000,"Maximum watts from each creative battery (0.6.2+; previous numeric setting retained).");
         journalLimit=c.getInt("journalLimit","dataos",256,16,4096,"Maximum retained events per data center.");
         ContractMarket.configure(c);c.save();
         market=Market.load(e.getModConfigurationDirectory());

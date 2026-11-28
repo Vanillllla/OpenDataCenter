@@ -63,7 +63,7 @@ final class Hardware {
     static int gpus(ItemStack s){return ServerSpec.gpuTotal(spec(s));}
     static int vram(ItemStack s){return ServerSpec.vram(spec(s));}
     static int nic(ItemStack s){return ServerSpec.nic(spec(s));}
-    static int idle(ItemStack s){int[] p=spec(s);TaskEngine.Node node=new TaskEngine.Node(null,0,0,p);return node.fe(node.watts(0,0));}
+    static int idle(ItemStack s){int[] p=spec(s);TaskEngine.Node node=new TaskEngine.Node(null,0,0,p);return node.watts(0,0);}
     private static class Component extends Item {
         final String tip;
         Component(String id,String tip){this.tip=tip;setRegistryName(ODC.ID,id);setTranslationKey(ODC.ID+"."+id);setCreativeTab(TAB);}

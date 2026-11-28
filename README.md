@@ -4,7 +4,7 @@
 
 **Постройте свой дата-центр в Minecraft · Build your own data center in Minecraft**
 
-`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.1.16-alpha`
+`Minecraft 1.12.2` · `Forge 14.23.5.2860` · `0.6.2.1-alpha`
 
 [Русский](#русский) · [English](#english) · [Дорожная карта](#дорожная-карта) · [Roadmap](#roadmap)
 
@@ -22,6 +22,10 @@
 - **DataOS.** Обзор инфраструктуры, карточки серверов, журнал событий и сводка по ресурсам и кошельку.
 - **Задачи и контракты.** Постоянные вычисления, контракты и периодические услуги. Для задачи можно выбрать пул и закрепить конкретные комплектующие за её резервом.
 - **Сетевая инфраструктура.** LAN и оптика, антенны, сетевые терминалы и стоечные коммутаторы. На интерактивной карте можно менять uplink-подключения и смотреть маршруты WAN и ограничения пропускной способности.
+
+### Версия 0.6.2.1-alpha
+
+Новое внутреннее ядро питания: независимые физические энергосети, общая мощность источников в ваттах, единый бюджет потребления на цикл симуляции. Творческая батарея работает с новым ядром; её числовая настройка теперь трактуется как Вт. КПД PSU, трансформаторы, общесетевая аварийная защита и новый интерфейс будут реализованы отдельно. Игровая проверка необходима.
 
 ### Версия 0.6.1.16-alpha
 
@@ -46,7 +50,7 @@
 | --- | --- | --- |
 | **0.5.x** | DataOS, вычислительные пулы, задачи, журнал и сводка по кошельку | В исходниках |
 | **0.6.1.x** | Физическая и логическая сеть, расчёт полосы, интерактивная карта, интеграция WAN с задачами и новые коммутаторы | В исходниках · игровая проверка впереди |
-| **0.6.2** | Энергосети, батареи, блоки питания, расчёт расхода и вкладка «Питание» | Следующий этап |
+| **0.6.2** | Энергосети, трансформаторы, PSU, общая аварийная защита и вкладка «Питание» | В разработке |
 | **0.6.3–0.6.4** | Охлаждение, перегрев и троттлинг, доработка моделей и индикаторов | Запланировано |
 | **0.7.x** | Игровые счета и организации, ноутбук с магазином, валютная биржа и баланс выживания | Запланировано |
 | **0.8.x** | Публичный API и конфигурация, интеграции с энергетическими модами и OpenComputers | Запланировано |
@@ -69,6 +73,10 @@
 - **Jobs and contracts.** Run continuous workloads, contracts, and recurring services. Choose a compute pool and reserve specific hardware for a job.
 - **Networking.** Build with LAN and fiber links, antennas, network terminals, and rack switches. Use the interactive map to edit uplinks and inspect WAN routes and bandwidth bottlenecks.
 
+### Version 0.6.2.1-alpha
+
+Independent physical power grids, shared watt-based source capacity and centralized consumption budgets. Creative battery settings are now interpreted as watts. PSU efficiency, transformers, grid-wide protection and new monitoring are later milestones. In-game verification is pending.
+
 ### Version 0.6.1.16-alpha
 
 The Network tab is removed from DataOS; detailed monitoring is available in the Network Terminal. Glass racks (4U and 9U) have an animated door: right-click the glass to open or close it; local hardware access requires the door to be fully open. Servers unplugged from their switch are excluded from pools and resource totals until reconnected, retaining their assigned pool. Motherboards with onboard NICs show their speed in tooltips; switch inventory icons are 20% smaller. Zoomed-out network maps use compact cards and crisp links; the DataOS overview shows read-only statistics. Radio antennas, satellite dishes and telecom towers no longer open their own GUIs; their status is available on the network terminal map. DataOS and Network terminals show a black screen within their normal window bounds when unpowered. The server validates terminal actions. Network terminal tooltips show rated bandwidth, and the DataOS Servers tab lists only servers connected to a switch. [0.6.1.8 switch catalogue](docs/SWITCH_CATALOGUE_0618.md) · [Changelog](CHANGELOG.md)
@@ -90,7 +98,7 @@ After a successful build, find the JAR in `build/libs/`. Place it in the `mods` 
 | --- | --- | --- |
 | **0.5.x** | DataOS, compute pools, jobs, event log, and wallet overview | In source |
 | **0.6.1.x** | Physical and logical networking, bandwidth allocation, interactive network map, WAN integration for jobs, and new switches | In source · in-game verification pending |
-| **0.6.2** | Power networks, batteries, power supplies, consumption tracking, and the Power tab | Up next |
+| **0.6.2** | Power networks, transformers, PSU, grid-wide protection, and the Power tab | In progress |
 | **0.6.3–0.6.4** | Cooling, overheating and throttling, and visual refinements | Planned |
 | **0.7.x** | In-game accounts and organizations, a laptop marketplace, currency exchange, and survival balancing | Planned |
 | **0.8.x** | Public API and configuration, energy-mod integrations, and OpenComputers support | Planned |
